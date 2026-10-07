@@ -92,7 +92,24 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* ───────── 主版面 ───────── */
 main{position:relative;z-index:1;max-width:1240px;margin:0 auto;
   padding:max(16px,env(safe-area-inset-top)) 16px 40px}
-.topbar{display:flex;justify-content:flex-end}
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;position:relative}
+/* 背景音樂：狼頭喇叭 */
+.bgm-btn{width:56px;height:56px;border-radius:50%;padding:0;display:grid;place-items:center;background:var(--paper);color:var(--ink);
+  border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);position:relative}
+.bgm-btn svg{width:44px;height:44px}
+.bgm-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.bgm-btn .wave,.bgm-btn .note{display:none}
+.bgm-btn .mute{display:block}
+.bgm-btn.on .wave,.bgm-btn.on .note{display:block}
+.bgm-btn.on .mute{display:none}
+.bgm-btn.on{background:#ffd23f}
+.bgm-btn.playing .wave{animation:wavepulse 1.2s ease-in-out infinite}
+.bgm-btn.playing .wave:nth-of-type(2){animation-delay:.25s}
+@keyframes wavepulse{50%{opacity:.25}}
+.bgm-hint{position:absolute;right:120px;top:50%;transform:translateY(-50%) rotate(-2deg);background:#fff;color:var(--ink);
+  border:3px solid var(--ink);border-radius:16px;padding:6px 12px;font-weight:900;font-size:14px;white-space:nowrap;box-shadow:3px 3px 0 var(--ink)}
+.bgm-hint::after{content:"";position:absolute;right:-13px;top:50%;margin-top:-8px;border:8px solid transparent;border-left:12px solid var(--ink);border-right:0}
+.bgm-hint[hidden]{display:none}
 .icon-btn{width:44px;height:44px;display:grid;place-items:center;background:var(--paper);color:var(--ink);
   border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:50%}
 .icon-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
@@ -194,23 +211,6 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
 .sfx-howl{right:3%;top:36%;font-size:clamp(24px,5.5vw,36px);color:#e8ecff;text-shadow:4px 4px 0 #2c4596,7px 7px 0 var(--ink);transform:rotate(9deg);animation:sfxpop .45s cubic-bezier(.2,1.8,.4,1) both .35s}
 @keyframes sfxpop{from{opacity:0;scale:.2}to{opacity:1;scale:1}}
 
-/* 背景音樂 */
-.bgm{position:relative;max-width:620px;margin:30px auto 0;background:var(--ink);color:var(--bone);border:4px solid var(--ink);
-  box-shadow:8px 8px 0 #000;padding:18px 16px 14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;
-  outline:3px solid var(--gold);outline-offset:-10px}
-.bgm::before{content:"背景音樂";position:absolute;top:-16px;left:14px;background:var(--gold);color:var(--ink);font-weight:900;
-  padding:2px 10px;border:3px solid var(--ink);font-size:14px;letter-spacing:.15em;transform:rotate(-3deg)}
-.bgm .yt{width:240px;aspect-ratio:1;max-width:100%;border:3px solid var(--gold);background:#000;overflow:hidden}
-.bgm .yt iframe,.bgm .yt > div{width:100%;height:100%;display:block;border:0}
-.bgm h2{margin:0 0 4px;font-weight:900;font-size:18px;color:#fff2c4;letter-spacing:.04em}
-.bgm .by{margin:0 0 12px;font-size:13px;color:#b9b2a0}
-.bgm .by a{color:var(--gold)}
-.music-btn{background:var(--gold);color:var(--ink);border:3px solid #000;box-shadow:3px 3px 0 #000;font-weight:900;font-size:16px;
-  padding:6px 14px;letter-spacing:.1em}
-.music-btn[aria-pressed="false"]{background:#4a4540;color:#d8d0bd}
-.music-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
-.bgm .hint{margin:10px 0 0;font-size:12px;color:#8f8878;line-height:1.5}
-
 /* 揭曉 */
 .flash{position:fixed;inset:0;z-index:40;pointer-events:none;background:#fff;opacity:0}
 .flash.go{animation:flash .55s ease-out}
@@ -265,8 +265,6 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
   .role-card b{font-size:15px}
   .role-card span{font-size:11px}
   .controls-slot{order:2}
-  .bgm{grid-template-columns:1fr;justify-items:center;text-align:center}
-  .bgm .yt{width:min(100%,280px)}
   .panel{margin-top:4px}
   .speed{inset:-6%;width:112%;height:112%}
   .moon{width:120px;top:6px;right:-28px}
@@ -354,7 +352,23 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
 
 <main>
   <div class="topbar">
-    <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="音效：開">
+    <p class="bgm-hint" id="bgmHint" hidden>點一下畫面，音樂就會開始 ♪</p>
+    <button class="bgm-btn on" id="bgmBtn" type="button" aria-pressed="true" aria-label="背景音樂：開" title="背景音樂">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <use href="#howl" x="2" y="8" width="28" height="34" fill="#0d0b12"/>
+        <g fill="none" stroke="#c4202f" stroke-width="3" stroke-linecap="round">
+          <path class="wave" d="M31 10 q4 4 0 8"/>
+          <path class="wave" d="M35 6 q7 8 0 16"/>
+        </g>
+        <g class="note" fill="#c4202f">
+          <ellipse cx="37.5" cy="38" rx="4" ry="3" transform="rotate(-20 37.5 38)"/>
+          <rect x="40.2" y="25" width="2.2" height="13"/>
+          <path d="M42.4 25 q6 2.5 4.5 8.5 q-1 -3.5 -4.5 -4 Z"/>
+        </g>
+        <g class="mute" stroke="#c4202f" stroke-width="3.5" stroke-linecap="round"><path d="M33 12 l9 9 M42 12 l-9 9"/></g>
+      </svg>
+    </button>
+    <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="音效：開" title="轉盤音效">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" d="M16 9l5 6M21 9l-5 6" style="display:none"/></svg>
     </button>
   </div>
@@ -438,15 +452,6 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
         <p class="err" id="err" role="alert"></p>
         <p class="last" id="last" hidden></p>
       </form>
-      <section class="bgm" aria-label="背景音樂">
-        <div class="yt"><div id="ytPlayer"></div></div>
-        <div>
-          <h2>Night of the Werewolf</h2>
-          <p class="by">作曲：<a href="https://www.youtube.com/@BrandonFiechter" target="_blank" rel="noopener">Brandon Fiechter</a>（YouTube 播放）</p>
-          <button class="music-btn" id="musicBtn" type="button" aria-pressed="true">♪ 音樂：開</button>
-          <p class="hint">第一次轉動時自動播放；狼嚎時音樂會自動壓低。</p>
-        </div>
-      </section>
     </div>
   </section>
 </main>
@@ -824,26 +829,6 @@ function howl(){
   });
 }
 
-/* ───────── 背景音樂（YouTube 官方嵌入播放器，音樂由 YouTube 串流，不另存檔） ───────── */
-const YT_ID = 'FOSOcDvbcyc', BGM_VOL = 30;
-let yt = null, ytReady = false, musicOn = true, duckTimer = null;
-window.onYouTubeIframeAPIReady = () => {
-  yt = new YT.Player('ytPlayer', {
-    videoId: YT_ID, host: 'https://www.youtube-nocookie.com',
-    playerVars: { loop: 1, playlist: YT_ID, rel: 0, playsinline: 1, modestbranding: 1 },
-    events: { onReady: e => { ytReady = true; e.target.setVolume(BGM_VOL); } }
-  });
-};
-(() => { const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api'; sc.async = true; document.head.appendChild(sc); })();
-function musicStart(){
-  if (!musicOn || !ytReady) return;
-  try { if (yt.getPlayerState() !== YT.PlayerState.PLAYING) { yt.setVolume(BGM_VOL); yt.playVideo(); } } catch {}
-}
-function musicDuck(){ // 狼嚎時壓低，2.8 秒後回復
-  if (!ytReady) return;
-  try { yt.setVolume(8); clearTimeout(duckTimer); duckTimer = setTimeout(() => { try { yt.setVolume(BGM_VOL); } catch {} }, 2800); } catch {}
-}
-
 /* ───────── 狀態與儲存 ───────── */
 const store = {
   get(k){ try { return localStorage.getItem(k); } catch { return null; } },
@@ -867,18 +852,6 @@ document.querySelectorAll('.chip').forEach(b => b.onclick = () => !spinning && s
 input.addEventListener('change', () => setN(input.value, true));
 input.addEventListener('input', () => { const v = Number(input.value); if (input.value !== '' && v >= MIN && v <= MAX && Number.isInteger(v)) setN(v, true); });
 
-const musicBtn = $('#musicBtn');
-function renderMusic(){
-  musicBtn.setAttribute('aria-pressed', String(musicOn));
-  musicBtn.textContent = musicOn ? '♪ 音樂：開' : '♪ 音樂：關';
-}
-musicBtn.onclick = () => {
-  musicOn = !musicOn; store.set('ww-music', musicOn ? '1' : '0'); renderMusic();
-  if (!ytReady) return;
-  try { musicOn ? (yt.setVolume(BGM_VOL), yt.playVideo()) : yt.pauseVideo(); } catch {}
-};
-musicOn = store.get('ww-music') !== '0'; renderMusic();
-
 const soundBtn = $('#soundBtn');
 function renderSound(){
   soundBtn.setAttribute('aria-pressed', String(soundOn));
@@ -888,6 +861,63 @@ function renderSound(){
 }
 soundBtn.onclick = () => { soundOn = !soundOn; store.set('ww-sound', soundOn ? '1' : '0'); renderSound(); if (soundOn) tick(); };
 soundOn = store.get('ww-sound') !== '0'; renderSound();
+
+/* ───────── 背景音樂（狼頭喇叭） ─────────
+   瀏覽器不准「一打開就有聲音」：第一次點畫面任何地方才開始播。
+   音量走 WebAudio 的 GainNode——iPhone Safari 的 audio.volume 是唯讀，直接設沒用。 */
+const BGM_VOL = 0.2, BGM_DUCK = 0.05;
+const bgm = new Audio('bgm.m4a'); bgm.loop = true; bgm.preload = 'auto';
+const bgmBtn = $('#bgmBtn'), bgmHint = $('#bgmHint');
+let bgmOn = store.get('ww-bgm') !== '0', bgmGain = null, bgmDuckTimer = null;
+function bgmNode(){
+  if (bgmGain) return bgmGain;
+  const a = ac(); if (!a) return null;
+  try {
+    const src = a.createMediaElementSource(bgm);
+    bgmGain = a.createGain(); bgmGain.gain.value = 0;
+    src.connect(bgmGain).connect(a.destination);
+  } catch { bgmGain = null; }
+  return bgmGain;
+}
+function bgmTo(v, tau){ const g = bgmNode(); if (g) g.gain.setTargetAtTime(v, actx.currentTime, tau); else bgm.volume = v; }
+function renderBgm(){
+  bgmBtn.classList.toggle('on', bgmOn);
+  bgmBtn.classList.toggle('playing', bgmOn && !bgm.paused);
+  bgmBtn.setAttribute('aria-pressed', String(bgmOn));
+  bgmBtn.setAttribute('aria-label', bgmOn ? '背景音樂：開' : '背景音樂：關');
+  bgmHint.hidden = !(bgmOn && bgm.paused);
+}
+function startBgm(){
+  if (!bgmOn) return;
+  ac(); bgmNode(); // ac() 會把被暫停的 AudioContext 喚醒
+  const p = bgm.play();
+  const ok = () => { bgmTo(BGM_VOL, 0.5); renderBgm(); };
+  if (p && p.then) p.then(ok).catch(renderBgm); else ok();
+}
+function stopBgm(){
+  bgmTo(0, 0.12);
+  setTimeout(() => { if (!bgmOn) { bgm.pause(); renderBgm(); } }, 500);
+}
+function duckBgm(){ // 揭曉時讓「咚」和狼嚎先講話
+  if (!bgmOn || bgm.paused) return;
+  clearTimeout(bgmDuckTimer); bgmTo(BGM_DUCK, 0.08);
+  bgmDuckTimer = setTimeout(() => { if (bgmOn) bgmTo(BGM_VOL, 0.8); }, 2800);
+}
+bgmBtn.onclick = () => {
+  if (bgmOn && bgm.paused){ startBgm(); return; } // 還沒開始播：這一下當「開始」，不是關掉
+  bgmOn = !bgmOn; store.set('ww-bgm', bgmOn ? '1' : '0');
+  bgmOn ? startBgm() : stopBgm(); renderBgm();
+};
+const unlockBgm = e => { if (bgmBtn.contains(e.target)) return; if (bgmOn && bgm.paused) startBgm(); };
+document.addEventListener('pointerdown', unlockBgm);
+document.addEventListener('keydown', unlockBgm);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (!bgm.paused) bgm.pause(); }
+  else if (bgmOn) startBgm();
+});
+bgm.addEventListener('play', renderBgm); bgm.addEventListener('pause', renderBgm);
+renderBgm();
+startBgm(); // 有些瀏覽器（之前互動過的網站）允許直接播
 
 /* ───────── 轉動 ───────── */
 let rot = 0, spinning = false;
@@ -899,7 +929,7 @@ function hideOrbit(){ $('#orbit').classList.remove('show','cw','ccw'); document.
 function spin(){
   if (spinning) return;
   if (!setN(input.value, true)) return;
-  ac(); musicStart();
+  ac();
   spinning = true; hideOrbit(); closeReveal(true);
   $('#spinBtn').disabled = true; $('#spinLabel').textContent = '命運轉動中…';
   zone.classList.add('spinning'); document.body.classList.add('is-spinning', 'blood'); $('#kicker').textContent = '血月升起・命運轉動中';
@@ -935,7 +965,7 @@ function done(num, dir){
     hl.setAttribute('fill', 'none'); hl.setAttribute('stroke', '#f5b81c'); hl.setAttribute('stroke-width', '9'); $('#segments').appendChild(hl); }
   buildOrbit(dir); $('#orbit').classList.add('show', dir);
   const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
-  boom(); howl(); if (soundOn) musicDuck();
+  duckBgm(); boom(); howl();
   if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate([60, 40, 120]);
   const m = document.querySelector('main'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake');
   showReveal(num, dir);
