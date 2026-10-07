@@ -751,12 +751,21 @@ function buildWheel(n){
 /* ───────── 音效（WebAudio 合成，無外部檔） ───────── */
 let actx = null, soundOn = true;
 function ac(){ if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (C) actx = new C(); } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+// 滴答：木頭棘輪的「喀」——短雜訊經帶通濾波，低音量；最快每 50ms 一聲，轉快時不會連成刺耳的嗡嗡聲
+let clickBuf = null, lastTick = 0;
 function tick(){
   if (!soundOn) return; const a = ac(); if (!a) return;
-  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
-  o.type = 'square'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(500, t+0.03);
-  g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.04);
-  o.connect(g).connect(a.destination); o.start(t); o.stop(t+0.05);
+  const t = a.currentTime; if (t - lastTick < 0.05) return; lastTick = t;
+  if (!clickBuf){
+    const len = Math.floor(a.sampleRate * 0.025); clickBuf = a.createBuffer(1, len, a.sampleRate);
+    const ch = clickBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 4);
+  }
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = clickBuf;
+  f.type = 'bandpass'; f.frequency.value = 650 + Math.random()*150; f.Q.value = 2.2;
+  g.gain.value = 0.35;
+  src.connect(f).connect(g).connect(a.destination); src.start(t);
 }
 function boom(){
   if (!soundOn) return; const a = ac(); if (!a) return; const t = a.currentTime;
