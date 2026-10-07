@@ -770,13 +770,14 @@ function tick(){
 function boom(){
   if (!soundOn) return; const a = ac(); if (!a) return; const t = a.currentTime;
   const o = a.createOscillator(), g = a.createGain();
-  o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(38, t+0.6);
-  g.gain.setValueAtTime(0.55, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.8);
+  // 「咚」：遠處的悶響——15ms 淡入避免瞬間爆音嚇人，音量壓低
+  o.type = 'sine'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t+0.6);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t+0.015); g.gain.exponentialRampToValueAtTime(0.0001, t+0.8);
   o.connect(g).connect(a.destination); o.start(t); o.stop(t+0.85);
   const len = a.sampleRate*0.3, buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) ch[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random()*2-1) * Math.min(1, i/(a.sampleRate*0.015)) * Math.pow(1 - i/len, 3);
   const n = a.createBufferSource(), ng = a.createGain(), f = a.createBiquadFilter();
-  f.type = 'lowpass'; f.frequency.value = 1200; n.buffer = buf; ng.gain.value = 0.35;
+  f.type = 'lowpass'; f.frequency.value = 600; n.buffer = buf; ng.gain.value = 0.1;
   n.connect(f).connect(ng).connect(a.destination); n.start(t);
 }
 function howl(){
