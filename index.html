@@ -184,6 +184,16 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
 .last{flex-basis:100%;text-align:center;margin:-4px 0 0;font-weight:900;color:#4a3d3d;font-size:15px}
 .last strong{color:var(--blood);font-family:var(--digits);font-size:22px;letter-spacing:.04em}
 
+/* 漫畫狀聲字 */
+.sfx{position:absolute;z-index:5;pointer-events:none;font-family:var(--display);font-weight:900;white-space:nowrap;
+  color:#fff2a8;-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--blood),7px 7px 0 var(--ink);letter-spacing:.02em}
+.sfx-spin{left:-6%;top:6%;font-size:clamp(26px,5vw,44px);transform:rotate(-14deg);opacity:0;transition:opacity .2s}
+.spinning .sfx-spin{opacity:1;animation:rattle .16s steps(2) infinite}
+@keyframes rattle{0%{transform:rotate(-14deg) translate(0,0)}50%{transform:rotate(-11deg) translate(2px,-2px)}100%{transform:rotate(-16deg) translate(-2px,1px)}}
+.sfx-don{left:3%;top:9%;font-size:clamp(46px,11vw,76px);color:#ffd23f;transform:rotate(-12deg);animation:sfxpop .45s cubic-bezier(.2,1.8,.4,1) both .1s}
+.sfx-howl{right:3%;top:36%;font-size:clamp(24px,5.5vw,36px);color:#e8ecff;text-shadow:4px 4px 0 #2c4596,7px 7px 0 var(--ink);transform:rotate(9deg);animation:sfxpop .45s cubic-bezier(.2,1.8,.4,1) both .35s}
+@keyframes sfxpop{from{opacity:0;scale:.2}to{opacity:1;scale:1}}
+
 /* 揭曉 */
 .flash{position:fixed;inset:0;z-index:40;pointer-events:none;background:#fff;opacity:0}
 .flash.go{animation:flash .55s ease-out}
@@ -246,9 +256,12 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
   .narrator{grid-template-columns:72px minmax(0,1fr);gap:14px}
   .bubble{font-size:15px;padding:10px 12px}
   .seq{font-size:20px}
+  .sfx-howl{font-size:20px;right:6%;top:40%;-webkit-text-stroke:3px var(--ink)}
+  .sfx-don{font-size:44px;left:4%}
 }
 @media (min-width:961px){ .controls-slot{grid-column:1 / -1} }
 @media (prefers-reduced-motion:reduce){
+  .sfx-spin,.sfx-don,.sfx-howl{animation:none !important}
   .star,.cloud,.fog,.reveal-rays,.orbit-ring,.dir svg,.eyes-glint,.role-card,main.shake{animation:none !important}
 }
 </style>
@@ -363,6 +376,7 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
         <path d="M-30 -14 C-30 -24 30 -24 30 -14 L22 14 L-22 14 Z" fill="#c4202f" stroke="#0d0b12" stroke-width="6" stroke-linejoin="round"/>
         <circle cx="0" cy="-2" r="7" fill="#f5b81c" stroke="#0d0b12" stroke-width="4"/>
       </svg>
+      <div class="sfx sfx-spin" aria-hidden="true">喀啦喀啦…</div>
       <button class="hub" id="hub" type="button" aria-label="轉動轉盤">
         <svg viewBox="-70 -70 140 140" aria-hidden="true">
           <circle r="66" fill="#0d0b12"/>
@@ -416,6 +430,8 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
   <div class="reveal-wrap">
   <div class="tag" id="revealTag">命運已決定</div>
   <div class="reveal-card">
+    <div class="sfx sfx-don" aria-hidden="true">咚！</div>
+    <div class="sfx sfx-howl" aria-hidden="true">嗷嗚——</div>
     <div class="burst">
       <svg viewBox="-170 -144 340 288" aria-hidden="true"><polygon id="burstPoly" fill="#ffd23f" stroke="#0d0b12" stroke-width="7" stroke-linejoin="round"/><polygon id="burstPoly2" fill="#fff2a8"/></svg>
       <div class="numwrap"><span class="num" id="rNum">7</span><span class="unit">號</span></div>
