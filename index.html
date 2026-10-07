@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺發言轉盤</title>
+<meta name="description" content="狼人殺開局用：輸入人數，轉盤 3 秒決定從幾號開始、順時針或逆時針發言。">
+<meta name="theme-color" content="#0b0f22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Luckiest+Guy&family=Noto+Sans+TC:wght@500;900&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d0b12;
+  --night:#0b0f22;
+  --night2:#1b2550;
+  --blood:#c4202f;
+  --blood-dk:#6e0d17;
+  --moon:#f6e7b0;
+  --gold:#f5b81c;
+  --bone:#efe3c8;
+  --paper:#f3ead2;
+  --display:"Noto Sans TC",system-ui,sans-serif;
+  --serif:"Noto Serif TC",serif;
+  --comic:"Bangers","Noto Sans TC",system-ui,sans-serif;
+  --digits:"Luckiest Guy","Noto Sans TC",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:hidden;overflow-x:clip}
+body{
+  min-height:100vh;min-height:100dvh;
+  background:var(--night);color:var(--bone);
+  font-family:var(--display);font-weight:500;
+  overflow-x:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* ───────── 夜空與村莊 ───────── */
+.sky{position:fixed;inset:0;z-index:-5;
+  background:radial-gradient(ellipse 80% 60% at 78% 12%,#3a4c96 0%,#1b2550 38%,#0b0f22 78%);}
+.stars{position:fixed;inset:0;z-index:-4;pointer-events:none}
+.star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff8dc;
+  animation:twinkle var(--d,3s) ease-in-out infinite;animation-delay:var(--dl,0s);opacity:.8}
+@keyframes twinkle{50%{opacity:.15;transform:scale(.6)}}
+.moon{position:absolute;z-index:-3;top:clamp(18px,5vh,60px);right:clamp(-40px,6vw,120px);
+  width:clamp(150px,22vw,280px);aspect-ratio:1;border-radius:50%;
+  background:
+    radial-gradient(circle at 30% 34%,rgba(170,140,80,.35) 0 9%,transparent 10%),
+    radial-gradient(circle at 62% 58%,rgba(170,140,80,.3) 0 13%,transparent 14%),
+    radial-gradient(circle at 70% 26%,rgba(170,140,80,.28) 0 6%,transparent 7%),
+    radial-gradient(circle at 38% 72%,rgba(170,140,80,.25) 0 7%,transparent 8%),
+    radial-gradient(circle at 40% 38%,#fffbe6 0%,#f6e7b0 55%,#e3c977 100%);
+  box-shadow:0 0 60px 18px rgba(246,231,176,.35),0 0 180px 60px rgba(120,150,255,.18);
+  border:4px solid var(--ink);}
+.moon::after{content:"";position:absolute;inset:-4px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,0,0,.28) 1.1px,transparent 1.5px) 0 0/7px 7px;
+  -webkit-mask:radial-gradient(circle at 30% 30%,transparent 40%,#000 85%);
+          mask:radial-gradient(circle at 30% 30%,transparent 40%,#000 85%);}
+.cloud{position:absolute;z-index:-3;height:38px;border-radius:40px;background:#0e1430;border:3px solid var(--ink);
+  box-shadow:inset 0 -8px 0 #0a0e24;animation:drift linear infinite;opacity:.92}
+.cloud::before,.cloud::after{content:"";position:absolute;background:inherit;border:inherit;border-bottom:none;border-radius:50%}
+.cloud::before{width:44%;height:150%;left:14%;bottom:30%}
+.cloud::after{width:30%;height:110%;left:52%;bottom:40%}
+@keyframes drift{from{transform:translateX(110vw)}to{transform:translateX(-60vw)}}
+.village{position:fixed;left:0;right:0;bottom:0;z-index:-2;width:100%;height:clamp(150px,30vh,320px);pointer-events:none}
+.fog{position:fixed;left:-10%;right:-10%;bottom:-4vh;height:22vh;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse 40% 60% at 25% 70%,rgba(150,165,220,.22),transparent 70%),
+             radial-gradient(ellipse 35% 55% at 75% 80%,rgba(150,165,220,.18),transparent 70%);
+  animation:fog 18s ease-in-out infinite alternate}
+@keyframes fog{to{transform:translateX(6%)}}
+.halftone{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(circle,rgba(0,0,0,.22) 1px,transparent 1.4px) 0 0/6px 6px;mix-blend-mode:multiply}
+.vignette{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.65) 100%)}
+.eyes-glint{animation:blink 6s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes blink{0%,44%,52%,100%{opacity:1;transform:scaleY(1)}48%{opacity:.2;transform:scaleY(.1)}}
+
+/* ───────── 主版面 ───────── */
+main{position:relative;z-index:1;max-width:1240px;margin:0 auto;
+  padding:max(16px,env(safe-area-inset-top)) 16px 40px}
+.topbar{display:flex;justify-content:flex-end}
+.icon-btn{width:44px;height:44px;display:grid;place-items:center;background:var(--paper);color:var(--ink);
+  border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:50%}
+.icon-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.icon-btn svg{width:22px;height:22px}
+
+header{text-align:center;margin:-8px 0 10px}
+.kicker{display:inline-block;background:var(--paper);color:var(--ink);font-weight:900;
+  padding:4px 14px;border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);
+  transform:rotate(-2deg);font-size:clamp(14px,2.4vw,18px);letter-spacing:.12em}
+h1{margin:10px 0 4px;font-family:var(--display);font-weight:900;line-height:1.05;
+  font-size:clamp(46px,9vw,100px);letter-spacing:.04em;color:#ffd23f;
+  -webkit-text-stroke:3px var(--ink);paint-order:stroke fill;
+  text-shadow:4px 4px 0 var(--blood),8px 8px 0 var(--ink);transform:rotate(-1deg)}
+h1 .drip{color:#fff2c4}
+.subtitle{font-family:var(--serif);font-weight:700;font-size:clamp(15px,2.6vw,20px);color:#e3e7ff;margin:8px 0 0;
+  text-shadow:0 2px 0 var(--ink),0 0 10px rgba(5,6,20,.95),0 0 22px rgba(5,6,20,.8)}
+
+.stage{display:grid;grid-template-columns:1fr minmax(300px,520px) 1fr;gap:clamp(12px,3vw,40px);align-items:center;margin-top:8px}
+.roster{display:grid;gap:18px}
+.roster.left{justify-items:end}
+.roster.right{justify-items:start}
+
+/* 角色卡 */
+.role-card{margin:0;width:min(172px,100%);background:var(--paper);border:4px solid var(--ink);
+  box-shadow:6px 6px 0 var(--ink);transform:rotate(var(--tilt,0deg));padding:6px 6px 0;
+  transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.role-card:hover{transform:rotate(0) translateY(-6px) scale(1.04)}
+.role-card svg{display:block;width:100%;height:auto;border:3px solid var(--ink);background:var(--ink)}
+.role-card figcaption{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:4px 2px 6px;color:var(--ink)}
+.role-card b{font-weight:900;font-size:20px;letter-spacing:.06em}
+.role-card span{font-family:var(--comic);font-size:15px;letter-spacing:.06em;color:var(--blood)}
+.role-card.speaking{animation:speak .5s ease-in-out 4 alternate}
+@keyframes speak{to{transform:rotate(0) translateY(-10px) scale(1.06)}}
+.is-spinning .role-card{animation:jitter .14s steps(2) infinite}
+.is-spinning .role-card:nth-child(2){animation-delay:-.05s}
+.is-spinning .role-card:nth-child(3){animation-delay:-.09s}
+@keyframes jitter{0%{transform:rotate(var(--tilt)) translate(0,0)}50%{transform:rotate(var(--tilt)) translate(1.5px,-1px)}100%{transform:rotate(var(--tilt)) translate(-1px,1px)}}
+main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-6px,2px)}40%,60%{transform:translate(6px,-1px)}}
+
+/* 轉盤 */
+.wheel-zone{position:relative;width:100%;aspect-ratio:1;margin:0 auto;max-width:520px}
+.wheel-zone > *{position:absolute}
+.speed{inset:-16%;width:132%;height:132%;opacity:0;transition:opacity .4s;pointer-events:none}
+.spinning .speed{opacity:.55;animation:spinrays 1.2s linear infinite}
+@keyframes spinrays{to{transform:rotate(360deg)}}
+.orbit{inset:-2%;width:104%;height:104%;opacity:0;transition:opacity .4s;pointer-events:none}
+.orbit.show{opacity:1}
+.orbit.cw  .orbit-ring{animation:orbit 4s linear infinite}
+.orbit.ccw .orbit-ring{animation:orbit 4s linear infinite reverse}
+.orbit-ring{transform-origin:center;transform-box:fill-box}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.wheel-spin{inset:5%;width:90%;height:90%;will-change:transform}
+.wheel-spin svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(8px 10px 0 rgba(0,0,0,.55))}
+.seg-label{font-family:var(--digits);fill:var(--bone);stroke:var(--ink);paint-order:stroke fill;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}
+.seg.win{animation:winglow .7s ease-in-out infinite alternate}
+@keyframes winglow{from{filter:brightness(1)}to{filter:brightness(1.6) saturate(1.3)}}
+.pointer{left:50%;top:-1.5%;width:14%;transform:translateX(-50%);transform-origin:50% 18%;z-index:3;filter:drop-shadow(4px 5px 0 rgba(0,0,0,.6))}
+.hub{left:50%;top:50%;width:28%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:none;padding:0;background:none;z-index:4}
+.hub svg{width:100%;height:100%;display:block}
+.hub:active{transform:translate(-50%,-50%) scale(.95)}
+.hub:focus-visible{outline:4px dashed var(--gold);outline-offset:6px}
+
+/* 控制台 */
+.panel{position:relative;background:var(--paper);color:var(--ink);border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink);
+  max-width:620px;margin:26px auto 0;padding:16px 18px 18px;display:flex;flex-wrap:wrap;gap:14px 18px;align-items:center;justify-content:center}
+.panel::before{content:"命運之輪";position:absolute;top:-16px;left:14px;background:var(--blood);color:#fff;font-weight:900;
+  padding:2px 10px;border:3px solid var(--ink);font-size:14px;letter-spacing:.15em;transform:rotate(-3deg)}
+.count{display:flex;align-items:center;gap:10px}
+.count label{font-weight:900;font-size:18px;letter-spacing:.08em}
+.stepper{display:flex;align-items:stretch;border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);background:#fff}
+.stepper button{width:44px;background:var(--bone);border:none;font-family:var(--comic);font-size:30px;line-height:1;color:var(--ink)}
+.stepper button:active{background:#e0cfa8}
+.stepper input{width:72px;border:none;border-left:3px solid var(--ink);border-right:3px solid var(--ink);text-align:center;
+  font-family:var(--digits);font-size:32px;color:var(--blood);padding:4px 0 0;background:#fff;-moz-appearance:textfield;appearance:textfield}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.stepper input:focus{outline:none;background:#fff7d6}
+.chips{display:flex;gap:8px}
+.chip{background:#fff;border:3px solid var(--ink);padding:3px 10px;font-weight:900;font-size:15px;color:var(--ink);box-shadow:2px 2px 0 var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--gold)}
+.spin-btn{flex-basis:100%;max-width:360px;background:var(--blood);color:#fff;border:4px solid var(--ink);box-shadow:6px 6px 0 var(--ink);
+  font-weight:900;font-size:clamp(22px,4vw,28px);letter-spacing:.2em;padding:12px 18px;text-shadow:2px 2px 0 var(--ink);
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .08s}
+.spin-btn:hover{background:#d92a3a}
+.spin-btn:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--ink)}
+.spin-btn:disabled{background:#6d5c5c;cursor:wait}
+.spin-btn svg{width:30px;height:30px;flex:none}
+.err{flex-basis:100%;text-align:center;margin:-6px 0 0;color:var(--blood);font-weight:900;min-height:0}
+.last{flex-basis:100%;text-align:center;margin:-4px 0 0;font-weight:900;color:#4a3d3d;font-size:15px}
+.last strong{color:var(--blood);font-family:var(--digits);font-size:22px;letter-spacing:.04em}
+
+/* 揭曉 */
+.flash{position:fixed;inset:0;z-index:40;pointer-events:none;background:#fff;opacity:0}
+.flash.go{animation:flash .55s ease-out}
+@keyframes flash{0%{opacity:.85}30%{opacity:.5;background:var(--blood)}100%{opacity:0;background:var(--blood)}}
+.reveal{position:fixed;inset:0;z-index:50;display:grid;grid-template-columns:minmax(0,560px);justify-content:center;align-content:center;padding:28px 16px 16px;background:rgba(5,4,10,.72);overflow:hidden}
+.reveal[hidden]{display:none}
+.reveal-rays{position:absolute;inset:-50%;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg,rgba(196,32,47,.55) 0 6deg,transparent 6deg 15deg);
+  -webkit-mask:radial-gradient(circle,#000 10%,transparent 60%);mask:radial-gradient(circle,#000 10%,transparent 60%);
+  animation:spinrays 24s linear infinite}
+.reveal-wrap{position:relative;width:100%;min-width:0;animation:slam .5s cubic-bezier(.2,1.8,.4,1)}
+.reveal-card{position:relative;width:100%;max-height:calc(100dvh - 48px);overflow:auto;
+  background:var(--paper);color:var(--ink);border:5px solid var(--ink);box-shadow:12px 12px 0 var(--ink);padding:22px 18px 20px}
+@keyframes slam{from{transform:scale(.3) rotate(-14deg);opacity:0}to{transform:none;opacity:1}}
+.reveal-wrap .tag{position:absolute;z-index:2;top:-18px;left:50%;transform:translateX(-50%) rotate(-2deg);background:var(--ink);color:var(--gold);
+  font-weight:900;padding:4px 16px;letter-spacing:.2em;white-space:nowrap;border:3px solid var(--gold)}
+.burst{position:relative;width:min(330px,82%);margin:4px auto 0;aspect-ratio:1.18}
+.burst svg{position:absolute;inset:0;width:100%;height:100%}
+.burst .numwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px;padding-top:4%}
+.burst .num{font-family:var(--digits);font-size:clamp(100px,24vw,150px);line-height:.8;color:var(--blood);
+  -webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:6px 6px 0 var(--ink);letter-spacing:.02em}
+.burst .unit{font-weight:900;font-size:clamp(28px,6vw,40px);color:var(--ink);align-self:flex-end;margin-bottom:16%}
+.dir{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px auto 0;width:fit-content;
+  background:var(--ink);color:var(--gold);padding:8px 22px;transform:skewX(-8deg);border:3px solid var(--ink);box-shadow:5px 5px 0 var(--blood)}
+.dir > *{transform:skewX(8deg)}
+.dir b{font-weight:900;font-size:clamp(26px,6vw,34px);letter-spacing:.14em}
+.dir svg{width:44px;height:44px;flex:none}
+.dir.cw svg{animation:orbit 1.6s linear infinite}
+.dir.ccw svg{animation:orbit 1.6s linear infinite reverse}
+.seq{text-align:center;font-family:var(--digits);font-size:22px;letter-spacing:.04em;margin:12px 0 2px;color:#3b2f2f;word-break:break-word}
+.seq em{font-style:normal;color:var(--blood)}
+.seq small{display:block;font-family:var(--display);font-weight:900;font-size:13px;letter-spacing:.1em;color:#7a6a5a}
+.narrator{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:center;margin-top:16px}
+.narrator .mini{border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);transform:rotate(-3deg);background:var(--ink)}
+.narrator .mini svg{display:block;width:100%;height:auto}
+.bubble{position:relative;background:#fff;border:3px solid var(--ink);border-radius:22px;padding:12px 16px;font-weight:900;font-size:17px;line-height:1.5;box-shadow:3px 3px 0 var(--ink)}
+.bubble::before{content:"";position:absolute;left:-17px;top:50%;margin-top:-10px;border:10px solid transparent;border-right:16px solid var(--ink);border-left:0}
+.bubble::after{content:"";position:absolute;left:-11px;top:50%;margin-top:-7px;border:7px solid transparent;border-right:12px solid #fff;border-left:0}
+.bubble .who{display:block;font-size:13px;color:var(--blood);letter-spacing:.12em}
+.actions{display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.btn{border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);font-weight:900;font-size:18px;padding:8px 18px;letter-spacing:.12em;background:#fff;color:var(--ink)}
+.btn.primary{background:var(--blood);color:#fff;text-shadow:2px 2px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* 手機 */
+@media (max-width:960px){
+  .stage{grid-template-columns:1fr;gap:18px}
+  .wheel-zone{order:1;max-width:min(92vw,480px)}
+  .roster{order:3;grid-template-columns:repeat(3,1fr);justify-items:center !important;gap:12px}
+  .roster .role-card{width:100%;padding:4px 4px 0;box-shadow:4px 4px 0 var(--ink)}
+  .role-card b{font-size:15px}
+  .role-card span{font-size:11px}
+  .controls-slot{order:2}
+  .panel{margin-top:4px}
+  .speed{inset:-6%;width:112%;height:112%}
+  .moon{width:120px;top:6px;right:-28px}
+  header{margin-top:4px}
+  .reveal-card{padding:22px 14px 16px;box-shadow:7px 7px 0 var(--ink)}
+  .narrator{grid-template-columns:72px minmax(0,1fr);gap:14px}
+  .bubble{font-size:15px;padding:10px 12px}
+  .seq{font-size:20px}
+}
+@media (min-width:961px){ .controls-slot{grid-column:1 / -1} }
+@media (prefers-reduced-motion:reduce){
+  .star,.cloud,.fog,.reveal-rays,.orbit-ring,.dir svg,.eyes-glint,.role-card,main.shake{animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="sky"></div>
+<div class="stars" id="stars"></div>
+<div class="moon" aria-hidden="true"></div>
+<div class="cloud" style="top:12vh;width:220px;animation-duration:70s;animation-delay:-20s"></div>
+<div class="cloud" style="top:26vh;width:150px;animation-duration:95s;animation-delay:-60s"></div>
+
+<svg class="village" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18204a"/><stop offset="1" stop-color="#0d1230"/></linearGradient>
+  </defs>
+  <path d="M0 210 C180 150 320 170 470 190 C620 210 760 140 920 160 C1080 180 1240 130 1440 170 L1440 320 L0 320 Z" fill="url(#hillFar)"/>
+  <g fill="#0a0d22" stroke="#05060f" stroke-width="2">
+    <path id="pines" d="M40 240 L62 180 L84 240 Z M70 246 L98 166 L126 246 Z M118 250 L140 196 L162 250 Z M1250 236 L1276 160 L1302 236 Z M1290 244 L1312 186 L1334 244 Z M1330 236 L1360 150 L1390 236 Z M1380 248 L1402 196 L1424 248 Z"/>
+  </g>
+  <!-- 嚎月的狼 -->
+  <g transform="translate(190 120) scale(1.15)">
+    <path d="M-30 96 C10 70 80 66 140 96 L150 110 L-40 110 Z" fill="#070917"/>
+    <use href="#howl" x="0" y="-20" width="90" height="122" fill="#070917"/>
+  </g>
+  <path d="M0 262 C200 236 380 250 560 256 C760 262 920 236 1100 244 C1260 250 1360 238 1440 244 L1440 320 L0 320 Z" fill="#070917"/>
+  <!-- 村莊 -->
+  <g fill="#070917">
+    <path d="M520 256 L520 214 L548 190 L576 214 L576 256 Z"/>
+    <path d="M590 258 L590 200 L622 172 L654 200 L654 258 Z"/>
+    <path d="M672 258 L672 150 L688 150 L688 110 L700 84 L712 110 L712 150 L728 150 L728 258 Z"/>
+    <path d="M744 258 L744 208 L774 184 L804 208 L804 258 Z"/>
+    <path d="M820 256 L820 220 L846 198 L872 220 L872 256 Z"/>
+    <path d="M300 262 L300 226 L326 204 L352 226 L352 262 Z"/>
+    <path d="M1040 252 L1040 214 L1070 190 L1100 214 L1100 252 Z"/>
+  </g>
+  <g fill="#ffcf5a">
+    <rect x="540" y="222" width="8" height="10"/><rect x="606" y="212" width="8" height="10"/><rect x="630" y="212" width="8" height="10"/>
+    <rect x="696" y="124" width="8" height="12"/><rect x="760" y="220" width="8" height="10"/><rect x="842" y="228" width="7" height="9"/>
+    <rect x="318" y="234" width="8" height="10"/><rect x="1062" y="224" width="8" height="10"/>
+  </g>
+  <g fill="#ff2a2a">
+    <g class="eyes-glint" style="animation-delay:-1s"><circle cx="1180" cy="270" r="3"/><circle cx="1192" cy="270" r="3"/></g>
+    <g class="eyes-glint" style="animation-delay:-3.6s"><circle cx="420" cy="282" r="2.6"/><circle cx="431" cy="282" r="2.6"/></g>
+    <g class="eyes-glint" style="animation-delay:-5s"><circle cx="960" cy="290" r="2.4"/><circle cx="970" cy="290" r="2.4"/></g>
+  </g>
+</svg>
+<div class="fog"></div>
+<div class="halftone"></div>
+<div class="vignette"></div>
+
+<!-- 共用圖案（漸層、網點、角色） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.5" fill="#000" opacity=".32"/></pattern>
+    <pattern id="dotsLight" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.2" fill="#fff" opacity=".22"/></pattern>
+    <radialGradient id="ballGrad" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#f2ffff"/><stop offset=".3" stop-color="#6ae6ff"/><stop offset=".72" stop-color="#2a5bd8"/><stop offset="1" stop-color="#1a1050"/></radialGradient>
+    <radialGradient id="seerGlow"><stop offset="0" stop-color="#7ff3ff" stop-opacity=".75"/><stop offset="1" stop-color="#7ff3ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="poisonGlow"><stop offset="0" stop-color="#7dff8a" stop-opacity=".7"/><stop offset="1" stop-color="#7dff8a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cureGlow"><stop offset="0" stop-color="#ff6a85" stop-opacity=".7"/><stop offset="1" stop-color="#ff6a85" stop-opacity="0"/></radialGradient>
+    <linearGradient id="poison" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b6ff9a"/><stop offset=".45" stop-color="#3fd65a"/><stop offset="1" stop-color="#11692a"/></linearGradient>
+    <linearGradient id="cure" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb3c0"/><stop offset=".45" stop-color="#ff3b5c"/><stop offset="1" stop-color="#8a0f26"/></linearGradient>
+    <radialGradient id="moonGrad" cx=".4" cy=".38" r=".7"><stop offset="0" stop-color="#fffbe6"/><stop offset=".6" stop-color="#f6e7b0"/><stop offset="1" stop-color="#d9b85c"/></radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <!-- 坐著嚎月的狼（側面朝右） -->
+    <symbol id="howl" viewBox="0 0 100 120">
+      <path d="M4 112 C6 100 18 95 30 97 C30 84 36 68 44 58 L46 50 L40 46 L49 43 L45 36 L54 35 L56 27 L56 5 L66 17 L71 18 L91 0 L96 2 L95 8 L84 14 L80 18 L88 15 L90 18 L78 27 L75 31 L82 35 L73 38 L80 43 L71 46 L77 51 L69 54 C77 64 77 74 74 84 L76 113 L85 114 L85 118 L58 118 L61 98 L53 96 L49 107 L57 112 L57 118 L22 118 C12 118 4 117 4 112 Z"/>
+    </symbol>
+  </defs>
+  <g id="sprite"></g>
+</svg>
+
+<main>
+  <div class="topbar">
+    <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="音效：開">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="mute" d="M16 9l5 6M21 9l-5 6" style="display:none"/></svg>
+    </button>
+  </div>
+
+  <header>
+    <div class="kicker">第一夜・天亮了</div>
+    <h1>誰<span class="drip">先</span>開口？</h1>
+    <p class="subtitle">月圓之夜，讓命運之輪決定發言順序</p>
+  </header>
+
+  <section class="stage">
+    <div class="roster left" id="rosterL"></div>
+
+    <div class="wheel-zone" id="wheelZone">
+      <svg class="speed" id="speed" viewBox="-300 -300 600 600" aria-hidden="true"></svg>
+      <svg class="orbit" id="orbit" viewBox="-260 -260 520 520" aria-hidden="true"><g class="orbit-ring" id="orbitRing"></g></svg>
+      <div class="wheel-spin" id="wheelSpin">
+        <svg viewBox="-250 -250 500 500" role="img" aria-label="發言轉盤">
+          <circle r="244" fill="#0d0b12"/>
+          <circle r="236" fill="#3a2a1c"/>
+          <g id="segments"></g>
+          <circle r="222" fill="none" stroke="#0d0b12" stroke-width="7"/>
+          <circle r="222" fill="url(#dots)" opacity=".5" style="pointer-events:none"/>
+          <g id="studs"></g>
+        </svg>
+      </div>
+      <svg class="pointer" id="pointer" viewBox="-40 -24 80 90" aria-hidden="true">
+        <path d="M-30 -14 C-30 -24 30 -24 30 -14 L4 56 C2 62 -2 62 -4 56 Z" fill="#efe3c8" stroke="#0d0b12" stroke-width="6" stroke-linejoin="round"/>
+        <path d="M6 -14 L28 -14 L3 52 Z" fill="#b7a98c"/>
+        <path d="M-30 -14 C-30 -24 30 -24 30 -14 L22 14 L-22 14 Z" fill="#c4202f" stroke="#0d0b12" stroke-width="6" stroke-linejoin="round"/>
+        <circle cx="0" cy="-2" r="7" fill="#f5b81c" stroke="#0d0b12" stroke-width="4"/>
+      </svg>
+      <button class="hub" id="hub" type="button" aria-label="轉動轉盤">
+        <svg viewBox="-70 -70 140 140" aria-hidden="true">
+          <circle r="66" fill="#0d0b12"/>
+          <circle r="58" fill="url(#moonGrad)" stroke="#0d0b12" stroke-width="4"/>
+          <circle cx="-22" cy="-18" r="9" fill="#d9bf74" opacity=".6"/><circle cx="20" cy="18" r="12" fill="#d9bf74" opacity=".5"/><circle cx="26" cy="-24" r="5" fill="#d9bf74" opacity=".55"/>
+          <circle r="58" fill="url(#dots)" opacity=".35"/>
+          <clipPath id="hubClip"><circle r="56"/></clipPath>
+          <g fill="#0d0b12" clip-path="url(#hubClip)">
+            <use href="#howl" x="-40" y="-50" width="68" height="92"/>
+            <path d="M-58 36 C-30 26 20 26 58 36 L58 70 L-58 70 Z"/>
+          </g>
+          <text y="56" text-anchor="middle" font-family="Noto Sans TC, sans-serif" font-weight="900" font-size="17" fill="#f5b81c" stroke="#0d0b12" stroke-width="5" paint-order="stroke fill" letter-spacing="3">轉！</text>
+        </svg>
+      </button>
+    </div>
+
+    <div class="roster right" id="rosterR"></div>
+
+    <div class="controls-slot">
+      <form class="panel" id="panel" autocomplete="off">
+        <div class="count">
+          <label for="players">玩家人數</label>
+          <div class="stepper">
+            <button type="button" id="minus" aria-label="減少一人">−</button>
+            <input id="players" type="number" inputmode="numeric" min="2" max="30" value="12" aria-describedby="err">
+            <button type="button" id="plus" aria-label="增加一人">+</button>
+          </div>
+        </div>
+        <div class="chips" role="group" aria-label="常用人數">
+          <button type="button" class="chip" data-n="9">9 人</button>
+          <button type="button" class="chip" data-n="10">10 人</button>
+          <button type="button" class="chip" data-n="12">12 人</button>
+          <button type="button" class="chip" data-n="15">15 人</button>
+        </div>
+        <button class="spin-btn" id="spinBtn" type="submit">
+          <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 34 C10 24 14 18 20 14 L18 6 L24 11 L30 4 L29 13 C34 16 36 22 34 28 C30 26 26 26 22 28 C18 30 12 32 8 34 Z" fill="#fff" stroke="#0d0b12" stroke-width="3" stroke-linejoin="round"/><circle cx="27" cy="17" r="2" fill="#c4202f"/></svg>
+          <span id="spinLabel">轉動命運</span>
+        </button>
+        <p class="err" id="err" role="alert"></p>
+        <p class="last" id="last" hidden></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<div class="flash" id="flash"></div>
+
+<div class="reveal" id="reveal" hidden role="dialog" aria-modal="true" aria-labelledby="revealTag">
+  <div class="reveal-rays"></div>
+  <div class="reveal-wrap">
+  <div class="tag" id="revealTag">命運已決定</div>
+  <div class="reveal-card">
+    <div class="burst">
+      <svg viewBox="-170 -144 340 288" aria-hidden="true"><polygon id="burstPoly" fill="#ffd23f" stroke="#0d0b12" stroke-width="7" stroke-linejoin="round"/><polygon id="burstPoly2" fill="#fff2a8"/></svg>
+      <div class="numwrap"><span class="num" id="rNum">7</span><span class="unit">號</span></div>
+    </div>
+    <div class="dir" id="rDir">
+      <svg viewBox="-24 -24 48 48" aria-hidden="true"><g id="rDirG"><path id="rDirArrow" fill="none" stroke="#f5b81c" stroke-width="6" stroke-linecap="round"/><path id="rDirHead" fill="#f5b81c" stroke="#f5b81c" stroke-width="2" stroke-linejoin="round"/></g></svg>
+      <b id="rDirText">順時針</b>
+    </div>
+    <p class="seq" id="rSeq"></p>
+    <div class="narrator">
+      <div class="mini" id="rMini"></div>
+      <div class="bubble"><span class="who" id="rWho">預言家</span><span id="rLine"></span></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="again" type="button">再轉一次</button>
+      <button class="btn" id="close" type="button">看轉盤</button>
+    </div>
+  </div>
+  </div>
+</div>
+<p class="sr-only" aria-live="assertive" id="live"></p>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const INK = '#0d0b12';
+const MIN = 2, MAX = 30, SPIN_MS = 3000;
+
+/* ───────── 公平亂數 ───────── */
+function randInt(n){ // 0..n-1，拒絕取樣避免偏差
+  const buf = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n;
+  let x; do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= lim);
+  return x % n;
+}
+const rand01 = () => randInt(1e6) / 1e6;
+
+/* ───────── 角色美術 ───────── */
+const sparkle = (x,y,r) => `M${x} ${y-r} Q${x} ${y} ${x+r} ${y} Q${x} ${y} ${x} ${y+r} Q${x} ${y} ${x-r} ${y} Q${x} ${y} ${x} ${y-r} Z`;
+const S = `stroke="${INK}" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"`;
+
+function wolfArt(o){
+  return `<g ${S}>
+  ${o.king ? `<path d="M10 222 C24 176 62 166 100 184 C138 166 176 176 190 222 Z" fill="#9b1c22"/>
+              <path d="M100 184 C128 170 164 172 178 196 L190 222 L148 222 Z" fill="#5c0f16" stroke="none"/>` : ''}
+  <path d="M24 222 L32 182 L10 188 L34 150 L56 170 L70 198 L100 216 L130 198 L144 170 L166 150 L190 188 L168 182 L176 222 Z" fill="${o.shade}"/>
+  <path d="M46 100 L28 20 L92 64 Z" fill="${o.fur}"/>
+  <path d="M154 100 L172 20 L108 64 Z" fill="${o.fur}"/>
+  <path d="M54 88 L40 40 L78 66 Z" fill="${o.ear}" stroke-width="3"/>
+  <path d="M146 88 L160 40 L122 66 Z" fill="${o.ear}" stroke-width="3"/>
+  <path d="M100 52 C132 52 154 66 160 90 L190 100 L166 112 L188 130 L160 132 L172 156 L140 146 L100 150 L60 146 L28 156 L40 132 L12 130 L34 112 L10 100 L40 90 C46 66 68 52 100 52 Z" fill="${o.fur}"/>
+  <path d="M128 58 C146 66 156 78 160 90 L190 100 L166 112 L188 130 L160 132 L172 156 L140 146 C142 120 140 86 128 58 Z" fill="${o.shade}" stroke="none"/>
+  <path d="M100 56 L92 76 L100 88 L108 76 Z" fill="${o.shade}" stroke="none"/>
+  <path d="M62 148 L74 190 C86 210 114 210 126 190 L138 148 L146 160 L132 200 C118 220 82 220 68 200 L54 160 Z" fill="${o.fur}"/>
+  <path d="M124 160 L138 148 L146 160 L132 200 C126 210 118 214 110 216 C124 200 128 180 124 160 Z" fill="${o.shade}" stroke="none"/>
+  <path d="M68 148 C80 156 92 154 100 150 C108 154 120 156 132 148 L124 188 C114 204 86 204 76 188 Z" fill="#3d070e"/>
+  <path d="M84 192 C88 178 112 178 116 192 C110 202 90 202 84 192 Z" fill="#d9475a" stroke-width="3"/>
+  <path d="M100 182 L100 196" stroke="#8a1a2a" stroke-width="2.5"/>
+  <path d="M72 150 L80 178 L88 154 Z M128 150 L120 178 L112 154 Z" fill="#fff8e8" stroke-width="3"/>
+  <path d="M89 154 L93 166 L97 153 Z M103 153 L107 166 L111 154 Z" fill="#fff8e8" stroke-width="2.5"/>
+  <path d="M79 190 L84 172 L90 192 Z M121 190 L116 172 L110 192 Z" fill="#fff8e8" stroke-width="2.5"/>
+  <path d="M88 96 L112 96 L128 140 C122 152 78 152 72 140 Z" fill="${o.muzzle}"/>
+  <path d="M106 96 L112 96 L128 140 C125 146 116 149 108 150 C118 136 114 112 106 96 Z" fill="${o.mshade}" stroke="none"/>
+  <path d="M89 108 Q94 104 100 108 Q106 104 111 108 M87 116 Q93 112 100 116 Q107 112 113 116" fill="none" stroke-width="2.5"/>
+  <path d="M82 134 C82 123 118 123 118 134 C118 142 108 147 100 147 C92 147 82 142 82 134 Z" fill="${INK}"/>
+  <ellipse cx="93" cy="130" rx="5" ry="2.6" fill="#fff" stroke="none" opacity=".85"/>
+  <path d="M118 194 C120 202 117 208 120 214" fill="none" stroke="#cfe8ff" stroke-width="3"/>
+  <circle cx="120" cy="216" r="2.6" fill="#cfe8ff" stroke="none"/>
+  <g filter="url(#glow)">
+    <path d="M52 94 L88 102 L84 115 L60 111 Z" fill="${o.eye}"/>
+    <path d="M148 94 L112 102 L116 115 L140 111 Z" fill="${o.eye}"/>
+  </g>
+  <path d="M70 100 L74 100 L73 113 L71 113 Z M130 100 L126 100 L127 113 L129 113 Z" fill="${INK}" stroke="none"/>
+  <path d="M48 86 L92 99 M152 86 L108 99" stroke-width="7.5"/>
+  <path d="M36 122 L52 126 M40 132 L54 134 M164 122 L148 126 M160 132 L146 134" stroke-width="2.5"/>
+  ${o.king ? `
+  <path d="M60 62 L64 18 L84 40 L100 6 L116 40 L136 18 L140 62 Z" fill="#f5b81c"/>
+  <path d="M100 6 L116 40 L136 18 L140 62 L112 62 Z" fill="#c98a0a" stroke="none"/>
+  <path d="M60 52 L140 52 L140 64 L60 64 Z" fill="#e0a312"/>
+  <circle cx="100" cy="30" r="5.5" fill="#e0212f" stroke-width="3"/>
+  <circle cx="80" cy="58" r="3.5" fill="#2fb8ff" stroke-width="2.5"/><circle cx="100" cy="58" r="3.5" fill="#e0212f" stroke-width="2.5"/><circle cx="120" cy="58" r="3.5" fill="#2fb8ff" stroke-width="2.5"/>
+  <path d="M138 76 L122 126" stroke="#ff9a9a" stroke-width="4"/>
+  <path d="M128 88 L137 92 M125 100 L134 104 M121 112 L130 116" stroke="#ff9a9a" stroke-width="2.5"/>` : ''}
+</g>`;
+}
+
+const ART = {
+wolf: () => wolfArt({fur:'#7b8496', shade:'#4b5263', muzzle:'#d8d2c4', mshade:'#b3ab9a', ear:'#9b4a5a', eye:'#ffd23f'}),
+king: () => wolfArt({fur:'#3a3e4e', shade:'#1f222c', muzzle:'#8f93a3', mshade:'#6d7080', ear:'#6e2130', eye:'#ff4d3d', king:true}),
+seer: () => `
+<circle cx="100" cy="186" r="64" fill="url(#seerGlow)"/>
+<g ${S}>
+  <path d="M26 222 C22 150 40 80 100 36 C160 80 178 150 174 222 Z" fill="#4a2c82"/>
+  <path d="M100 36 C160 80 178 150 174 222 L148 222 C154 160 142 92 100 36 Z" fill="#30195a" stroke="none"/>
+  <path d="M60 122 C58 84 78 64 100 62 C122 64 142 84 140 122 C140 152 124 170 100 174 C76 170 60 152 60 122 Z" fill="#170c2e"/>
+  <path d="M66 142 C60 108 72 84 96 78 C84 96 80 118 84 152 Z" fill="#dcd6f0"/>
+  <path d="M134 142 C140 108 128 84 104 78 C116 96 120 118 116 152 Z" fill="#b9b1d6"/>
+  <path d="M76 112 C76 90 88 80 100 80 C112 80 124 90 124 112 C124 134 114 150 100 152 C86 150 76 134 76 112 Z" fill="#f0c9a4"/>
+  <path d="M110 82 C120 88 124 98 124 112 C124 134 114 150 100 152 C112 140 118 112 110 82 Z" fill="#d7a37e" stroke="none"/>
+  <path d="M60 122 C58 84 78 64 100 62 C122 64 142 84 140 122" fill="none" stroke="#e7b84a" stroke-width="4"/>
+  <path d="M89 93 Q100 85 111 93 Q100 101 89 93 Z" fill="#f5d36a" stroke-width="2.5"/>
+  <circle cx="100" cy="93" r="3.2" fill="#2ad8ff" stroke="none" filter="url(#glow)"/>
+  <g filter="url(#glow)">
+    <path d="M82 114 Q89 108 96 114 Q89 118 82 114 Z" fill="#a8f8ff" stroke-width="2.5"/>
+    <path d="M104 114 Q111 108 118 114 Q111 118 104 114 Z" fill="#a8f8ff" stroke-width="2.5"/>
+  </g>
+  <path d="M81 105 Q89 100 96 104 M104 104 Q111 100 119 105" fill="none" stroke-width="3"/>
+  <path d="M100 118 L96 130 L102 131" fill="none" stroke-width="2.5"/>
+  <path d="M93 140 Q100 143 107 140" fill="none" stroke-width="3"/>
+  <path d="M42 222 C50 192 74 176 100 176 C126 176 150 192 158 222 Z" fill="#5b3a99"/>
+  <path d="M68 186 L100 202 L132 186" fill="none" stroke="#e7b84a" stroke-width="5"/>
+  <path d="M56 206 C52 188 68 176 78 186 C84 196 78 214 66 214 Z" fill="#f0c9a4"/>
+  <path d="M144 206 C148 188 132 176 122 186 C116 196 122 214 134 214 Z" fill="#d7a37e"/>
+  <circle cx="100" cy="190" r="31" fill="url(#ballGrad)"/>
+  <path d="M84 194 C88 178 108 178 112 190 C114 200 100 204 96 196" fill="none" stroke="#fff" stroke-width="2.5" opacity=".7"/>
+  <ellipse cx="89" cy="178" rx="8" ry="4.5" fill="#fff" stroke="none" opacity=".9" transform="rotate(-30 89 178)"/>
+</g>
+<g fill="#fff3a8" stroke="${INK}" stroke-width="2"><path d="${sparkle(30,64,11)}"/><path d="${sparkle(172,56,8)}"/><path d="${sparkle(160,150,6)}"/><path d="${sparkle(40,160,6)}"/></g>`,
+witch: () => `
+<circle cx="40" cy="182" r="40" fill="url(#poisonGlow)"/>
+<circle cx="160" cy="182" r="40" fill="url(#cureGlow)"/>
+<g ${S}>
+  <path d="M48 100 C24 150 38 196 22 222 L178 222 C162 196 176 150 152 100 Z" fill="#3a1f4d"/>
+  <path d="M130 100 L152 100 C176 150 162 196 178 222 L148 222 C152 180 150 130 130 100 Z" fill="#26123a" stroke="none"/>
+  <path d="M52 222 L64 166 L100 186 L136 166 L148 222 Z" fill="#4a1d66"/>
+  <path d="M90 138 L110 138 L112 174 L100 182 L88 174 Z" fill="#e2cbbb"/>
+  <path d="M74 98 C74 84 86 78 100 78 C114 78 126 84 126 98 C126 124 116 142 100 144 C84 142 74 124 74 98 Z" fill="#f1e0d4"/>
+  <path d="M114 80 C122 84 126 90 126 98 C126 124 116 142 100 144 C114 132 120 108 114 80 Z" fill="#dcc3b3" stroke="none"/>
+  <path d="M72 100 C78 88 90 86 98 82 C102 92 116 88 128 100 L130 92 C122 78 78 78 70 92 Z" fill="#3a1f4d"/>
+  <path d="M81 109 Q88 103 96 108" fill="none" stroke-width="4.5"/>
+  <path d="M104 108 Q112 103 119 109" fill="none" stroke-width="4.5"/>
+  <path d="M83 109 Q89 115 95 109 Z" fill="#6dff7f" stroke-width="2" filter="url(#glow)"/>
+  <path d="M105 109 Q111 115 117 109 Z" fill="#6dff7f" stroke-width="2" filter="url(#glow)"/>
+  <circle cx="89" cy="110.5" r="1.8" fill="${INK}" stroke="none"/><circle cx="111" cy="110.5" r="1.8" fill="${INK}" stroke="none"/>
+  <path d="M81 109 L75 104 M119 109 L125 104" stroke-width="3"/>
+  <path d="M80 97 Q88 90 97 96 M103 96 Q112 90 120 97" fill="none" stroke-width="3"/>
+  <path d="M100 113 L96 123 L101 124" fill="none" stroke-width="2.5"/>
+  <path d="M89 130 Q101 137 113 127" fill="none" stroke="#b3122a" stroke-width="4.5"/>
+  <path d="M113 127 L116 124" stroke-width="2.5"/>
+  <circle cx="117" cy="133" r="1.7" fill="${INK}" stroke="none"/>
+  <path d="M22 92 C38 72 162 72 178 92 C162 106 38 106 22 92 Z" fill="#1e3a2f"/>
+  <path d="M58 86 C66 56 86 34 110 8 C118 0 132 4 124 12 C114 28 126 52 144 86 Z" fill="#244a3b"/>
+  <path d="M110 8 C118 0 132 4 124 12 C114 28 126 52 144 86 L126 86 C118 60 112 34 110 8 Z" fill="#163026" stroke="none"/>
+  <path d="M60 76 C88 84 116 84 142 76 L145 88 C116 96 88 96 58 88 Z" fill="#7a2fa0"/>
+  <rect x="92" y="80" width="16" height="12" fill="none" stroke="#f5b81c" stroke-width="3.5"/>
+  <path d="M34 146 L46 146 L46 158 C60 162 66 176 62 188 C58 202 22 202 18 188 C14 176 20 162 34 158 Z" fill="url(#poison)"/>
+  <rect x="31" y="138" width="18" height="10" rx="2" fill="#8b5a2b" stroke-width="3"/>
+  <circle cx="40" cy="180" r="8" fill="#fff" stroke-width="2.5"/>
+  <circle cx="37" cy="179" r="2" fill="${INK}" stroke="none"/><circle cx="43" cy="179" r="2" fill="${INK}" stroke="none"/>
+  <path d="M36 188 L44 188" stroke-width="2"/>
+  <path d="M154 146 L166 146 L166 158 C180 162 186 176 182 188 C178 202 142 202 138 188 C134 176 140 162 154 158 Z" fill="url(#cure)"/>
+  <rect x="151" y="138" width="18" height="10" rx="2" fill="#8b5a2b" stroke-width="3"/>
+  <path d="M160 188 C150 180 152 172 156 172 C158 172 160 174 160 176 C160 174 162 172 164 172 C168 172 170 180 160 188 Z" fill="#fff" stroke-width="2.5"/>
+</g>
+<g fill="#cfffd0" opacity=".8"><circle cx="30" cy="128" r="3"/><circle cx="46" cy="118" r="2"/><circle cx="38" cy="106" r="2.6"/></g>
+<g fill="#ffd0da" opacity=".8"><circle cx="170" cy="128" r="3"/><circle cx="156" cy="118" r="2"/><circle cx="164" cy="106" r="2.6"/></g>`,
+hunter: () => `
+<g ${S}>
+  <path d="M24 222 C30 184 62 168 100 166 C138 168 170 184 176 222 Z" fill="#6b3f1f"/>
+  <path d="M120 168 C148 172 170 186 176 222 L136 222 C140 200 134 180 120 168 Z" fill="#4a2a12" stroke="none"/>
+  <path d="M84 168 L100 196 L116 168 Z" fill="#b3202a"/>
+  <path d="M90 176 L110 176 M94 184 L106 184" stroke="#5c0f16" stroke-width="2.5"/>
+  <path d="M54 176 C66 166 76 164 86 166 L100 196 L74 190 L62 200 Z" fill="#e9dcc0"/>
+  <path d="M146 176 C134 166 124 164 114 166 L100 196 L126 190 L138 200 Z" fill="#d4c6a6"/>
+  <path d="M86 146 L114 146 L116 170 L84 170 Z" fill="#c48d5f"/>
+  <ellipse cx="66" cy="118" rx="6" ry="9" fill="#d9a679"/>
+  <ellipse cx="134" cy="118" rx="6" ry="9" fill="#c48d5f"/>
+  <path d="M68 96 L132 96 L134 128 C130 150 116 162 100 162 C84 162 70 150 66 128 Z" fill="#d9a679"/>
+  <path d="M118 96 L132 96 L134 128 C130 150 116 162 100 162 C116 150 122 128 118 96 Z" fill="#b98457" stroke="none"/>
+  <path d="M68 96 L132 96 L133 110 C112 104 88 104 67 110 Z" fill="#9c6a40" stroke="none"/>
+  <path d="M68 124 C72 150 88 164 100 164 C112 164 128 150 132 124 C124 140 112 144 100 144 C88 144 76 140 68 124 Z" fill="#4a2e1a"/>
+  <path d="M83 133 C90 126 98 128 100 131 C102 128 110 126 117 133 C110 137 104 136 100 135 C96 136 90 137 83 133 Z" fill="#3a2212"/>
+  <path d="M93 142 Q100 145 107 142" fill="none" stroke-width="2.5"/>
+  <path d="M77 114 L95 116" stroke-width="4.5"/>
+  <ellipse cx="111" cy="115" rx="7.5" ry="5" fill="#fff" stroke-width="3"/>
+  <circle cx="112" cy="115" r="3" fill="${INK}" stroke="none"/>
+  <path d="M74 106 L97 111 M103 110 L125 104" stroke-width="5.5"/>
+  <path d="M100 112 L95 127 L104 127" fill="none" stroke-width="3"/>
+  <path d="M121 120 L129 133 M121 126 L126 124 M124 131 L129 129" stroke="#7a2a1a" stroke-width="2.5"/>
+  <path d="M20 100 C44 82 156 82 180 100 C156 112 44 112 20 100 Z" fill="#5a3a1a"/>
+  <path d="M60 94 C58 62 74 46 100 46 C126 46 142 62 140 94 Z" fill="#6e4723"/>
+  <path d="M112 47 C132 52 142 68 140 94 L122 94 C124 74 120 58 112 47 Z" fill="#53341a" stroke="none"/>
+  <path d="M84 50 Q100 62 116 50" fill="none" stroke-width="3"/>
+  <path d="M60 82 C86 88 114 88 140 82 L140 94 C114 100 86 100 60 94 Z" fill="#2b1a0c"/>
+  <path d="M136 88 C150 60 170 44 190 36 C178 56 164 78 140 94 Z" fill="#c4202f"/>
+  <path d="M140 92 C156 72 170 56 186 40" fill="none" stroke-width="2"/>
+  <g transform="rotate(-24 100 198)">
+    <path d="M4 192 L62 184 L66 208 L12 216 Z" fill="#8b5a2b"/>
+    <path d="M14 200 L56 194" stroke="#5c3a18" stroke-width="2.5"/>
+    <path d="M62 184 L110 184 L110 200 L66 202 Z" fill="#3b3b44"/>
+    <path d="M110 186 L206 186 L206 196 L110 196 Z" fill="#6b707c"/>
+    <path d="M110 191 L206 191" stroke-width="2"/>
+    <path d="M78 202 L84 214 L92 202" fill="none" stroke-width="3"/>
+    <path d="M118 196 C116 186 132 182 138 190 C142 198 134 210 124 208 Z" fill="#d9a679"/>
+    <path d="M68 200 C66 190 82 186 88 194 C92 202 84 212 74 210 Z" fill="#c48d5f"/>
+  </g>
+</g>`,
+knight: () => `
+<g ${S}>
+  <path d="M22 222 C28 180 62 162 100 160 C138 162 172 180 178 222 Z" fill="#1f3f8a"/>
+  <path d="M120 162 C150 168 172 184 178 222 L140 222 C142 196 136 176 120 162 Z" fill="#142b63" stroke="none"/>
+  <path d="M92 176 L108 176 L108 190 L124 190 L124 204 L108 204 L108 222 L92 222 L92 204 L76 204 L76 190 L92 190 Z" fill="#f5b81c"/>
+  <path d="M22 190 C24 162 50 150 72 158 C68 176 50 188 22 190 Z" fill="#c3ccd6"/>
+  <path d="M30 184 C36 170 50 164 62 164" fill="none" stroke-width="2.5"/>
+  <path d="M178 190 C176 162 150 150 128 158 C132 176 150 188 178 190 Z" fill="#8a96a4"/>
+  <path d="M62 146 L138 146 L134 168 C118 174 82 174 66 168 Z" fill="#9aa5b1"/>
+  <path d="M100 48 C86 22 96 4 122 0 C112 12 130 16 118 30 C128 30 134 38 120 48 Z" fill="#c4202f"/>
+  <path d="M104 44 C98 30 104 16 114 8 M110 46 C110 36 116 30 122 28" fill="none" stroke="#7d0f1a" stroke-width="2.5"/>
+  <path d="M56 146 L56 88 C56 60 76 44 100 44 C124 44 144 60 144 88 L144 146 C130 156 70 156 56 146 Z" fill="#c3ccd6"/>
+  <path d="M110 46 C130 52 144 68 144 88 L144 146 C136 152 124 154 116 154 C126 120 124 72 110 46 Z" fill="#7f8b99" stroke="none"/>
+  <path d="M66 72 C70 60 80 52 88 50 C80 62 74 78 72 98 L66 98 Z" fill="#fff" stroke="none" opacity=".8"/>
+  <path d="M100 46 L100 98" stroke-width="3"/>
+  <path d="M62 100 L138 100 L138 111 L106 111 L106 142 L94 142 L94 111 L62 111 Z" fill="${INK}"/>
+  <g filter="url(#glow)"><ellipse cx="80" cy="105.5" rx="8" ry="2.6" fill="#bfe8ff"/><ellipse cx="120" cy="105.5" rx="8" ry="2.6" fill="#bfe8ff"/></g>
+  <g fill="${INK}" stroke="none"><circle cx="80" cy="124" r="2.6"/><circle cx="80" cy="133" r="2.6"/><circle cx="120" cy="124" r="2.6"/><circle cx="120" cy="133" r="2.6"/></g>
+  <g fill="#f5b81c" stroke-width="2"><circle cx="64" cy="140" r="3"/><circle cx="136" cy="140" r="3"/><circle cx="64" cy="84" r="3"/><circle cx="136" cy="84" r="3"/></g>
+  <path d="M161 46 L175 46 L175 166 L161 166 Z" fill="#e4eaf1"/>
+  <path d="M161 46 L168 22 L175 46 Z" fill="#e4eaf1"/>
+  <path d="M168 34 L168 160" stroke="#9aa5b1" stroke-width="2.5"/>
+  <path d="M146 166 L190 166 L186 177 L150 177 Z" fill="#f5b81c"/>
+  <rect x="163" y="177" width="10" height="24" fill="#5a3412"/>
+  <circle cx="168" cy="206" r="6.5" fill="#f5b81c"/>
+  <path d="M152 182 C152 172 184 172 184 183 L184 196 C184 203 152 203 152 196 Z" fill="#9aa5b1"/>
+  <path d="M160 182 L160 200 M168 182 L168 200 M176 182 L176 200" stroke-width="2"/>
+</g>`
+};
+
+const ROLES = [
+  {id:'wolf',   name:'狼人',  en:'WEREWOLF',  bg:'#16224f', bg2:'#2c4596', tilt:'-3deg', line:'嗷嗚——今晚就從 {n} 號開始，{d}輪流說吧。'},
+  {id:'king',   name:'狼王',  en:'WOLF KING', bg:'#4a0c12', bg2:'#a3202a', tilt:'2deg',  line:'本王下令：{n} 號先開口，{d}發言，誰敢違抗？'},
+  {id:'hunter', name:'獵人',  en:'HUNTER',    bg:'#4d2c10', bg2:'#b5651c', tilt:'-1.5deg',line:'槍口已經對準了——{n} 號，你先說，接著{d}。'},
+  {id:'seer',   name:'預言家',en:'SEER',      bg:'#26114f', bg2:'#6a3cbc', tilt:'2.5deg', line:'水晶球顯示……命運選中了 {n} 號，{d}依序發言。'},
+  {id:'witch',  name:'女巫',  en:'WITCH',     bg:'#0f3426', bg2:'#2a8f55', tilt:'-2deg',  line:'藥水冒泡了——{n} 號先發言，{d}傳下去。'},
+  {id:'knight', name:'騎士',  en:'KNIGHT',    bg:'#122444', bg2:'#4f74ae', tilt:'1.5deg', line:'以騎士之名！{n} 號請起身發言，{d}進行。'},
+];
+
+function sunburst(color){
+  let d = '';
+  for (let i = 0; i < 18; i++){
+    const a0 = (i*20) * Math.PI/180, a1 = (i*20+10) * Math.PI/180;
+    d += `M100 120 L${100+320*Math.sin(a0)} ${120-320*Math.cos(a0)} L${100+320*Math.sin(a1)} ${120-320*Math.cos(a1)} Z `;
+  }
+  return `<path d="${d}" fill="${color}" opacity=".55"/>`;
+}
+const sprite = document.getElementById('sprite').parentNode;
+ROLES.forEach(r => {
+  const sym = document.createElementNS(NS, 'symbol');
+  sym.id = 'art-' + r.id;
+  sym.setAttribute('viewBox', '0 0 200 220');
+  sym.innerHTML = `<rect width="200" height="220" fill="${r.bg}"/>${sunburst(r.bg2)}<rect width="200" height="220" fill="url(#dots)"/>${ART[r.id]()}`;
+  sprite.appendChild(sym);
+});
+const portrait = id => `<svg viewBox="0 0 200 220" aria-hidden="true"><use href="#art-${id}"/></svg>`;
+function card(r){
+  return `<figure class="role-card" data-role="${r.id}" style="--tilt:${r.tilt}">${portrait(r.id)}<figcaption><b>${r.name}</b><span>${r.en}</span></figcaption></figure>`;
+}
+$('#rosterL').innerHTML = ROLES.slice(0,3).map(card).join('');
+$('#rosterR').innerHTML = ROLES.slice(3).map(card).join('');
+
+/* ───────── 星星 ───────── */
+(() => {
+  const box = $('#stars'); let html = '';
+  for (let i = 0; i < 90; i++){
+    const s = 1 + rand01()*2.2;
+    html += `<i class="star" style="left:${rand01()*100}%;top:${rand01()*62}%;width:${s}px;height:${s}px;--d:${2+rand01()*4}s;--dl:-${rand01()*5}s"></i>`;
+  }
+  box.innerHTML = html;
+})();
+
+/* ───────── 速度線、方向環 ───────── */
+(() => {
+  let d = '';
+  for (let i = 0; i < 44; i++){
+    const a = i/44*Math.PI*2 + rand01()*0.05, w = 0.012 + rand01()*0.02, r0 = 250 + rand01()*20, r1 = 300;
+    d += `M${r0*Math.sin(a-w)} ${-r0*Math.cos(a-w)} L${r1*Math.sin(a)} ${-r1*Math.cos(a)} L${r0*Math.sin(a+w)} ${-r0*Math.cos(a+w)} Z `;
+  }
+  $('#speed').innerHTML = `<path d="${d}" fill="#f3ead2"/>`;
+})();
+function buildOrbit(dir){
+  const k = dir === 'cw' ? 1 : -1;
+  let ring = `<circle r="252" fill="none" stroke="#f5b81c" stroke-width="4" stroke-dasharray="6 12" opacity=".7"/>`;
+  for (let i = 0; i < 8; i++){
+    ring += `<g transform="rotate(${i*45})"><path d="M${-18*k} -266 L${20*k} -252 L${-18*k} -238 L${-8*k} -252 Z" fill="#f5b81c" stroke="#0d0b12" stroke-width="3.5" stroke-linejoin="round"/></g>`;
+  }
+  $('#orbitRing').innerHTML = ring;
+}
+
+/* ───────── 轉盤 ───────── */
+const SEG_COLORS = ['#a3202a', '#1b2550'];
+const pt = (r, deg) => { const a = deg*Math.PI/180; return `${(r*Math.sin(a)).toFixed(2)} ${(-r*Math.cos(a)).toFixed(2)}`; };
+let N = 12;
+function buildWheel(n){
+  const g = $('#segments'), R = 222, s = 360/n;
+  const size = n <= 8 ? 66 : Math.max(24, 66 - (n-8)*2.1);
+  const rLabel = n <= 8 ? R*0.7 : R*0.78;
+  let html = '';
+  for (let i = 0; i < n; i++){
+    let fill = SEG_COLORS[i % 2];
+    if (n % 2 === 1 && i === n-1) fill = '#5a3a18';
+    const a0 = i*s, a1 = (i+1)*s;
+    html += `<path class="seg" data-i="${i}" d="M0 0 L${pt(R,a0)} A${R} ${R} 0 ${s > 180 ? 1 : 0} 1 ${pt(R,a1)} Z" fill="${fill}" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>`;
+    html += `<path d="M0 0 L${pt(R*0.98,a0+s*0.08)} A${R*0.98} ${R*0.98} 0 0 1 ${pt(R*0.98,a0+s*0.42)} Z" fill="#fff" opacity=".07"/>`;
+    // 6 和 9 加底線（撞球慣例）：轉到倒過來也分得出來
+    const under = (i+1 === 6 || i+1 === 9)
+      ? `<rect x="${-size*0.26}" y="${-rLabel + size*0.42}" width="${size*0.52}" height="${Math.max(4, size*0.1)}" rx="2" fill="#efe3c8" stroke="${INK}" stroke-width="2.5"/>` : '';
+    html += `<g transform="rotate(${a0 + s/2})"><text class="seg-label" y="${-rLabel}" font-size="${size}" stroke-width="${Math.max(5, size/9)}">${i+1}</text>${under}</g>`;
+  }
+  g.innerHTML = html;
+  let studs = '';
+  for (let i = 0; i < n; i++){
+    studs += `<circle cx="${(229*Math.sin(i*s*Math.PI/180)).toFixed(2)}" cy="${(-229*Math.cos(i*s*Math.PI/180)).toFixed(2)}" r="5" fill="#f5b81c" stroke="${INK}" stroke-width="2.5"/>`;
+  }
+  $('#studs').innerHTML = studs;
+}
+
+/* ───────── 音效（WebAudio 合成，無外部檔） ───────── */
+let actx = null, soundOn = true;
+function ac(){ if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (C) actx = new C(); } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+function tick(){
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+  o.type = 'square'; o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(500, t+0.03);
+  g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.04);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t+0.05);
+}
+function boom(){
+  if (!soundOn) return; const a = ac(); if (!a) return; const t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(38, t+0.6);
+  g.gain.setValueAtTime(0.55, t); g.gain.exponentialRampToValueAtTime(0.0001, t+0.8);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t+0.85);
+  const len = a.sampleRate*0.3, buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) ch[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
+  const n = a.createBufferSource(), ng = a.createGain(), f = a.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = 1200; n.buffer = buf; ng.gain.value = 0.35;
+  n.connect(f).connect(ng).connect(a.destination); n.start(t);
+}
+function howl(){
+  if (!soundOn) return; const a = ac(); if (!a) return; const t = a.currentTime + 0.25;
+  const master = a.createGain(); master.gain.setValueAtTime(0.0001, t);
+  master.gain.exponentialRampToValueAtTime(0.13, t+0.35); master.gain.setValueAtTime(0.13, t+1.3); master.gain.exponentialRampToValueAtTime(0.0001, t+2.4);
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.8;
+  master.connect(f).connect(a.destination);
+  [0, 7].forEach(det => {
+    const o = a.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+    o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(620, t+0.5);
+    o.frequency.setValueAtTime(620, t+1.2); o.frequency.exponentialRampToValueAtTime(420, t+2.3);
+    const lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = 5.5; lg.gain.value = 9;
+    lfo.connect(lg).connect(o.frequency);
+    o.connect(master); o.start(t); lfo.start(t); o.stop(t+2.5); lfo.stop(t+2.5);
+  });
+}
+
+/* ───────── 狀態與儲存 ───────── */
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem(k, v); } catch {} }
+};
+const input = $('#players');
+function clampN(v){ if (v === null || String(v).trim() === '') return null; v = Math.round(Number(v)); return Number.isFinite(v) ? Math.min(MAX, Math.max(MIN, v)) : null; }
+function setN(v, fromTyping){
+  const c = clampN(v);
+  if (c === null){ $('#err').textContent = `請輸入 ${MIN}～${MAX} 的人數`; return false; }
+  $('#err').textContent = (fromTyping && Number(v) !== c) ? `人數範圍是 ${MIN}～${MAX}，已調整為 ${c} 人` : '';
+  N = c; if (!fromTyping || Number(v) !== c) input.value = c;
+  store.set('ww-players', String(c));
+  document.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.n) === c)));
+  buildWheel(c); hideOrbit();
+  return true;
+}
+$('#minus').onclick = () => !spinning && setN(N - 1);
+$('#plus').onclick = () => !spinning && setN(N + 1);
+document.querySelectorAll('.chip').forEach(b => b.onclick = () => !spinning && setN(b.dataset.n));
+input.addEventListener('change', () => setN(input.value, true));
+input.addEventListener('input', () => { const v = Number(input.value); if (input.value !== '' && v >= MIN && v <= MAX && Number.isInteger(v)) setN(v, true); });
+
+const soundBtn = $('#soundBtn');
+function renderSound(){
+  soundBtn.setAttribute('aria-pressed', String(soundOn));
+  soundBtn.setAttribute('aria-label', soundOn ? '音效：開' : '音效：關');
+  soundBtn.querySelector('.wave').style.display = soundOn ? '' : 'none';
+  soundBtn.querySelector('.mute').style.display = soundOn ? 'none' : '';
+}
+soundBtn.onclick = () => { soundOn = !soundOn; store.set('ww-sound', soundOn ? '1' : '0'); renderSound(); if (soundOn) tick(); };
+soundOn = store.get('ww-sound') !== '0'; renderSound();
+
+/* ───────── 轉動 ───────── */
+let rot = 0, spinning = false;
+const spinEl = $('#wheelSpin'), zone = $('#wheelZone'), pointer = $('#pointer');
+const mod = (a, m) => ((a % m) + m) % m;
+const ease = t => 1 - Math.pow(1 - t, 3.4);
+function hideOrbit(){ $('#orbit').classList.remove('show','cw','ccw'); document.querySelectorAll('.seg.win').forEach(e => e.classList.remove('win')); const hl = document.getElementById('winHL'); if (hl) hl.remove(); }
+
+function spin(){
+  if (spinning) return;
+  if (!setN(input.value, true)) return;
+  ac();
+  spinning = true; hideOrbit(); closeReveal(true);
+  $('#spinBtn').disabled = true; $('#spinLabel').textContent = '命運轉動中…';
+  zone.classList.add('spinning'); document.body.classList.add('is-spinning');
+  const n = N, s = 360/n, pick = randInt(n), dir = randInt(2) === 0 ? 'cw' : 'ccw';
+  const center = pick*s + s/2 + (rand01() - 0.5)*s*0.6;
+  const start = rot;
+  let target = start - mod(start, 360) + 360*6 + mod(-center, 360);
+  while (target - start < 360*5.5) target += 360;
+  const t0 = performance.now();
+  let lastIdx = Math.floor(start / s), finished = false;
+  const finish = () => { if (finished) return; finished = true; rot = target; spinEl.style.transform = `rotate(${rot}deg)`; done(pick + 1, dir); };
+  setTimeout(finish, SPIN_MS + 40);
+  function frame(now){
+    if (finished) return;
+    const t = Math.min(1, (now - t0) / SPIN_MS);
+    rot = start + (target - start) * ease(t);
+    spinEl.style.transform = `rotate(${rot}deg)`;
+    const idx = Math.floor((rot + s/2) / s);
+    if (idx !== lastIdx){ lastIdx = idx; tick(); pointer.animate([{transform:'translateX(-50%) rotate(-16deg)'},{transform:'translateX(-50%) rotate(0deg)'}], {duration:140, easing:'ease-out'}); }
+    if (t < 1) requestAnimationFrame(frame); else finish();
+  }
+  requestAnimationFrame(frame);
+}
+
+function done(num, dir){
+  spinning = false;
+  zone.classList.remove('spinning'); document.body.classList.remove('is-spinning');
+  $('#spinBtn').disabled = false; $('#spinLabel').textContent = '再轉一次';
+  const seg = document.querySelector(`.seg[data-i="${num-1}"]`);
+  if (seg){ seg.classList.add('win'); const hl = seg.cloneNode(); hl.removeAttribute('class'); hl.id = 'winHL';
+    hl.setAttribute('fill', 'none'); hl.setAttribute('stroke', '#f5b81c'); hl.setAttribute('stroke-width', '9'); $('#segments').appendChild(hl); }
+  buildOrbit(dir); $('#orbit').classList.add('show', dir);
+  const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  boom(); howl();
+  if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate([60, 40, 120]);
+  const m = document.querySelector('main'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake');
+  showReveal(num, dir);
+}
+
+/* ───────── 揭曉畫面 ───────── */
+function burstPoints(rx, ry, spikes, jag){
+  const pts = [];
+  for (let i = 0; i < spikes*2; i++){
+    const a = i/(spikes*2)*Math.PI*2, out = i % 2 === 0;
+    const k = out ? 1 - rand01()*0.08 : jag + rand01()*0.08;
+    pts.push(`${(Math.cos(a)*rx*k).toFixed(1)},${(Math.sin(a)*ry*k).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+function arrowPaths(dir){
+  // 順時針 270° 圓弧，終點加箭頭；逆時針用左右鏡射
+  const r = 14, a0 = 40, a1 = 300, rad = d => d*Math.PI/180;
+  const P = a => [r*Math.sin(rad(a)), -r*Math.cos(rad(a))];
+  const [sx, sy] = P(a0), [ex, ey] = P(a1);
+  const tx = Math.cos(rad(a1)), ty = Math.sin(rad(a1));        // 順時針前進方向
+  const nx = Math.sin(rad(a1)), ny = -Math.cos(rad(a1));       // 往外的法線
+  const tip = [ex + tx*9, ey + ty*9], b1 = [ex + nx*8, ey + ny*8], b2 = [ex - nx*8, ey - ny*8];
+  const f = v => v.toFixed(2);
+  return {
+    arc: `M${f(sx)} ${f(sy)} A${r} ${r} 0 1 1 ${f(ex)} ${f(ey)}`,
+    head: `M${f(tip[0])} ${f(tip[1])} L${f(b1[0])} ${f(b1[1])} L${f(b2[0])} ${f(b2[1])} Z`,
+    flip: dir === 'ccw'
+  };
+}
+function sequence(num, dir, n){
+  const list = [], step = dir === 'cw' ? 1 : -1;
+  for (let k = 0; k < n; k++) list.push(mod(num - 1 + k*step, n) + 1);
+  if (n <= 6) return list.map((x,i) => i === 0 ? `<em>${x}</em>` : x).join(' → ');
+  return `<em>${list[0]}</em> → ${list[1]} → ${list[2]} → ${list[3]} → … → ${list[n-1]}`;
+}
+let lastFocus = null;
+function showReveal(num, dir){
+  const role = ROLES[randInt(ROLES.length)];
+  const dirText = dir === 'cw' ? '順時針' : '逆時針';
+  $('#burstPoly').setAttribute('points', burstPoints(160, 134, 13, 0.74));
+  $('#burstPoly2').setAttribute('points', burstPoints(118, 98, 13, 0.8));
+  $('#rNum').textContent = num;
+  const ap = arrowPaths(dir), dEl = $('#rDir');
+  $('#rDirArrow').setAttribute('d', ap.arc); $('#rDirHead').setAttribute('d', ap.head);
+  $('#rDirG').setAttribute('transform', ap.flip ? 'scale(-1 1)' : 'scale(1 1)');
+  dEl.className = 'dir ' + dir;
+  $('#rDirText').textContent = dirText + '發言';
+  $('#rSeq').innerHTML = `${sequence(num, dir, N)}<small>${dir === 'cw' ? '號碼往上數（＋1）' : '號碼往下數（−1）'}</small>`;
+  $('#rMini').innerHTML = portrait(role.id);
+  $('#rWho').textContent = role.name + '：';
+  $('#rLine').textContent = role.line.replace('{n}', num).replace('{d}', dirText);
+  $('#live').textContent = `${num} 號開始，${dirText}發言`;
+  const last = $('#last'); last.hidden = false;
+  last.innerHTML = `本輪：<strong>${num}</strong> 號開始・${dirText}`;
+  document.querySelectorAll('.role-card').forEach(c => c.classList.toggle('speaking', c.dataset.role === role.id));
+  lastFocus = document.activeElement;
+  $('#reveal').hidden = false;
+  $('#again').focus({preventScroll:true});
+}
+function closeReveal(silent){
+  const r = $('#reveal'); if (r.hidden) return;
+  r.hidden = true;
+  if (!silent && lastFocus && lastFocus.focus) lastFocus.focus({preventScroll:true});
+}
+$('#close').onclick = () => closeReveal();
+$('#again').onclick = () => { closeReveal(true); spin(); };
+$('#reveal').addEventListener('click', e => { if (e.target.id === 'reveal') closeReveal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReveal(); });
+
+$('#panel').addEventListener('submit', e => { e.preventDefault(); spin(); });
+$('#hub').onclick = spin;
+
+/* ───────── 啟動 ───────── */
+const saved = store.get('ww-players');
+setN(saved ? (clampN(saved) ?? 12) : 12);
+})();
+</script>
+</body>
+</html>
