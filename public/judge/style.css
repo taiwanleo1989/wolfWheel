@@ -92,7 +92,24 @@ h1 span{color:#fff2c4}
 .chip[aria-pressed="true"] small{color:#d8cfc0}
 .chip.ghost{box-shadow:none;border-style:dashed;color:var(--muted)}
 .chip.ghost[aria-pressed="true"]{border-style:solid}
-.roles{display:grid;gap:8px}
+.roles{display:grid;gap:14px}
+.faction{border:3px solid var(--ink);background:#fbf6e8;padding:10px 10px 12px;display:grid;gap:8px}
+.fhead{display:flex;align-items:baseline;justify-content:space-between;font-weight:900}
+.fhead > b{font-size:18px;letter-spacing:.08em}
+.fhead span{font-size:14px}
+.fhead .digits{font-size:22px}
+.f-wolf .fhead > b,.f-wolf .fhead .digits{color:var(--blood)}
+.f-god .fhead > b,.f-god .fhead .digits{color:#2c4596}
+.f-villager .fhead > b,.f-villager .fhead .digits{color:#4a6b22}
+.faction .hint.small{margin:2px 0 0}
+.toggles{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.toggle{display:grid;justify-items:center;gap:4px;padding:6px 4px;background:#fff;border:3px dashed #a8987f;color:var(--muted);font-weight:900;font-size:15px;position:relative}
+.toggle .thumb{width:48px;opacity:.45}
+.toggle .tick{position:absolute;top:2px;right:6px;font-size:16px}
+.toggle.on{border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);color:var(--ink);background:#fff7d6}
+.toggle.on .thumb{opacity:1}
+.f-wolf .toggle.on .tick{color:var(--blood)}
+.f-god .toggle.on .tick{color:#2c4596}
 .role-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;padding:4px;border:2px solid transparent;opacity:.55}
 .role-row.on{opacity:1;background:#fff;border-color:var(--ink)}
 .thumb{width:44px;border:2px solid var(--ink);background:var(--ink);line-height:0}

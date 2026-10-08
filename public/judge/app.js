@@ -92,20 +92,36 @@ function renderSetup() {
   setHTML($('#presets'), PRESETS.map(p =>
     `<button type="button" class="chip" data-preset="${p.id}" aria-pressed="${s.preset === p.id}">${p.name}<small>${p.players} 人</small></button>`).join('') +
     `<span class="chip ghost" aria-pressed="${!s.preset}">自訂</span>`);
-  setHTML($('#roleRows'), ROLE_ORDER.map(id => {
-    const n = s.counts[id] ?? 0, r = ROLES[id];
-    return `<div class="role-row${n ? ' on' : ''}">
-      <div class="thumb">${portrait(id)}</div>
-      <div class="rname"><b>${r.name}</b><small class="team-${r.team}">${TEAM_NAME[r.team]}</small></div>
-      <div class="stepper sm">
-        <button type="button" data-role="${id}" data-d="-1" aria-label="${r.name}少一個"${n === 0 ? ' disabled' : ''}>−</button>
-        <span class="digits">${n}</span>
-        <button type="button" data-role="${id}" data-d="1" aria-label="${r.name}多一個"${r.unique && n >= 1 ? ' disabled' : ''}>+</button>
-      </div></div>`;
+  // 依陣營分三組（狼／神／民）：可以有很多個的角色用 ＋／−，只能有一個的角色點一下加入或拿掉
+  const teamCount = team => ROLE_ORDER.filter(id => ROLES[id].team === team).reduce((a, id) => a + (s.counts[id] ?? 0), 0);
+  const FACTIONS = [['wolf', '狼人陣營'], ['god', '神職'], ['villager', '平民']];
+  setHTML($('#roleRows'), FACTIONS.map(([team, title]) => {
+    const ids = ROLE_ORDER.filter(id => ROLES[id].team === team);
+    const many = ids.filter(id => !ROLES[id].unique), single = ids.filter(id => ROLES[id].unique);
+    return `<div class="faction f-${team}">
+      <div class="fhead"><b>${title}</b><span>共 <b class="digits">${teamCount(team)}</b> 人</span></div>
+      ${many.map(id => {
+        const n = s.counts[id] ?? 0, r = ROLES[id];
+        return `<div class="role-row on">
+          <div class="thumb">${portrait(id)}</div>
+          <div class="rname"><b>${r.name}</b><small>${id === 'wolf' ? '普通狼人，可以有很多隻' : '沒有技能'}</small></div>
+          <div class="stepper sm">
+            <button type="button" data-role="${id}" data-d="-1" aria-label="${r.name}少一個"${n === 0 ? ' disabled' : ''}>−</button>
+            <span class="digits">${n}</span>
+            <button type="button" data-role="${id}" data-d="1" aria-label="${r.name}多一個">+</button>
+          </div></div>`;
+      }).join('')}
+      ${single.length ? `<p class="hint small">${team === 'wolf' ? '特殊狼（點一下加入／拿掉）' : '點選這局要放的神'}</p>
+        <div class="toggles">${single.map(id => {
+          const on = (s.counts[id] ?? 0) > 0;
+          return `<button type="button" class="toggle${on ? ' on' : ''}" data-toggle="${id}" aria-pressed="${on}">
+            <span class="thumb">${portrait(id)}</span><b>${ROLES[id].name}</b><span class="tick">${on ? '✓' : '＋'}</span></button>`;
+        }).join('')}</div>` : ''}
+    </div>`;
   }).join(''));
   const total = totalOf(s.counts);
   const tot = $('#boardTotal');
-  tot.textContent = `角色 ${total}／座位 ${state.players}`;
+  tot.textContent = `狼 ${teamCount('wolf')}｜神 ${teamCount('god')}｜民 ${teamCount('villager')} ＝ ${total}／座位 ${state.players}`;
   tot.className = total === state.players ? 'ok' : 'bad';
 
   seg('#ruleWitch', [['never', '都不能'], ['first', '只有第一晚'], ['always', '每晚都能']], s.rules.witchSelfSave, v => sendSetup({ rules: { witchSelfSave: v } }));
@@ -349,9 +365,12 @@ $('#presets').addEventListener('click', e => {
   sendSetup({ preset: p.id, counts: p.counts });
 });
 $('#roleRows').addEventListener('click', e => {
-  const b = e.target.closest('[data-role]'); if (!b) return;
   const counts = { ...state.setup.counts };
-  counts[b.dataset.role] = Math.max(0, (counts[b.dataset.role] ?? 0) + Number(b.dataset.d));
+  const step = e.target.closest('[data-role]');   // 狼人、平民：＋／−
+  const tog = e.target.closest('[data-toggle]');  // 狼王、各神職：加入／拿掉
+  if (step) counts[step.dataset.role] = Math.max(0, (counts[step.dataset.role] ?? 0) + Number(step.dataset.d));
+  else if (tog) counts[tog.dataset.toggle] = (counts[tog.dataset.toggle] ?? 0) > 0 ? 0 : 1;
+  else return;
   sendSetup({ counts });
 });
 for (const b of document.querySelectorAll('[data-wait]')) {
