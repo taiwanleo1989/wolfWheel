@@ -1,6 +1,8 @@
 // 法官工具：M1 開房／加入／座位／重連，M2 設定板子／發牌／看身分
 import { ROLES, ROLE_ORDER, TEAM_NAME, PRESETS, totalOf } from '../shared/roles.js';
 import { installArt, portrait } from '../shared/art.js';
+import { renderGame, bindGame } from './game-ui.js';
+import { voice } from './voice.js';
 
 installArt();
 const $ = s => document.querySelector(s);
@@ -136,6 +138,18 @@ function render() {
   if (session.asHost && !state.you.isHost && !ui.warned) { ui.warned = true; toast('這個房間已經有主機了，你以玩家身分加入'); }
   if (state.you.role !== ui.lastRole) { ui.lastRole = state.you.role; ui.revealed = false; } // 重新發牌就重新蓋牌
   const lobby = state.phase === 'lobby';
+
+  // 對局中（黑夜／白天／結束）：大家共用對局畫面；主機負責出聲
+  if (state.game) {
+    show('game');
+    if (state.you.isHost) {
+      voice.onNarration(state.game.narration);
+      voice.setNight(state.phase === 'night');
+    }
+    renderGame({ state, $, setHTML, esc, send, toast, voice, render });
+    return;
+  }
+  document.body.classList.remove('is-night');
 
   if (state.you.isHost) {
     show('host');
@@ -346,6 +360,16 @@ for (const b of document.querySelectorAll('[data-wait]')) {
 $('#dealBtn').onclick = () => send({ type: 'deal' });
 $('#redealBtn').onclick = () => { if (confirm('重新發牌？每個人的身分都會換掉，要重新看一次。')) send({ type: 'redeal' }); };
 $('#backBtn').onclick = () => { if (confirm('回到設定？已經發出的身分會作廢。')) send({ type: 'backToSetup' }); };
+// 開始：這一下點擊同時解鎖語音（瀏覽器規定要使用者點過才能出聲）
+$('#startBtn').onclick = () => {
+  const notYet = state.players - (state.acked?.length ?? 0);
+  if (notYet > 0 && !confirm(`還有 ${notYet} 個人沒按「我看好了」，確定開始？`)) return;
+  voice.unlock();
+  voice.expectFresh();
+  send({ type: 'start' });
+};
+$('#voiceOn').onclick = () => { voice.unlock(); voice.onNarration(state?.game?.narration, { replay: true }); render(); };
+bindGame($);
 
 /* ───────── 啟動 ───────── */
 const roomParam = new URLSearchParams(location.search).get('room');

@@ -93,6 +93,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 main{position:relative;z-index:1;max-width:1240px;margin:0 auto;
   padding:max(16px,env(safe-area-inset-top)) 16px 40px}
 .topbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;position:relative}
+.judge-link{margin-right:auto;background:var(--paper);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
+  font-weight:900;font-size:15px;padding:6px 12px;text-decoration:none;letter-spacing:.06em;transform:rotate(-2deg)}
+.judge-link:active{transform:rotate(-2deg) translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
 /* 背景音樂：狼頭喇叭 */
 .bgm-btn{width:56px;height:56px;border-radius:50%;padding:0;display:grid;place-items:center;background:var(--paper);color:var(--ink);
   border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);position:relative}
@@ -352,6 +355,7 @@ main.shake{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
 
 <main>
   <div class="topbar">
+    <a class="judge-link" href="judge/">法官工具 →</a>
     <p class="bgm-hint" id="bgmHint" hidden>點一下畫面，音樂就會開始 ♪</p>
     <button class="bgm-btn on" id="bgmBtn" type="button" aria-pressed="true" aria-label="背景音樂：開" title="背景音樂">
       <svg viewBox="0 0 48 48" aria-hidden="true">

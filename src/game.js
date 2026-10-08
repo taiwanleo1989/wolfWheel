@@ -3,6 +3,7 @@
 // room.game  = { roles: {座位: 角色}, acked: {座位: true} } —— 秘密：只送出「你自己的」角色
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
+import * as E from './engine.js';
 
 export function withSetup(room) {
   if (room.setup) return room;
@@ -81,6 +82,8 @@ export function viewFor(room, online, clientId) {
     v.acked = Object.keys(r.game.acked).map(Number).sort((a, b) => a - b);
     const seat = v.you.seat;
     if (seat && r.game.roles[seat]) v.you.role = r.game.roles[seat];
+    v.game = E.publicGame(r);            // 對局開始後才有
+    v.you.game = E.privateGame(r, seat); // 只有自己的
   }
   return v;
 }

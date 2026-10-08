@@ -118,8 +118,8 @@
       </div>
       <div class="panel" id="hostMyRole" hidden></div>
       <div class="panel">
-        <button class="btn primary big" type="button" disabled>天黑請閉眼</button>
-        <p class="hint center">夜晚流程在下一個階段（M3）開放</p>
+        <button class="btn primary big" type="button" id="startBtn">天黑請閉眼（開始）</button>
+        <p class="hint center">按下後這支手機會開始用語音主持，請把音量調大、放在桌子中間。</p>
         <div class="row-gap">
           <button class="btn" type="button" id="redealBtn">重新發牌</button>
           <button class="btn" type="button" id="backBtn">回到設定</button>
@@ -162,6 +162,52 @@
     <div class="panel" id="hostGone" hidden>
       <p><b>主機離線了。</b>可以換一支手機接手當主機——主機看不到身分，誰接手都可以。</p>
       <button class="btn" type="button" id="takeHost">由我接手當主機</button>
+    </div>
+    <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
+  </section>
+
+  <!-- 對局畫面：黑夜／白天／結束，所有人共用，依身分顯示不同區塊 -->
+  <section class="screen" id="game" hidden>
+    <div class="game-head">
+      <span class="phase-tag" id="phaseTag">第 1 夜</span>
+      <span class="room-mini">房號 <b class="digits" id="gameCode">----</b><span id="seatMini"></span></span>
+    </div>
+
+    <div class="voice-bar" id="voiceBar" hidden>
+      <button class="btn primary" type="button" id="voiceOn">點這裡開啟主持語音</button>
+      <p class="hint center">瀏覽器規定要先點一下才能出聲（重新整理後也要再點一次）</p>
+    </div>
+
+    <div class="narration" id="narration"></div>
+
+    <!-- 結束：勝負 -->
+    <div class="panel winner" id="winnerBox" hidden></div>
+
+    <!-- 夜裡：沒輪到你時（每支手機都一樣） -->
+    <div class="night-cover" id="nightCover" hidden>
+      <div class="moon-icon" aria-hidden="true"></div>
+      <b>閉眼中…</b>
+      <small>輪到你時，這裡會出現按鈕</small>
+    </div>
+
+    <!-- 自己的動作：夜裡的角色操作、白天開槍、騎士決鬥 -->
+    <div class="panel action" id="actionBox" hidden></div>
+
+    <!-- 主機控制 -->
+    <div class="panel host-ctl" id="hostCtl" hidden></div>
+
+    <!-- 公開：存活座位與紀錄 -->
+    <div class="panel">
+      <h2>座位 <small id="aliveCount"></small></h2>
+      <div class="seats board" id="boardSeats"></div>
+    </div>
+
+    <!-- 自己的身分（點開才看） -->
+    <div class="panel" id="myInfo" hidden></div>
+
+    <div class="panel">
+      <h2>紀錄</h2>
+      <ol class="log" id="logList"></ol>
     </div>
     <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
   </section>

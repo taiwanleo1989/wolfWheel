@@ -3,6 +3,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import * as L from './lobby.js';
 import * as G from './game.js';
+import * as E from './engine.js';
 
 const IDLE_MS = 2 * 60 * 60 * 1000; // 最後一個人離開 2 小時後清掉房間
 
@@ -71,7 +72,8 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup'];
+    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame'];
+    const now = Date.now();
     if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
     let result;
     switch (msg.type) {
@@ -86,6 +88,15 @@ export class Room extends DurableObject {
       case 'redeal': result = G.redeal(this.room, rand); break;
       case 'backToSetup': result = G.backToSetup(this.room); break;
       case 'ack': result = G.ack(this.room, me.clientId); break;
+      // ── 對局（engine.js） ──
+      case 'start': result = E.startGame(this.room, now, rand); break;
+      case 'act': result = E.nightAction(this.room, me.clientId, msg.payload, online, now, rand); break;
+      case 'skip': result = E.skipStep(this.room, now, rand); break;
+      case 'shoot': result = E.shoot(this.room, me.clientId, msg.target); break;
+      case 'exile': result = E.exile(this.room, msg.target); break;
+      case 'duel': result = E.duel(this.room, me.clientId, msg.target); break;
+      case 'nextNight': result = E.nextNight(this.room, now); break;
+      case 'newGame': result = E.newGame(this.room); break;
       default: return;
     }
     if (!result.ok) return this.send(ws, { type: 'error', error: result.error });
@@ -100,13 +111,30 @@ export class Room extends DurableObject {
     try { ws.close(1000); } catch {}
     if (!this.room) return;
     this.broadcast(ws);
-    if (this.sockets(ws).length === 0) await this.ctx.storage.setAlarm(Date.now() + IDLE_MS);
+    await this.schedule();
+  }
+
+  // 鬧鐘只有一個：夜裡有計時（假等、停頓）就先處理計時；沒有的話用來清掉閒置房間
+  async schedule() {
+    const t = this.room?.game?.timer?.at;
+    await this.ctx.storage.setAlarm(t ?? Date.now() + IDLE_MS);
   }
 
   async alarm() {
-    if (this.sockets().length > 0) { await this.ctx.storage.setAlarm(Date.now() + IDLE_MS); return; }
-    await this.ctx.storage.deleteAll();
-    this.room = null;
+    if (!this.room) return;
+    const t = this.room.game?.timer?.at;
+    if (t) {
+      const r = E.advance(this.room, Math.max(Date.now(), t), rand);
+      this.room = r.room;
+      await this.touch();
+      return;
+    }
+    if (this.sockets().length === 0 && Date.now() - this.room.touchedAt >= IDLE_MS) {
+      await this.ctx.storage.deleteAll();
+      this.room = null;
+      return;
+    }
+    await this.schedule();
   }
 
   // ── 小工具 ──
@@ -124,6 +152,7 @@ export class Room extends DurableObject {
   async touch() {
     this.room = { ...this.room, touchedAt: Date.now() };
     await this.save();
+    await this.schedule();
     this.broadcast();
   }
 }

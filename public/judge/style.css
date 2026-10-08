@@ -149,6 +149,65 @@ h1 span{color:#fff2c4}
 .role-desc{font-weight:900;line-height:1.7;margin:12px 4px 16px;text-align:left}
 .acked-note{text-align:center;font-weight:900;color:#2f7a3a;margin:8px 0 0}
 
+/* M3／M4：對局 */
+body.is-night .bg{background:radial-gradient(circle,rgba(0,0,0,.35) 1px,transparent 1.4px) 0 0/6px 6px,radial-gradient(ellipse 80% 55% at 80% 0%,#1d2550 0%,#0b0f22 45%,#03040a 85%)}
+.game-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.phase-tag{background:var(--ink);color:var(--gold);border:3px solid var(--gold);font-weight:900;font-size:20px;padding:4px 14px;letter-spacing:.1em;box-shadow:4px 4px 0 var(--blood)}
+.room-mini{font-weight:900;color:#cfd6ff;font-size:14px;text-align:right}
+.room-mini b{font-size:20px;color:#fff2c4}
+.voice-bar{margin-top:16px;text-align:center}
+.narration{position:relative;margin:18px 0 0;background:#fff;color:var(--ink);border:4px solid var(--ink);border-radius:26px;box-shadow:6px 6px 0 var(--ink);
+  padding:16px 20px;font-weight:900;font-size:clamp(20px,5.6vw,26px);line-height:1.5;text-align:center;min-height:64px}
+.narration:empty{display:none}
+.narration::after{content:"";position:absolute;left:40px;bottom:-22px;border:12px solid transparent;border-top:18px solid var(--ink);border-bottom:0}
+.night-cover{margin-top:22px;display:grid;justify-items:center;gap:8px;padding:34px 16px;background:#05060f;border:4px solid #2a3260;color:#9aa6e0;text-align:center}
+.night-cover b{font-size:26px;letter-spacing:.2em;color:#cfd6ff}
+.night-cover small{font-weight:900}
+.moon-icon{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 38% 40%,#fffbe6,#f6e7b0 55%,#d9b85c);box-shadow:0 0 30px 6px rgba(246,231,176,.25)}
+.action h2{font-size:22px}
+.action h3,.host-ctl h3{margin:14px 0 4px;font-size:17px}
+.seats.pick{grid-template-columns:repeat(4,1fr)}
+.seat.chosen{background:var(--blood);box-shadow:3px 3px 0 var(--ink),0 0 0 4px var(--gold)}
+.seat.chosen .n{color:#fff}
+.seat.off{opacity:.35}
+.seat.dead{background:#3a3440;border-color:#3a3440}
+.seat.dead .n{color:#8a8090;text-decoration:line-through}
+.seat.dead::after{content:"";position:absolute;inset:18%;background:linear-gradient(45deg,transparent 46%,var(--blood) 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,var(--blood) 46% 54%,transparent 54%)}
+.seat.revealed{border-radius:12px;overflow:hidden}
+.seat.revealed .mini{position:absolute;inset:0;opacity:.85}
+.seat.revealed .mini svg{width:100%;height:100%;object-fit:cover}
+.seat.revealed .n{position:relative;z-index:1;text-shadow:0 0 4px #000,0 0 8px #000}
+.votes{list-style:none;padding:0;margin:12px 0 0;font-weight:900;font-size:14px;line-height:1.8}
+.witch-info{font-weight:900;font-size:19px;margin:6px 0}
+.witch-info b{color:var(--blood);font-size:30px}
+.seer-result{text-align:center;font-weight:900;font-size:24px;margin:10px 0 16px;padding:16px;border:4px solid var(--ink)}
+.seer-result .digits{font-size:48px}
+.seer-result.wolf{background:var(--blood);color:#fff}
+.seer-result.good{background:#2c4596;color:#fff}
+.out{font-weight:900;margin:0;line-height:1.7}
+.host-ctl{border-color:var(--gold);box-shadow:7px 7px 0 var(--blood)}
+.stuck{margin-top:14px;padding:10px 12px;background:#fff1c9;border:3px dashed var(--ink)}
+.stuck p{margin:0 0 8px;font-weight:900;font-size:14px}
+.done{font-weight:900;color:#2f7a3a}
+.btn.small{font-size:14px;padding:6px 12px;border-width:3px;box-shadow:3px 3px 0 var(--ink)}
+a.btn{display:inline-block;text-decoration:none}
+.log{margin:6px 0 0;padding-left:0;list-style:none;font-weight:900;line-height:1.6}
+.log li{padding:6px 0;border-bottom:2px dashed #cdbf9f}
+.log li:last-child{border-bottom:none}
+.log .d{display:inline-block;min-width:60px;color:var(--muted);font-size:13px}
+.winner{text-align:center}
+.win-title{font-weight:900;font-size:clamp(30px,9vw,44px);letter-spacing:.1em;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink)}
+.win-title.good{color:#6ab0ff}
+.win-title.wolf{color:#ff5a5a}
+.win-me{font-weight:900;font-size:20px;margin:6px 0 0}
+.me-row{display:flex;gap:14px;align-items:center}
+.thumb.big{width:84px}
+.role-name.sm{font-size:28px;margin:0;font-weight:900;letter-spacing:.08em}
+.role-name.sm.team-wolf{color:var(--blood)}
+.role-name.sm.team-god{color:#2c4596}
+.role-name.sm.team-villager{color:#4a6b22}
+.me-line{font-weight:900;margin:6px 0;padding:6px 10px;background:#fff;border:2px solid var(--ink)}
+
 /* 連線狀態、提示 */
 .status{position:fixed;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:20;background:var(--paper);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:3px 12px;font-weight:900;font-size:14px;white-space:nowrap}
 .status.online{background:#d9f5d0}
