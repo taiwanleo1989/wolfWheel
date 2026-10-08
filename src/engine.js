@@ -13,23 +13,22 @@
 //   day{exileDone,pendingDeaths,poisoned}, winner, timer{at}
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
+import { lineText, seatKey } from '../public/shared/voice-lines.js';
 
 export const NIGHT_ORDER = ['guard', 'wolf', 'witch', 'seer', 'hunter'];
 
 // 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間
 export function scriptFor(step, counts) {
   switch (step) {
-    case 'guard': return { beats: [{ say: '守衛請睜眼。請選擇今晚要守護的玩家。', act: 'guard' }], close: '守衛請閉眼。' };
-    case 'wolf': return { beats: [{ say: `狼人請睜眼。${(counts.king ?? 0) > 0 ? '狼王請確認身分。' : ''}今晚要擊殺的目標是？`, act: 'wolf' }], close: '狼人請閉眼。' };
+    case 'guard': return { beats: [{ say: ['guardOpen'], act: 'guard' }], close: ['guardClose'] };
+    case 'wolf': return { beats: [{ say: [(counts.king ?? 0) > 0 ? 'wolfOpenKing' : 'wolfOpen'], act: 'wolf' }], close: ['wolfClose'] };
     case 'witch': return {
-      beats: [
-        { say: '女巫請睜眼。今晚死亡的玩家是——請問你要使用解藥嗎？', act: 'witchSave' },
-        { say: '請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。', act: 'witchPoison' },
-      ], close: '女巫請閉眼。',
+      beats: [{ say: ['witchSave'], act: 'witchSave' }, { say: ['witchPoison'], act: 'witchPoison' }],
+      close: ['witchClose'],
     };
-    case 'seer': return { beats: [{ say: '預言家請睜眼。請問你今晚要查驗的玩家是？', act: 'seer' }], close: '預言家請閉眼。' };
-    case 'hunter': return { beats: [{ say: '獵人請睜眼。獵人，你今晚的帶槍手勢是——', act: 'hunter' }], close: '獵人請閉眼。' };
-    case 'police': return { beats: [{ say: '要上警的玩家請起立。', act: null }], close: null };
+    case 'seer': return { beats: [{ say: ['seerOpen'], act: 'seer' }], close: ['seerClose'] };
+    case 'hunter': return { beats: [{ say: ['hunterOpen'], act: 'hunter' }], close: ['hunterClose'] };
+    case 'police': return { beats: [{ say: ['police'], act: null }], close: null };
   }
 }
 
@@ -43,10 +42,10 @@ const fail = error => ({ ok: false, error });
 const isWolfRole = role => R.ROLES[role].team === 'wolf';
 const between = (rand, [lo, hi]) => lo + rand(hi - lo + 1);
 const seatsList = g => Object.keys(g.roles).map(Number).sort((a, b) => a - b);
-const fmtSeats = seats => seats.map(s => `${s} 號`).join('、');
 
-function say(g, text) { g.narration = { seq: (g.narration?.seq ?? 0) + 1, text }; }
-function note(g, text) { g.log.push({ day: g.dayNo, text }); say(g, text); }
+// 台詞用片段組成（public/shared/voice-lines.js）：clips 給主機播錄好的聲音，text 給畫面與紀錄
+function say(g, clips) { g.narration = { seq: (g.narration?.seq ?? 0) + 1, text: lineText(clips), clips }; }
+function note(g, clips) { g.log.push({ day: g.dayNo, text: lineText(clips) }); say(g, clips); }
 
 // 某一步要誰動作：狼人那步是所有狼人陣營；上警不等任何人；其他是那個角色本人
 export function actors(g, step, { aliveOnly = true } = {}) {
@@ -79,7 +78,7 @@ function beginNight(room, now) {
   g.night = { steps, idx: -1, beat: 0, stage: 'intro', next: null, openedAt: null, wolfVotes: {}, wolfProposal: null, wolfTarget: null, guardTarget: null, witchSave: false, witchPoison: null, seerTarget: null };
   g.canShoot = [];
   g.day = null;
-  say(g, '天黑請閉眼。');
+  say(g, ['nightStart']);
   g.timer = { at: now + INTRO_MS };
   return { ...room, phase: 'night' };
 }
@@ -223,7 +222,8 @@ function kill(g, seat, { poisoned = false } = {}) {
   if ((role === 'hunter' || role === 'king') && !poisoned) g.canShoot.push(seat);
 }
 
-const deathText = list => (list.length ? `昨晚死亡的是 ${fmtSeats(list)}。` : '昨晚是平安夜。');
+// 「昨晚死亡的是 9 號、10 號。」／「昨晚是平安夜。」
+const deathClips = list => (list.length ? ['deathsAre', ...list.flatMap((s, i) => (i ? ['sep', seatKey(s)] : [seatKey(s)])), 'end'] : ['peace']);
 
 function dawn(room, now) {
   const g = room.game;
@@ -245,11 +245,11 @@ function dawn(room, now) {
     // 第一天：先競選警長（口頭），主機按「公布昨晚死訊」才宣布——在那之前座位表也不會顯示誰死
     g.day.pendingDeaths = list;
     g.log.push({ day: g.dayNo, text: '天亮請睜眼。請上警的玩家發言、選出警長，之後由主機公布昨晚死訊。' });
-    say(g, '天亮請睜眼。');
+    say(g, ['dawn']);
     return { ...room, phase: 'day', game: g };
   }
   for (const s of list) kill(g, s, { poisoned: s === n.witchPoison });
-  note(g, `天亮請睜眼。${deathText(list)}`);
+  note(g, ['dawn', ...deathClips(list)]);
   return checkWin({ ...room, phase: 'day', game: g });
 }
 
@@ -260,7 +260,7 @@ export function announceDeaths(room) {
   const list = g.day.pendingDeaths;
   for (const s of list) kill(g, s, { poisoned: s === g.day.poisoned });
   g.day.pendingDeaths = null;
-  note(g, deathText(list));
+  note(g, deathClips(list));
   return ok(checkWin({ ...room, game: g }));
 }
 
@@ -277,7 +277,7 @@ export function shoot(room, clientId, target) {
   if (target) {
     if (!g.alive[target] || target === seat) return fail('只能帶走活著的其他玩家');
     kill(g, target); // 被槍帶走的獵人／狼王也可以再開槍
-    note(g, `${seat} 號發動技能，帶走了 ${target} 號。`);
+    note(g, [seatKey(seat), 'shootTook', seatKey(target), 'end']);
   }
   return ok(checkWin({ ...room, game: g }));
 }
@@ -289,15 +289,15 @@ export function exile(room, target) {
   const g = structuredClone(room.game);
   target = Number(target ?? 0);
   g.day.exileDone = true;
-  if (!target) note(g, '平票，今天沒有人出局。');
+  if (!target) note(g, ['tie']);
   else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
     if (g.roles[target] === 'idiot' && !g.idiotRevealed.includes(target)) {
       g.idiotRevealed.push(target);
-      note(g, `${target} 號翻牌，是白癡，免於出局，但之後不能投票。`);
+      note(g, [seatKey(target), 'idiotFlip']);
     } else {
       kill(g, target);
-      note(g, `${target} 號被放逐出局。`);
+      note(g, [seatKey(target), 'exiled']);
     }
   }
   return ok(checkWin({ ...room, game: g }));
@@ -316,10 +316,10 @@ export function duel(room, clientId, target) {
   g.knightUsed = true;
   if (isWolfRole(g.roles[target])) {
     kill(g, target);
-    note(g, `騎士 ${seat} 號決鬥 ${target} 號：${target} 號是狼人，出局！`);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf']);
   } else {
     kill(g, seat);
-    note(g, `騎士 ${seat} 號決鬥 ${target} 號：${target} 號是好人，騎士以死謝罪。`);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelGood']);
   }
   return ok(checkWin({ ...room, game: g }));
 }
@@ -355,7 +355,7 @@ function checkWin(room) {
   g.winner = w;
   g.timer = null;
   g.canShoot = [];
-  note(g, w === 'good' ? '遊戲結束，好人陣營獲勝！' : '遊戲結束，狼人陣營獲勝！');
+  note(g, [w === 'good' ? 'goodWin' : 'wolfWin']);
   return { ...room, phase: 'ended' };
 }
 

@@ -4,6 +4,7 @@ import * as L from '../src/lobby.js';
 import * as G from '../src/game.js';
 import * as E from '../src/engine.js';
 import * as R from '../public/shared/roles.js';
+import { LINES, lineText } from '../public/shared/voice-lines.js';
 
 // 固定順序發牌：rand(n)=n-1 讓洗牌不動，座位依 ROLE_ORDER 拿角色
 //   狼王守衛：1–3 狼人、4 狼王、5 預言家、6 女巫、7 獵人、8 守衛、9–12 平民
@@ -89,7 +90,7 @@ test('台詞照手稿：天黑請閉眼、狼王請確認身分（有狼王才�
   assert.ok(lines.includes('要上警的玩家請起立。'));
   assert.equal(lines.at(-1), '天亮請睜眼。');
   assert.ok(lines.every(l => !/\d+ 號/.test(l)), '主機的台詞不能唸出任何號碼');
-  assert.match(E.scriptFor('wolf', R.PRESETS[0].counts).beats[0].say, /^狼人請睜眼。今晚/, '沒有狼王的板子不唸狼王');
+  assert.deepEqual(E.scriptFor('wolf', R.PRESETS[0].counts).beats[0].say, ['wolfOpen'], '沒有狼王的板子不唸狼王');
 });
 
 test('狼人：全體一致才出現確認；按「正確」才算數；「重選」清掉', () => {
@@ -314,4 +315,48 @@ test('結束後翻開所有人身分，可以再來一局（座位與板子保�
   assert.equal(again.phase, 'lobby');
   assert.equal(again.game, undefined);
   assert.equal(Object.keys(again.seats).length, 12);
+});
+
+test('每一句台詞都由片段表組成：沒有缺片段、文字和片段一致（主機才播得出錄好的聲音）', () => {
+  const seen = [];
+  const collect = r => { const n = r.game?.narration; if (n && seen.at(-1)?.seq !== n.seq) seen.push(n); };
+  // 打一整局：守衛守、狼刀、女巫毒、獵人開槍、放逐、白癡翻牌、騎士決鬥都走一遍
+  for (const preset of ['lang-wang-shou-wei', 'yu-nv-lie-bai', 'lang-wang-qi-shi']) {
+    let r = newGame(preset);
+    for (let day = 0; day < 6 && r.phase !== 'ended'; day++) {
+      for (let i = 0; i < 80 && r.phase === 'night'; i++) {
+        collect(r);
+        const alive = t => r.game.alive[t];
+        const wolfTarget = (day === 0 ? [7] : [9, 10, 11, 12, 5, 6]).find(alive) ?? 0;
+        const poison = day === 1 ? ([10, 11, 12].find(t => alive(t) && t !== wolfTarget) ?? 0) : 0;
+        r = waitingForPeople(r) ? play(r, { wolf: wolfTarget, poison }, x => x.game?.narration?.seq !== r.game.narration.seq) : E.advance(r, r.game.timer.at, minRand).room;
+      }
+      collect(r);
+      if (r.phase === 'day' && r.game.day.pendingDeaths) { r = E.announceDeaths(r).room; collect(r); }
+      if (r.phase !== 'day') break;
+      while (r.phase === 'day' && r.game.canShoot.length) {
+        const s = r.game.canShoot[0];
+        const res = E.shoot(r, id(s), Object.keys(r.game.alive).map(Number).find(t => r.game.alive[t] && t !== s));
+        assert.equal(res.ok, true, res.error);
+        r = res.room; collect(r);
+      }
+      if (r.phase !== 'day') break;
+      if (preset === 'lang-wang-qi-shi' && day === 0 && r.game.alive[8]) {
+        const res = E.duel(r, id(8), [1, 2, 3, 4].find(w => r.game.alive[w]));
+        assert.equal(res.ok, true, res.error);
+        r = res.room; collect(r);
+      }
+      if (r.phase !== 'day') break;
+      r = E.exile(r, day === 0 && preset === 'yu-nv-lie-bai' ? 8 : [1, 2, 3, 4].find(w => r.game.alive[w]) ?? 0).room; collect(r);
+      if (r.phase === 'day') r = E.nextNight(r, 1e6).room;
+    }
+  }
+  assert.ok(seen.length > 40, `收集到 ${seen.length} 句`);
+  for (const n of seen) {
+    assert.ok(Array.isArray(n.clips) && n.clips.length, `沒有片段：${n.text}`);
+    for (const k of n.clips) assert.ok(k in LINES, `片段表缺：${k}`);
+    assert.equal(n.text, lineText(n.clips));
+  }
+  const texts = seen.map(n => n.text);
+  for (const re of [/被放逐出局/, /發動技能，帶走了/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
 });

@@ -203,7 +203,8 @@ function renderHost() {
 
   const key = `${phase}|${g.dayNo}`;
   if (key !== ui.hostKey) { ui.hostKey = key; ui.hostPick = null; }
-  const bgm = `<button class="btn small" type="button" data-host="bgm">背景音樂：${voice.bgmOn ? '開' : '關'}</button>`;
+  const bgm = `<button class="btn small" type="button" data-host="bgm">背景音樂：${voice.bgmOn ? '開' : '關'}</button>
+    <button class="btn small" type="button" data-host="voice">主持聲音：${voice.voiceName}</button>`;
   let html = '';
   if (phase === 'night') {
     const step = g.night?.step;
@@ -252,7 +253,8 @@ function onHost(e) {
   if (!b) return;
   const { send, voice, state } = c;
   switch (b.dataset.host) {
-    case 'replay': voice.say(state.game.narration?.text ?? ''); break;
+    case 'replay': voice.speak(state.game.narration); break;
+    case 'voice': voice.toggleSource(); voice.speak(state.game.narration); c.render(); break; // 切完馬上用新聲音重唸這句
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'skip': if (confirm('跳過這一步？這個角色今晚當作沒有動作。')) send({ type: 'skip' }); break;
     case 'policeDone': send({ type: 'skip' }); break;
