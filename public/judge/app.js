@@ -42,7 +42,7 @@ function boardSummary(counts) {
 }
 function rulesSummary(r) {
   const witch = { never: '女巫不能自救', first: '女巫只有第一晚能自救', always: '女巫每晚都能自救' }[r.witchSelfSave];
-  return `${witch}；${r.win === 'side' ? '屠邊' : '屠城'}`;
+  return `${witch}；${r.win === 'side' ? '屠邊' : '屠城'}；${r.police === false ? '不上警' : '第一晚上警'}`;
 }
 
 /* ───────── 座位格 ───────── */
@@ -127,6 +127,11 @@ function renderSetup() {
   seg('#ruleWitch', [['never', '都不能'], ['first', '只有第一晚'], ['always', '每晚都能']], s.rules.witchSelfSave, v => sendSetup({ rules: { witchSelfSave: v } }));
   seg('#ruleWin', [['side', '屠邊'], ['all', '屠城']], s.rules.win, v => sendSetup({ rules: { win: v } }));
   $('#ruleWinHint').textContent = s.rules.win === 'side' ? '狼人殺光所有神職，或殺光所有平民，狼人就贏。' : '所有好人都死光，狼人才贏。';
+  const police = s.rules.police !== false;
+  seg('#rulePolice', [['on', '有'], ['off', '沒有']], police ? 'on' : 'off', v => sendSetup({ rules: { police: v === 'on' } }));
+  $('#rulePoliceHint').textContent = police
+    ? '第一晚最後唸「要上警的玩家請起立」；天亮後先選警長，主機再公布昨晚死訊。'
+    : '第一晚唸完直接天亮，死訊馬上公布。';
   $('#waitMin').textContent = s.rules.fakeWaitMin;
   $('#waitMax').textContent = s.rules.fakeWaitMax;
 

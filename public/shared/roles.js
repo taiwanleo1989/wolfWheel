@@ -21,7 +21,7 @@ export const PRESETS = [
   { id: 'yu-nv-lie-9', name: '預女獵（9 人）', players: 9, counts: { wolf: 3, seer: 1, witch: 1, hunter: 1, villager: 3 } },
 ];
 
-export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', fakeWaitMin: 8, fakeWaitMax: 15 };
+export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 15 };
 const WITCH_OPTS = ['never', 'first', 'always']; // 預設不能自救（Leo 手稿，2026-10-08）
 const WIN_OPTS = ['side', 'all'];
 
@@ -42,6 +42,7 @@ export function cleanRules(raw) {
   const r = { ...DEFAULT_RULES };
   if (WITCH_OPTS.includes(raw?.witchSelfSave)) r.witchSelfSave = raw.witchSelfSave;
   if (WIN_OPTS.includes(raw?.win)) r.win = raw.win;
+  if (typeof raw?.police === 'boolean') r.police = raw.police; // 第一晚要不要上警（Leo 2026-10-08：不是每把都上警）
   const min = Math.round(Number(raw?.fakeWaitMin)), max = Math.round(Number(raw?.fakeWaitMax));
   if (Number.isFinite(min)) r.fakeWaitMin = Math.min(60, Math.max(3, min));
   if (Number.isFinite(max)) r.fakeWaitMax = Math.min(60, Math.max(3, max));

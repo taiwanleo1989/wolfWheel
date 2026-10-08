@@ -75,7 +75,7 @@ function beginNight(room, now) {
   const g = room.game;
   const c = room.setup.counts;
   const steps = NIGHT_ORDER.filter(step => (step === 'wolf' ? (c.wolf ?? 0) + (c.king ?? 0) > 0 : (c[step] ?? 0) > 0));
-  if (g.dayNo === 1) steps.push('police'); // 第一晚最後：上警
+  if (g.dayNo === 1 && room.setup.rules.police !== false) steps.push('police'); // 第一晚最後：上警（設定可關）
   g.night = { steps, idx: -1, beat: 0, stage: 'intro', next: null, openedAt: null, wolfVotes: {}, wolfProposal: null, wolfTarget: null, guardTarget: null, witchSave: false, witchPoison: null, seerTarget: null };
   g.canShoot = [];
   g.day = null;

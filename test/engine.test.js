@@ -186,6 +186,17 @@ test('上警：沒人要動作，計時到（或主機按繼續）就天亮', ()
   assert.equal(r.game.narration.text, '天亮請睜眼。');
 });
 
+test('上警可以關掉：第一晚唸完獵人直接天亮，死訊馬上公布', () => {
+  let r = newGame('lang-wang-shou-wei', { police: false });
+  assert.deepEqual(r.game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter']);
+  r = play(r, { wolf: 9 });
+  assert.equal(r.phase, 'day');
+  assert.equal(r.game.day.pendingDeaths, null);
+  assert.equal(r.game.alive[9], false);
+  assert.match(r.game.narration.text, /天亮請睜眼。昨晚死亡的是 9 號/);
+  assert.equal(E.exile(r, 1).ok, true, '不用等公布，可以直接放逐');
+});
+
 test('第一天：警長選完才公布死訊；公布前座位表不顯示誰死、不能放逐、不能天黑', () => {
   let r = play(newGame(), { wolf: 9 });
   assert.equal(r.phase, 'day');
