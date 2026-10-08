@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺法官</title>
+<meta name="description" content="狼人殺法官工具：一支主機出聲，每個人用自己的手機看身分、夜裡私下操作。">
+<meta name="theme-color" content="#0b0f22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Luckiest+Guy&family=Noto+Sans+TC:wght@500;900&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+
+<div class="status" id="status" hidden></div>
+
+<main>
+  <!-- 首頁：開房或加入 -->
+  <section class="screen" id="home">
+    <header class="hero">
+      <div class="kicker">天黑請閉眼</div>
+      <h1>狼人殺<span>法官</span></h1>
+      <p class="sub">一支手機當主機出聲，每個人用自己的手機看身分</p>
+    </header>
+
+    <div class="panel resume" id="resume" hidden>
+      <p>你剛才在房間 <b class="digits" id="resumeCode"></b></p>
+      <button class="btn primary" id="resumeBtn" type="button">回到房間</button>
+    </div>
+
+    <div class="panel">
+      <h2>我當主機</h2>
+      <p class="hint">主機負責唸台詞、放背景音樂。主機看不到任何人的身分，所以開房的人也可以一起玩。</p>
+      <button class="btn primary big" id="createBtn" type="button">開新房間</button>
+    </div>
+
+    <form class="panel" id="joinForm" autocomplete="off">
+      <h2>加入房間</h2>
+      <p class="hint">輸入主機畫面上的 4 位房號，或直接掃主機的 QR code。</p>
+      <div class="join-row">
+        <input id="joinCode" class="code-input digits" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" aria-label="房號">
+        <button class="btn primary" type="submit">加入</button>
+      </div>
+    </form>
+
+    <p class="foot"><a href="../">← 回發言順序轉盤</a></p>
+  </section>
+
+  <!-- 主機畫面 -->
+  <section class="screen" id="host" hidden>
+    <div class="room-head">
+      <div>
+        <div class="label">房號</div>
+        <div class="code digits" id="hostCode">----</div>
+      </div>
+      <div class="qr" id="qr" aria-label="加入房間的 QR code"></div>
+    </div>
+    <p class="hint center">其他人用手機相機掃 QR code，或到「加入房間」輸入房號</p>
+
+    <div class="panel">
+      <div class="row-between">
+        <h2>座位 <small id="seatCount"></small></h2>
+        <div class="stepper">
+          <button type="button" id="minus" aria-label="減少一人">−</button>
+          <span class="digits" id="playersNum">12</span>
+          <button type="button" id="plus" aria-label="增加一人">+</button>
+        </div>
+      </div>
+      <div class="seats" id="hostSeats"></div>
+      <p class="hint">主機也要玩？點一個空位坐下。再點一次可以站起來。</p>
+    </div>
+
+    <div class="panel">
+      <button class="btn primary big" type="button" disabled>開始遊戲</button>
+      <p class="hint center">設定板子與發牌在下一個階段（M2）開放</p>
+    </div>
+    <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
+  </section>
+
+  <!-- 玩家畫面 -->
+  <section class="screen" id="player" hidden>
+    <div class="room-head small">
+      <div>
+        <div class="label">房號</div>
+        <div class="code digits" id="playerCode">----</div>
+      </div>
+    </div>
+
+    <div class="panel" id="pickSeat">
+      <h2>選你的座位</h2>
+      <p class="hint">照你們實際坐的位置，從 1 號開始順著繞一圈。</p>
+      <div class="seats" id="playerSeats"></div>
+    </div>
+
+    <div class="panel me" id="mySeat" hidden>
+      <div class="label">你是</div>
+      <div class="me-num"><span class="digits" id="myNum">7</span><small>號</small></div>
+      <p class="waiting">等待主機開始…</p>
+      <button class="btn" type="button" id="changeSeat">換座位</button>
+    </div>
+
+    <div class="panel" id="hostGone" hidden>
+      <p><b>主機離線了。</b>可以換一支手機接手當主機——主機看不到身分，誰接手都可以。</p>
+      <button class="btn" type="button" id="takeHost">由我接手當主機</button>
+    </div>
+    <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+
+<script src="../vendor/qrcode.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  // 狼人殺小工具：轉盤（public/index.html）＋法官工具（public/judge/）＋房間伺服器（src/）
+  "name": "wolfwheel",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOM", "class_name": "Room" }]
+  },
+  // 免費方案只能用 SQLite 版的 Durable Objects
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}
