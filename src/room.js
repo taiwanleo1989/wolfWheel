@@ -2,8 +2,17 @@
 // 連線用 WebSocket Hibernation：大家在講話、沒人操作時，房間會休眠、不吃運算額度。
 import { DurableObject } from 'cloudflare:workers';
 import * as L from './lobby.js';
+import * as G from './game.js';
 
 const IDLE_MS = 2 * 60 * 60 * 1000; // 最後一個人離開 2 小時後清掉房間
+
+// 發牌用的亂數：crypto＋拒絕取樣，每個結果機率相同
+function rand(n) {
+  const buf = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n;
+  let x;
+  do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= lim);
+  return x % n;
+}
 
 export class Room extends DurableObject {
   constructor(ctx, env) {
@@ -62,15 +71,21 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    let result = { ok: true, room: this.room };
+    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup'];
+    if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
+    let result;
     switch (msg.type) {
-      case 'claimSeat': result = L.claimSeat(this.room, me.clientId, msg.seat, online); break;
-      case 'leaveSeat': result = { ok: true, room: L.leaveSeat(this.room, me.clientId) }; break;
+      case 'claimSeat': result = G.claimSeat(this.room, me.clientId, msg.seat, online); break;
+      case 'leaveSeat': result = G.leaveSeat(this.room, me.clientId); break;
       case 'claimHost': result = L.claimHost(this.room, me.clientId, online); break;
       case 'setPlayers':
-        if (!isHost) return this.send(ws, { type: 'error', error: '只有主機能改人數' });
-        if (this.room.phase !== 'lobby') return this.send(ws, { type: 'error', error: '遊戲開始後不能改人數' });
+        if (this.room.phase !== 'lobby') return this.send(ws, { type: 'error', error: '發牌後不能改人數' });
         result = { ok: true, room: L.setPlayers(this.room, msg.players) }; break;
+      case 'setSetup': result = G.setSetup(this.room, msg.setup); break;
+      case 'deal': result = G.startDeal(this.room, rand); break;
+      case 'redeal': result = G.redeal(this.room, rand); break;
+      case 'backToSetup': result = G.backToSetup(this.room); break;
+      case 'ack': result = G.ack(this.room, me.clientId); break;
       default: return;
     }
     if (!result.ok) return this.send(ws, { type: 'error', error: result.error });
@@ -102,7 +117,7 @@ export class Room extends DurableObject {
     const online = this.onlineIds(except);
     for (const s of this.sockets(except)) {
       const id = s.deserializeAttachment()?.clientId;
-      if (id) this.send(s, L.publicView(this.room, online, id));
+      if (id) this.send(s, G.viewFor(this.room, online, id));
     }
   }
   async save() { await this.ctx.storage.put('room', this.room); }

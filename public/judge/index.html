@@ -59,22 +59,72 @@
     </div>
     <p class="hint center">其他人用手機相機掃 QR code，或到「加入房間」輸入房號</p>
 
-    <div class="panel">
-      <div class="row-between">
-        <h2>座位 <small id="seatCount"></small></h2>
-        <div class="stepper">
-          <button type="button" id="minus" aria-label="減少一人">−</button>
-          <span class="digits" id="playersNum">12</span>
-          <button type="button" id="plus" aria-label="增加一人">+</button>
+    <div id="hostLobby">
+      <div class="panel">
+        <div class="row-between">
+          <h2>座位 <small id="seatCount"></small></h2>
+          <div class="stepper">
+            <button type="button" id="minus" aria-label="減少一人">−</button>
+            <span class="digits" id="playersNum">12</span>
+            <button type="button" id="plus" aria-label="增加一人">+</button>
+          </div>
+        </div>
+        <div class="seats" id="hostSeats"></div>
+        <p class="hint">主機也要玩？點一個空位坐下。再點一次可以站起來。</p>
+      </div>
+
+      <div class="panel">
+        <h2>板子 <small id="boardTotal"></small></h2>
+        <p class="hint">先點一個常用板子，再用＋／−微調角色。</p>
+        <div class="chips" id="presets"></div>
+        <div class="roles" id="roleRows"></div>
+      </div>
+
+      <div class="panel">
+        <h2>規則</h2>
+        <div class="rule">
+          <div class="rule-name">女巫能不能救自己</div>
+          <div class="seg" id="ruleWitch"></div>
+        </div>
+        <div class="rule">
+          <div class="rule-name">勝負</div>
+          <div class="seg" id="ruleWin"></div>
+          <p class="hint small" id="ruleWinHint"></p>
+        </div>
+        <div class="rule">
+          <div class="rule-name">死掉的角色，夜裡假裝等幾秒</div>
+          <div class="wait-row">
+            <span class="wait-item">最短
+              <span class="stepper sm"><button type="button" data-wait="fakeWaitMin" data-d="-1" aria-label="最短少一秒">−</button><span class="digits" id="waitMin">8</span><button type="button" data-wait="fakeWaitMin" data-d="1" aria-label="最短多一秒">+</button></span> 秒</span>
+            <span class="wait-item">最長
+              <span class="stepper sm"><button type="button" data-wait="fakeWaitMax" data-d="-1" aria-label="最長少一秒">−</button><span class="digits" id="waitMax">15</span><button type="button" data-wait="fakeWaitMax" data-d="1" aria-label="最長多一秒">+</button></span> 秒</span>
+          </div>
+          <p class="hint small">每次隨機，讓閉眼的人猜不出誰已經死了。</p>
         </div>
       </div>
-      <div class="seats" id="hostSeats"></div>
-      <p class="hint">主機也要玩？點一個空位坐下。再點一次可以站起來。</p>
+
+      <div class="panel">
+        <ul class="blockers" id="blockers"></ul>
+        <button class="btn primary big" type="button" id="dealBtn">發牌</button>
+      </div>
     </div>
 
-    <div class="panel">
-      <button class="btn primary big" type="button" disabled>開始遊戲</button>
-      <p class="hint center">設定板子與發牌在下一個階段（M2）開放</p>
+    <div id="hostDeal" hidden>
+      <div class="panel">
+        <h2>身分已發出</h2>
+        <p class="hint">請每個人看自己的手機，看完按「我看好了」。</p>
+        <div class="ack-count"><span class="digits" id="ackNum">0</span>／<span class="digits" id="ackTotal">12</span> 人看好了</div>
+        <div class="seats" id="ackSeats"></div>
+      </div>
+      <div class="panel" id="hostMyRole" hidden></div>
+      <div class="panel">
+        <button class="btn primary big" type="button" disabled>天黑請閉眼</button>
+        <p class="hint center">夜晚流程在下一個階段（M3）開放</p>
+        <div class="row-gap">
+          <button class="btn" type="button" id="redealBtn">重新發牌</button>
+          <button class="btn" type="button" id="backBtn">回到設定</button>
+        </div>
+      </div>
     </div>
     <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
   </section>
@@ -97,8 +147,16 @@
     <div class="panel me" id="mySeat" hidden>
       <div class="label">你是</div>
       <div class="me-num"><span class="digits" id="myNum">7</span><small>號</small></div>
-      <p class="waiting">等待主機開始…</p>
+      <p class="waiting" id="waitText">等待主機開始…</p>
       <button class="btn" type="button" id="changeSeat">換座位</button>
+    </div>
+
+    <div class="panel" id="myRole" hidden></div>
+
+    <div class="panel" id="boardInfo" hidden>
+      <h2>這局的板子</h2>
+      <p class="board-line" id="boardLine"></p>
+      <p class="hint" id="rulesLine"></p>
     </div>
 
     <div class="panel" id="hostGone" hidden>
@@ -112,6 +170,6 @@
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <script src="../vendor/qrcode.js"></script>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

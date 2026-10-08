@@ -82,6 +82,73 @@ h1 span{color:#fff2c4}
 .waiting{font-weight:900;font-size:18px;margin:14px 0;animation:breathe 2.4s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.4}}
 
+/* M2：板子 */
+#boardTotal.ok{color:#2f7a3a}
+#boardTotal.bad{color:var(--blood)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.chip{display:inline-flex;align-items:baseline;gap:6px;background:#fff;border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);padding:5px 10px;font-weight:900;font-size:15px;color:var(--ink)}
+.chip small{font-size:12px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--gold)}
+.chip[aria-pressed="true"] small{color:#d8cfc0}
+.chip.ghost{box-shadow:none;border-style:dashed;color:var(--muted)}
+.chip.ghost[aria-pressed="true"]{border-style:solid}
+.roles{display:grid;gap:8px}
+.role-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;padding:4px;border:2px solid transparent;opacity:.55}
+.role-row.on{opacity:1;background:#fff;border-color:var(--ink)}
+.thumb{width:44px;border:2px solid var(--ink);background:var(--ink);line-height:0}
+.thumb svg{width:100%;height:auto}
+.rname b{display:block;font-size:17px}
+.rname small{font-size:12px;font-weight:900}
+.team-wolf{color:var(--blood)}
+.team-god{color:#2c4596}
+.team-villager{color:#4a6b22}
+.stepper.sm button{width:34px;font-size:20px}
+.stepper.sm span{min-width:36px;font-size:22px}
+.stepper button:disabled{color:#c9bca5;cursor:not-allowed}
+
+/* M2：規則 */
+.rule{padding:10px 0;border-top:2px dashed #cdbf9f}
+.rule:first-of-type{border-top:none;padding-top:4px}
+.rule-name{font-weight:900;margin-bottom:8px}
+.seg{display:flex;flex-wrap:wrap;gap:0;border:3px solid var(--ink);width:fit-content;box-shadow:3px 3px 0 var(--ink)}
+.seg button{border:none;background:#fff;padding:7px 12px;font-weight:900;font-size:15px;color:var(--ink);border-right:2px solid var(--ink)}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed="true"]{background:var(--blood);color:#fff}
+.hint.small{font-size:13px;margin:8px 0 0}
+.wait-row{display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap;font-weight:900}
+.wait-item{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+
+/* M2：發牌 */
+.blockers{margin:0 0 12px;padding-left:20px;color:var(--blood);font-weight:900;font-size:14px;line-height:1.7}
+.blockers:empty{display:none}
+.ack-count{font-weight:900;font-size:18px;margin:6px 0 4px}
+.ack-count .digits{font-size:30px;color:var(--blood)}
+.seat.acked{background:#2f7a3a;border-color:var(--ink)}
+.seat.acked .n{color:#fff}
+.row-gap{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.board-line{font-weight:900;font-size:17px;line-height:1.6;margin:6px 0 0}
+
+/* M2：角色卡 */
+.card-cover{width:100%;display:grid;justify-items:center;gap:8px;background:none;border:none;padding:4px;color:var(--ink)}
+.card-cover b{font-size:20px}
+.card-cover small{color:var(--muted);font-weight:900}
+.card-back{width:min(210px,62vw);aspect-ratio:200/220;display:grid;place-items:center;border:5px solid var(--ink);box-shadow:6px 6px 0 var(--ink);
+  background:radial-gradient(circle,rgba(0,0,0,.3) 1px,transparent 1.4px) 0 0/7px 7px,radial-gradient(circle at 50% 42%,#f6e7b0 0 22%,#1b2550 23%,#0b0f22 100%)}
+.card-back span{font-family:var(--digits);font-size:64px;color:var(--ink);padding-top:10px}
+.role-card{text-align:center;color:var(--ink)}
+.role-card.team-wolf .role-name{color:var(--blood)}
+.role-card.team-god .role-name{color:#2c4596}
+.role-card.team-villager .role-name{color:#4a6b22}
+.role-card .art{width:min(240px,70vw);margin:0 auto;border:5px solid var(--ink);box-shadow:6px 6px 0 var(--ink);background:var(--ink);line-height:0}
+.role-card .art svg{width:100%;height:auto}
+.role-name{font-weight:900;font-size:40px;margin-top:12px;letter-spacing:.1em}
+.team-tag{display:inline-block;font-weight:900;padding:2px 12px;border:3px solid var(--ink);margin-top:4px}
+.role-card.team-wolf .team-tag{background:var(--blood);color:#fff}
+.role-card.team-god .team-tag{background:#2c4596;color:#fff}
+.role-card.team-villager .team-tag{background:#4a6b22;color:#fff}
+.role-desc{font-weight:900;line-height:1.7;margin:12px 4px 16px;text-align:left}
+.acked-note{text-align:center;font-weight:900;color:#2f7a3a;margin:8px 0 0}
+
 /* 連線狀態、提示 */
 .status{position:fixed;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:20;background:var(--paper);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:3px 12px;font-weight:900;font-size:14px;white-space:nowrap}
 .status.online{background:#d9f5d0}
