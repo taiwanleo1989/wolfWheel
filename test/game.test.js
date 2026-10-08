@@ -16,7 +16,7 @@ test('角色數量整理：亂填歸零、限定一人的最多 1', () => {
 });
 
 test('規則整理：不認得的值退回預設、假等秒數上下限', () => {
-  assert.deepEqual(R.cleanRules({ witchSelfSave: 'x', win: 'all', fakeWaitMin: 1, fakeWaitMax: 999 }), { witchSelfSave: 'first', win: 'all', fakeWaitMin: 3, fakeWaitMax: 60 });
+  assert.deepEqual(R.cleanRules({ witchSelfSave: 'x', win: 'all', fakeWaitMin: 1, fakeWaitMax: 999 }), { witchSelfSave: 'never', win: 'all', fakeWaitMin: 3, fakeWaitMax: 60 });
   assert.equal(R.cleanRules({ fakeWaitMin: 20, fakeWaitMax: 10 }).fakeWaitMax, 20);
 });
 

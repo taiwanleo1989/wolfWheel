@@ -2,7 +2,7 @@
 import { ROLES, TEAM_NAME } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
-const STEP_NAME = { guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家' };
+const STEP_NAME = { guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家', hunter: '獵人', police: '上警' };
 const SKIP_AFTER_MS = 30000; // 主機的「跳過」在同一步卡超過 30 秒才出現
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
@@ -62,45 +62,72 @@ function renderAction() {
 
   // 換了一個動作就清掉剛才選的座位
   const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}`;
-  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; }
+  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; ui.confirm = null; }
   const pick = ui.pick;
   let html = '';
 
   if (phase === 'night' && me.alive && me.action) {
     const a = me.action;
+    // 「是否正確」：選好之後先確認，按「正確」才送出（照手稿：上帝回比號碼確認）
+    const confirmBox = ui.confirm
+      ? `<div class="confirm"><p>${ui.confirm.text}，是否正確？</p>
+          <div class="row-gap"><button class="btn primary" type="button" data-do="yes">正確</button><button class="btn" type="button" data-do="no">重選</button></div></div>`
+      : '';
     if (a.kind === 'guard') {
-      html = `<h2>守衛，今晚你要守護誰？</h2>
+      html = `<h2>請選擇今晚要守護的玩家</h2>
         ${picker(aliveSeats().map(n => ({ n, disabled: n === a.lastGuard, note: n === a.lastGuard ? '昨晚守過' : n === seat ? '自己' : '' })), pick)}
-        <div class="row-gap"><button class="btn primary" type="button" data-do="guard"${pick ? '' : ' disabled'}>守護 ${pick ?? '…'} 號</button>
-        <button class="btn" type="button" data-do="guard0">今晚不守</button></div>`;
+        ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="guard"${pick ? '' : ' disabled'}>守護 ${pick ?? '…'} 號</button>
+        <button class="btn" type="button" data-do="guard0">今晚不守</button></div>`}`;
     } else if (a.kind === 'wolf') {
       const wolves = me.wolves.filter(w => w.alive);
       const votesFor = n => wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat);
       const myVote = a.votes[seat];
-      html = `<h2>狼人，今晚你們要殺誰？</h2>
-        <p class="hint">所有狼人都選同一個人才會確定。你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}`).join('、') || '沒有'}</p>
-        ${picker(aliveSeats().map(n => { const v = votesFor(n); return { n, note: v.length ? v.map(s => s + '號').join(' ') : '' }; }), myVote || null)}
-        <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
-        <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${a.votes[w.seat] === undefined ? '還沒選' : a.votes[w.seat] === 0 ? '空刀' : a.votes[w.seat] + ' 號'}</li>`).join('')}</ul>`;
-    } else if (a.kind === 'witch') {
-      const info = a.saveUsedUp ? '解藥已經用掉了，看不到今晚誰被殺。' : a.victim ? `今晚被殺的是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人被殺（平安）。';
-      html = `<h2>女巫，今晚你要用藥嗎？</h2>
+      const king = me.wolves.find(w => w.king);
+      const agreed = a.proposal !== null && a.proposal !== undefined;
+      html = `<h2>今晚要擊殺的目標是？</h2>
+        <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}</p>
+        ${agreed
+          ? `<div class="confirm"><p>${a.proposal ? `今晚要擊殺的玩家是 <b class="digits">${a.proposal}</b> 號` : '今晚空刀'}，是否正確？</p>
+              <div class="row-gap"><button class="btn primary" type="button" data-do="wolfYes">正確</button><button class="btn" type="button" data-do="wolfNo">重選</button></div>
+              <p class="hint small">任何一隻狼按「正確」就確定。</p></div>`
+          : `<p class="hint">所有狼人點同一個人（或都按空刀）之後，會問「是否正確」。</p>
+            ${picker(aliveSeats().map(n => { const v = votesFor(n); return { n, note: v.length ? v.map(s => s + '號').join(' ') : '' }; }), myVote || null)}
+            <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
+            <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${a.votes[w.seat] === undefined ? '還沒選' : a.votes[w.seat] === 0 ? '空刀' : a.votes[w.seat] + ' 號'}</li>`).join('')}</ul>`}`;
+    } else if (a.kind === 'witchSave') {
+      const info = a.saveUsedUp ? '解藥已經用掉了，不會告知今晚死亡的玩家。'
+        : a.victim ? `今晚死亡的玩家是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人死亡。';
+      html = `<h2>請問你要使用解藥嗎？</h2>
         <p class="witch-info">${info}</p>
-        <p class="hint">一晚只能用一瓶。${me.potions ? `解藥：${me.potions.save ? '還有' : '用掉了'}；毒藥：${me.potions.poison ? '還有' : '用掉了'}` : ''}</p>
-        ${a.canSave ? `<button class="btn primary big" type="button" data-do="save">用解藥救 ${a.victim} 號</button>` : (!a.saveUsedUp && a.victim ? '<p class="hint">依照規則，今晚不能救自己。</p>' : '')}
-        ${a.canPoison ? `<h3>或是用毒藥</h3>${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
-          <button class="btn" type="button" data-do="poison"${pick ? '' : ' disabled'}>毒 ${pick ?? '…'} 號</button>` : ''}
-        <div class="row-gap"><button class="btn" type="button" data-do="none">今晚都不用</button></div>`;
+        ${a.selfBlocked ? '<p class="hint">依照規則，女巫不能救自己。</p>' : ''}
+        <p class="hint">一晚只能用一瓶藥：用了解藥，今晚就不能再用毒藥。</p>
+        <div class="row-gap">
+          ${a.canSave ? `<button class="btn primary" type="button" data-do="save">👍 救 ${a.victim} 號</button>` : ''}
+          <button class="btn${a.canSave ? '' : ' primary'}" type="button" data-do="noSave">${a.canSave ? '👎 不救' : '繼續'}</button>
+        </div>`;
+    } else if (a.kind === 'witchPoison') {
+      html = `<h2>請問你要使用毒藥嗎？</h2>
+        ${a.savedTonight ? '<p class="hint">今晚已經用過解藥，不能再用毒藥。</p>'
+          : a.poisonUsedUp ? '<p class="hint">毒藥已經用掉了。</p>'
+          : `<p class="hint">如果要，請選擇你要毒殺的號碼。</p>
+            ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}`}
+        ${confirmBox || `<div class="row-gap">
+          ${a.canPoison ? `<button class="btn primary" type="button" data-do="poison"${pick ? '' : ' disabled'}>毒 ${pick ?? '…'} 號</button>` : ''}
+          <button class="btn${a.canPoison ? '' : ' primary'}" type="button" data-do="none">${a.canPoison ? '不使用' : '繼續'}</button></div>`}`;
     } else if (a.kind === 'seer') {
       if (a.checked) {
-        html = `<h2>查驗結果</h2>
-          <div class="seer-result ${a.checked.wolf ? 'wolf' : 'good'}"><span class="digits">${a.checked.target}</span> 號是 <b>${a.checked.wolf ? '狼人' : '好人'}</b></div>
+        html = `<h2>他的身分是……</h2>
+          <div class="seer-result ${a.checked.wolf ? 'wolf' : 'good'}"><span class="digits">${a.checked.target}</span> 號是 <b>${a.checked.wolf ? '👎 狼人' : '👍 好人'}</b></div>
           <button class="btn primary big" type="button" data-do="seerDone">知道了</button>`;
       } else {
-        html = `<h2>預言家，你要查驗誰？</h2>
+        html = `<h2>請問你今晚要查驗的玩家是？</h2>
           ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
-          <button class="btn primary big" type="button" data-do="seer"${pick ? '' : ' disabled'}>查驗 ${pick ?? '…'} 號</button>`;
+          ${confirmBox || `<button class="btn primary big" type="button" data-do="seer"${pick ? '' : ' disabled'}>查驗 ${pick ?? '…'} 號</button>`}`;
       }
+    } else if (a.kind === 'hunter') {
+      html = `<h2>你今晚的帶槍手勢是</h2>
+        <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 被毒了，不能開槍'}</b></div>
+        <button class="btn primary big" type="button" data-do="hunterSeen">知道了</button>`;
     }
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
@@ -130,6 +157,7 @@ function onAction(e) {
   if (p) {
     const n = Number(p.dataset.pick);
     if (c.state.you.game?.action?.kind === 'wolf') { c.send({ type: 'act', payload: { target: n } }); return; } // 狼人點了就投票
+    if (ui.confirm) return; // 正在問「是否正確」時，先回答再重選
     ui.pick = ui.pick === n ? null : n;
     c.render();
     return;
@@ -137,15 +165,25 @@ function onAction(e) {
   const d = e.target.closest('[data-do]');
   if (!d) return;
   const pick = ui.pick, act = payload => c.send({ type: 'act', payload });
+  const ask = (text, payload) => { ui.confirm = { text, payload }; c.render(); };
   switch (d.dataset.do) {
-    case 'guard': act({ target: pick }); break;
-    case 'guard0': act({ target: 0 }); break;
+    // 先問「是否正確」
+    case 'guard': ask(`今晚要守護的玩家是 ${pick} 號`, { target: pick }); break;
+    case 'guard0': ask('今晚不守護任何人', { target: 0 }); break;
+    case 'poison': ask(`今晚要毒殺的玩家是 ${pick} 號`, { use: 'poison', target: pick }); break;
+    case 'seer': ask(`今晚要查驗的玩家是 ${pick} 號`, { target: pick }); break;
+    case 'yes': act(ui.confirm.payload); ui.confirm = null; break;
+    case 'no': ui.confirm = null; ui.pick = null; c.render(); break;
+    // 狼人：全體一致後由任何一隻確認
     case 'wolf0': act({ target: 0 }); break;
+    case 'wolfYes': act({ confirm: true }); break;
+    case 'wolfNo': act({ reset: true }); break;
+    // 女巫解藥（👍／👎）、毒藥不用、預言家看完、獵人看完
     case 'save': act({ use: 'save' }); break;
-    case 'poison': if (confirm(`確定用毒藥毒 ${pick} 號？`)) act({ use: 'poison', target: pick }); break;
+    case 'noSave': act({ use: 'skip' }); break;
     case 'none': act({ use: 'none' }); break;
-    case 'seer': act({ target: pick }); break;
     case 'seerDone': act({ done: true }); break;
+    case 'hunterSeen': act({ seen: true }); break;
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
@@ -171,16 +209,26 @@ function renderHost() {
     const step = g.night?.step;
     const stepKey = `${g.dayNo}|${step}|${g.night?.openedAt}`;
     if (stepKey !== ui.stepKey) { ui.stepKey = stepKey; ui.stepSince = Date.now(); }
-    const stuck = step && Date.now() - ui.stepSince > SKIP_AFTER_MS;
+    const stuck = step && step !== 'police' && Date.now() - ui.stepSince > SKIP_AFTER_MS;
     html = `<h2>主持中</h2>
       <p class="hint">${step ? `現在輪到：<b>${STEP_NAME[step]}</b>` : '過場中…'}　手機會自動唸台詞、自動往下走。</p>
       <div class="row-gap"><button class="btn small" type="button" data-host="replay">再唸一次</button>${bgm}</div>
-      ${stuck ? `<div class="stuck"><p>這一步等很久了。如果有人的手機沒電或斷線，可以跳過（當作沒有動作）。</p>
+      ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
+        <p class="hint center">不按的話，12 秒後會自動天亮。</p>` : stuck ? `<div class="stuck"><p>這一步等很久了。如果有人的手機沒電或斷線，可以跳過（當作沒有動作）。</p>
         <button class="btn" type="button" data-host="skip">跳過這一步</button></div>` : ''}`;
     clearTimeout(ui.skipTimer); // 時間到了重畫一次，讓「跳過」按鈕出現（只保留一個計時器）
     if (step && !stuck) ui.skipTimer = setTimeout(() => c.render(), SKIP_AFTER_MS - (Date.now() - ui.stepSince) + 100);
   } else if (phase === 'day') {
     const pick = ui.hostPick;
+    if (g.deathsPending) {
+      // 第一天：先選警長（口頭），選完才公布昨晚死訊
+      html = `<h2>警長競選</h2>
+        <p class="hint">請上警的玩家依序發言，其他人投票選出警長（口頭進行）。選完後再公布昨晚的死訊。</p>
+        <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>
+        <button class="btn primary big" type="button" data-host="announce">警長選好了，公布昨晚死訊</button>`;
+      setHTML(box, html);
+      return;
+    }
     html = `<h2>白天</h2>
       <p class="hint">請大家依序發言、投票（口頭進行）。投完票在這裡登記結果。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : `
@@ -207,6 +255,8 @@ function onHost(e) {
     case 'replay': voice.say(state.game.narration?.text ?? ''); break;
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'skip': if (confirm('跳過這一步？這個角色今晚當作沒有動作。')) send({ type: 'skip' }); break;
+    case 'policeDone': send({ type: 'skip' }); break;
+    case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': if (confirm(`登記 ${ui.hostPick} 號被放逐？`)) send({ type: 'exile', target: ui.hostPick }); break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':

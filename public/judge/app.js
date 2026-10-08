@@ -41,7 +41,7 @@ function boardSummary(counts) {
   return ROLE_ORDER.filter(id => counts[id]).map(id => (counts[id] > 1 ? `${counts[id]} ${ROLES[id].name}` : ROLES[id].name)).join('、');
 }
 function rulesSummary(r) {
-  const witch = { first: '女巫只有第一晚能自救', always: '女巫每晚都能自救', never: '女巫不能自救' }[r.witchSelfSave];
+  const witch = { never: '女巫不能自救', first: '女巫只有第一晚能自救', always: '女巫每晚都能自救' }[r.witchSelfSave];
   return `${witch}；${r.win === 'side' ? '屠邊' : '屠城'}`;
 }
 
@@ -108,7 +108,7 @@ function renderSetup() {
   tot.textContent = `角色 ${total}／座位 ${state.players}`;
   tot.className = total === state.players ? 'ok' : 'bad';
 
-  seg('#ruleWitch', [['first', '只有第一晚'], ['always', '每晚都能'], ['never', '都不能']], s.rules.witchSelfSave, v => sendSetup({ rules: { witchSelfSave: v } }));
+  seg('#ruleWitch', [['never', '都不能'], ['first', '只有第一晚'], ['always', '每晚都能']], s.rules.witchSelfSave, v => sendSetup({ rules: { witchSelfSave: v } }));
   seg('#ruleWin', [['side', '屠邊'], ['all', '屠城']], s.rules.win, v => sendSetup({ rules: { win: v } }));
   $('#ruleWinHint').textContent = s.rules.win === 'side' ? '狼人殺光所有神職，或殺光所有平民，狼人就贏。' : '所有好人都死光，狼人才贏。';
   $('#waitMin').textContent = s.rules.fakeWaitMin;

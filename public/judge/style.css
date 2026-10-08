@@ -177,6 +177,9 @@ body.is-night .bg{background:radial-gradient(circle,rgba(0,0,0,.35) 1px,transpar
 .seat.revealed .mini{position:absolute;inset:0;opacity:.85}
 .seat.revealed .mini svg{width:100%;height:100%;object-fit:cover}
 .seat.revealed .n{position:relative;z-index:1;text-shadow:0 0 4px #000,0 0 8px #000}
+.confirm{margin-top:14px;padding:14px;background:#fff7d6;border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);text-align:center}
+.confirm p{margin:0 0 6px;font-weight:900;font-size:20px;line-height:1.5}
+.confirm .digits{color:var(--blood);font-size:30px}
 .votes{list-style:none;padding:0;margin:12px 0 0;font-weight:900;font-size:14px;line-height:1.8}
 .witch-info{font-weight:900;font-size:19px;margin:6px 0}
 .witch-info b{color:var(--blood);font-size:30px}

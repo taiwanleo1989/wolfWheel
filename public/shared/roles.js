@@ -21,8 +21,8 @@ export const PRESETS = [
   { id: 'yu-nv-lie-9', name: '預女獵（9 人）', players: 9, counts: { wolf: 3, seer: 1, witch: 1, hunter: 1, villager: 3 } },
 ];
 
-export const DEFAULT_RULES = { witchSelfSave: 'first', win: 'side', fakeWaitMin: 8, fakeWaitMax: 15 };
-const WITCH_OPTS = ['first', 'always', 'never'];
+export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', fakeWaitMin: 8, fakeWaitMax: 15 };
+const WITCH_OPTS = ['never', 'first', 'always']; // 預設不能自救（Leo 手稿，2026-10-08）
 const WIN_OPTS = ['side', 'all'];
 
 // 整理主機送來的角色數量：不認得的角色丟掉、負數與小數歸零、限定一人的角色最多 1
