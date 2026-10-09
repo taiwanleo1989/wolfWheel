@@ -24,7 +24,7 @@ export const LINES = {
   dawn: '天亮請睜眼。',
   deathsAre: '昨晚死亡的是 ',
   peace: '昨晚是平安夜。',
-  shootTook: '發動技能，帶走了 ',
+  shootSkill: '發動技能。', // Leo 2026-10-09：只唸到「發動技能」，帶走誰由獵人／狼王自己說
   tie: '平票，今天沒有人出局。',
   idiotFlip: '翻牌，是白癡，免於出局，但之後不能投票。',
   exiled: '被放逐出局。',

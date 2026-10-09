@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.js",
-    "voice": "node scripts/record-voice.mjs"
+    "voice": "node scripts/record-voice.mjs",
+    "voice:split": "node scripts/split-voice.mjs"
   },
   "devDependencies": {
     "qrcode-generator": "^1.4.4",

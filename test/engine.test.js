@@ -220,6 +220,8 @@ test('獵人被刀可以開槍，被毒不能；被槍帶走的狼王還能再�
   assert.equal(E.privateGame(r, 7).canShoot, true);
   r = E.shoot(r, id(7), 4).room;
   assert.equal(r.game.alive[4], false);
+  assert.equal(r.game.narration.text, '7 號發動技能。', '主機只唸到發動技能（Leo 2026-10-09）');
+  assert.equal(r.game.log.at(-1).text, '7 號發動技能，帶走了 4 號。', '紀錄寫完整');
   assert.equal(E.privateGame(r, 4).canShoot, true, '狼王被槍帶走也能開槍');
   const poisoned = night(newGame(), { poison: 7 });
   assert.equal(poisoned.game.alive[7], false);
@@ -358,5 +360,5 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
     assert.equal(n.text, lineText(n.clips));
   }
   const texts = seen.map(n => n.text);
-  for (const re of [/被放逐出局/, /發動技能，帶走了/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
+  for (const re of [/被放逐出局/, /^\d+ 號發動技能。$/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
 });

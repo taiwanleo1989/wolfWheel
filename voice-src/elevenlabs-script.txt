@@ -1,0 +1,93 @@
+天黑請閉眼。
+<break time="2.0s" />
+守衛請睜眼。請選擇今晚要守護的玩家。
+<break time="2.0s" />
+守衛請閉眼。
+<break time="2.0s" />
+狼人請睜眼。今晚要擊殺的目標是？
+<break time="2.0s" />
+狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？
+<break time="2.0s" />
+狼人請閉眼。
+<break time="2.0s" />
+女巫請睜眼。今晚死亡的玩家是……請問你要使用解藥嗎？
+<break time="2.0s" />
+請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。
+<break time="2.0s" />
+女巫請閉眼。
+<break time="2.0s" />
+預言家請睜眼。請問你今晚要查驗的玩家是？
+<break time="2.0s" />
+預言家請閉眼。
+<break time="2.0s" />
+獵人請睜眼。獵人，你今晚的帶槍手勢是……
+<break time="2.0s" />
+獵人請閉眼。
+<break time="2.0s" />
+要上警的玩家請起立。
+<break time="2.0s" />
+天亮請睜眼。
+<break time="2.0s" />
+昨晚死亡的是
+<break time="2.0s" />
+昨晚是平安夜。
+<break time="2.0s" />
+發動技能，帶走了
+<break time="2.0s" />
+平票，今天沒有人出局。
+<break time="2.0s" />
+翻牌，是白癡，免於出局，但之後不能投票。
+<break time="2.0s" />
+被放逐出局。
+<break time="2.0s" />
+騎士
+<break time="2.0s" />
+決鬥
+<break time="2.0s" />
+是狼人，出局！
+<break time="2.0s" />
+是好人，騎士以死謝罪。
+<break time="2.0s" />
+遊戲結束，好人陣營獲勝！
+<break time="2.0s" />
+遊戲結束，狼人陣營獲勝！
+<break time="2.0s" />
+一號
+<break time="2.0s" />
+二號
+<break time="2.0s" />
+三號
+<break time="2.0s" />
+四號
+<break time="2.0s" />
+五號
+<break time="2.0s" />
+六號
+<break time="2.0s" />
+七號
+<break time="2.0s" />
+八號
+<break time="2.0s" />
+九號
+<break time="2.0s" />
+十號
+<break time="2.0s" />
+十一號
+<break time="2.0s" />
+十二號
+<break time="2.0s" />
+十三號
+<break time="2.0s" />
+十四號
+<break time="2.0s" />
+十五號
+<break time="2.0s" />
+十六號
+<break time="2.0s" />
+十七號
+<break time="2.0s" />
+十八號
+<break time="2.0s" />
+十九號
+<break time="2.0s" />
+二十號

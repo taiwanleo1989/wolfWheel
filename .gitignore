@@ -1,3 +1,5 @@
 node_modules/
 .wrangler/
 .dev.vars
+voice-src/*.mp3
+voice-src/alignment-*.json

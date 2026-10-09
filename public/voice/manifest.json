@@ -1,0 +1,197 @@
+{
+  "voice": "Liu Junnan（ElevenLabs v4）",
+  "source": [
+    "ElevenLabs_2026-10-09T03_44_19_Liu Junnan _pvc_sp100_s33_sb75_v4.mp3",
+    "batch2.mp3"
+  ],
+  "files": {
+    "nightStart": {
+      "file": "nightStart.mp3",
+      "text": "天黑請閉眼。"
+    },
+    "guardOpen": {
+      "file": "guardOpen.mp3",
+      "text": "守衛請睜眼。請選擇今晚要守護的玩家。"
+    },
+    "guardClose": {
+      "file": "guardClose.mp3",
+      "text": "守衛請閉眼。"
+    },
+    "wolfOpen": {
+      "file": "wolfOpen.mp3",
+      "text": "狼人請睜眼。今晚要擊殺的目標是？"
+    },
+    "wolfOpenKing": {
+      "file": "wolfOpenKing.mp3",
+      "text": "狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？"
+    },
+    "wolfClose": {
+      "file": "wolfClose.mp3",
+      "text": "狼人請閉眼。"
+    },
+    "witchSave": {
+      "file": "witchSave.mp3",
+      "text": "女巫請睜眼。今晚死亡的玩家是——請問你要使用解藥嗎？"
+    },
+    "witchPoison": {
+      "file": "witchPoison.mp3",
+      "text": "請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。"
+    },
+    "witchClose": {
+      "file": "witchClose.mp3",
+      "text": "女巫請閉眼。"
+    },
+    "seerOpen": {
+      "file": "seerOpen.mp3",
+      "text": "預言家請睜眼。請問你今晚要查驗的玩家是？"
+    },
+    "seerClose": {
+      "file": "seerClose.mp3",
+      "text": "預言家請閉眼。"
+    },
+    "hunterOpen": {
+      "file": "hunterOpen.mp3",
+      "text": "獵人請睜眼。獵人，你今晚的帶槍手勢是——"
+    },
+    "hunterClose": {
+      "file": "hunterClose.mp3",
+      "text": "獵人請閉眼。"
+    },
+    "police": {
+      "file": "police.mp3",
+      "text": "要上警的玩家請起立。"
+    },
+    "dawn": {
+      "file": "dawn.mp3",
+      "text": "天亮請睜眼。"
+    },
+    "deathsAre": {
+      "file": "deathsAre.mp3",
+      "text": "昨晚死亡的是"
+    },
+    "peace": {
+      "file": "peace.mp3",
+      "text": "昨晚是平安夜。"
+    },
+    "shootSkill": {
+      "file": "shootSkill.mp3",
+      "text": "發動技能。"
+    },
+    "tie": {
+      "file": "tie.mp3",
+      "text": "平票，今天沒有人出局。"
+    },
+    "idiotFlip": {
+      "file": "idiotFlip.mp3",
+      "text": "翻牌，是白癡，免於出局，但之後不能投票。"
+    },
+    "exiled": {
+      "file": "exiled.mp3",
+      "text": "被放逐出局。"
+    },
+    "knight": {
+      "file": "knight.mp3",
+      "text": "騎士"
+    },
+    "duelWith": {
+      "file": "duelWith.mp3",
+      "text": "決鬥"
+    },
+    "duelWolf": {
+      "file": "duelWolf.mp3",
+      "text": "是狼人，出局！"
+    },
+    "duelGood": {
+      "file": "duelGood.mp3",
+      "text": "是好人，騎士以死謝罪。"
+    },
+    "goodWin": {
+      "file": "goodWin.mp3",
+      "text": "遊戲結束，好人陣營獲勝！"
+    },
+    "wolfWin": {
+      "file": "wolfWin.mp3",
+      "text": "遊戲結束，狼人陣營獲勝！"
+    },
+    "n1": {
+      "file": "n1.mp3",
+      "text": "一號"
+    },
+    "n2": {
+      "file": "n2.mp3",
+      "text": "二號"
+    },
+    "n3": {
+      "file": "n3.mp3",
+      "text": "三號"
+    },
+    "n4": {
+      "file": "n4.mp3",
+      "text": "四號"
+    },
+    "n5": {
+      "file": "n5.mp3",
+      "text": "五號"
+    },
+    "n6": {
+      "file": "n6.mp3",
+      "text": "六號"
+    },
+    "n7": {
+      "file": "n7.mp3",
+      "text": "七號"
+    },
+    "n8": {
+      "file": "n8.mp3",
+      "text": "八號"
+    },
+    "n9": {
+      "file": "n9.mp3",
+      "text": "九號"
+    },
+    "n10": {
+      "file": "n10.mp3",
+      "text": "十號"
+    },
+    "n11": {
+      "file": "n11.mp3",
+      "text": "十一號"
+    },
+    "n12": {
+      "file": "n12.mp3",
+      "text": "十二號"
+    },
+    "n13": {
+      "file": "n13.mp3",
+      "text": "十三號"
+    },
+    "n14": {
+      "file": "n14.mp3",
+      "text": "十四號"
+    },
+    "n15": {
+      "file": "n15.mp3",
+      "text": "十五號"
+    },
+    "n16": {
+      "file": "n16.mp3",
+      "text": "十六號"
+    },
+    "n17": {
+      "file": "n17.mp3",
+      "text": "十七號"
+    },
+    "n18": {
+      "file": "n18.mp3",
+      "text": "十八號"
+    },
+    "n19": {
+      "file": "n19.mp3",
+      "text": "十九號"
+    },
+    "n20": {
+      "file": "n20.mp3",
+      "text": "二十號"
+    }
+  }
+}

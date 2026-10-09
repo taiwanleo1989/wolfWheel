@@ -1,0 +1,190 @@
+[
+  {
+    "key": "nightStart",
+    "text": "天黑請閉眼。"
+  },
+  {
+    "key": "guardOpen",
+    "text": "守衛請睜眼。請選擇今晚要守護的玩家。"
+  },
+  {
+    "key": "guardClose",
+    "text": "守衛請閉眼。"
+  },
+  {
+    "key": "wolfOpen",
+    "text": "狼人請睜眼。今晚要擊殺的目標是？"
+  },
+  {
+    "key": "wolfOpenKing",
+    "text": "狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？"
+  },
+  {
+    "key": "wolfClose",
+    "text": "狼人請閉眼。"
+  },
+  {
+    "key": "witchSave",
+    "text": "女巫請睜眼。今晚死亡的玩家是……請問你要使用解藥嗎？"
+  },
+  {
+    "key": "witchPoison",
+    "text": "請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。"
+  },
+  {
+    "key": "witchClose",
+    "text": "女巫請閉眼。"
+  },
+  {
+    "key": "seerOpen",
+    "text": "預言家請睜眼。請問你今晚要查驗的玩家是？"
+  },
+  {
+    "key": "seerClose",
+    "text": "預言家請閉眼。"
+  },
+  {
+    "key": "hunterOpen",
+    "text": "獵人請睜眼。獵人，你今晚的帶槍手勢是……"
+  },
+  {
+    "key": "hunterClose",
+    "text": "獵人請閉眼。"
+  },
+  {
+    "key": "police",
+    "text": "要上警的玩家請起立。"
+  },
+  {
+    "key": "dawn",
+    "text": "天亮請睜眼。"
+  },
+  {
+    "key": "deathsAre",
+    "text": "昨晚死亡的是"
+  },
+  {
+    "key": "peace",
+    "text": "昨晚是平安夜。"
+  },
+  {
+    "key": "shootTook",
+    "text": "發動技能，帶走了"
+  },
+  {
+    "key": "tie",
+    "text": "平票，今天沒有人出局。"
+  },
+  {
+    "key": "idiotFlip",
+    "text": "翻牌，是白癡，免於出局，但之後不能投票。"
+  },
+  {
+    "key": "exiled",
+    "text": "被放逐出局。"
+  },
+  {
+    "key": "knight",
+    "text": "騎士"
+  },
+  {
+    "key": "duelWith",
+    "text": "決鬥"
+  },
+  {
+    "key": "duelWolf",
+    "text": "是狼人，出局！"
+  },
+  {
+    "key": "duelGood",
+    "text": "是好人，騎士以死謝罪。"
+  },
+  {
+    "key": "goodWin",
+    "text": "遊戲結束，好人陣營獲勝！"
+  },
+  {
+    "key": "wolfWin",
+    "text": "遊戲結束，狼人陣營獲勝！"
+  },
+  {
+    "key": "n1",
+    "text": "一號"
+  },
+  {
+    "key": "n2",
+    "text": "二號"
+  },
+  {
+    "key": "n3",
+    "text": "三號"
+  },
+  {
+    "key": "n4",
+    "text": "四號"
+  },
+  {
+    "key": "n5",
+    "text": "五號"
+  },
+  {
+    "key": "n6",
+    "text": "六號"
+  },
+  {
+    "key": "n7",
+    "text": "七號"
+  },
+  {
+    "key": "n8",
+    "text": "八號"
+  },
+  {
+    "key": "n9",
+    "text": "九號"
+  },
+  {
+    "key": "n10",
+    "text": "十號"
+  },
+  {
+    "key": "n11",
+    "text": "十一號"
+  },
+  {
+    "key": "n12",
+    "text": "十二號"
+  },
+  {
+    "key": "n13",
+    "text": "十三號"
+  },
+  {
+    "key": "n14",
+    "text": "十四號"
+  },
+  {
+    "key": "n15",
+    "text": "十五號"
+  },
+  {
+    "key": "n16",
+    "text": "十六號"
+  },
+  {
+    "key": "n17",
+    "text": "十七號"
+  },
+  {
+    "key": "n18",
+    "text": "十八號"
+  },
+  {
+    "key": "n19",
+    "text": "十九號"
+  },
+  {
+    "key": "n20",
+    "text": "二十號"
+  }
+]

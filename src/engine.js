@@ -277,7 +277,9 @@ export function shoot(room, clientId, target) {
   if (target) {
     if (!g.alive[target] || target === seat) return fail('只能帶走活著的其他玩家');
     kill(g, target); // 被槍帶走的獵人／狼王也可以再開槍
-    note(g, [seatKey(seat), 'shootTook', seatKey(target), 'end']);
+    // 主機只唸「7 號發動技能。」（帶走誰由開槍的人自己說）；紀錄寫完整
+    g.log.push({ day: g.dayNo, text: `${seat} 號發動技能，帶走了 ${target} 號。` });
+    say(g, [seatKey(seat), 'shootSkill']);
   }
   return ok(checkWin({ ...room, game: g }));
 }
