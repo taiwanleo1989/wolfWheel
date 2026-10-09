@@ -45,5 +45,11 @@ for (let i = 1; i <= 20; i++) LINES['n' + i] = `${i} 號`;
 export const seatKey = n => 'n' + n;
 export const SILENT = new Set(['end', 'sep', 'colon']);
 export const lineText = keys => keys.map(k => LINES[k] ?? '').join('');
-// 錄音用的文字：「——」改成停頓標記、去掉號碼中間的空白
-export const spokenText = key => LINES[key].replace(/ 號/g, '號').trim();
+// 錄音用的文字：號碼一律寫成國字（「9 號」→「九號」），AI 語音才不會把數字唸成英文
+const DIGITS = '零一二三四五六七八九';
+export function zhNumber(n) {
+  if (n < 10) return DIGITS[n];
+  if (n < 20) return '十' + (n % 10 ? DIGITS[n % 10] : '');
+  return DIGITS[Math.floor(n / 10)] + '十' + (n % 10 ? DIGITS[n % 10] : '');
+}
+export const spokenText = key => LINES[key].replace(/(\d+) 號/g, (_, d) => zhNumber(Number(d)) + '號').trim();

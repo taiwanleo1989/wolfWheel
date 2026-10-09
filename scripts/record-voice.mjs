@@ -1,23 +1,28 @@
 #!/usr/bin/env node
 // 把主機台詞的每個片段（public/shared/voice-lines.js）預錄成 public/voice/<key>.mp3，主機播放時直接拼起來。
 //
-//   npm run voice                 用 Azure 男聲 zh-TW-YunJheNeural 錄（金鑰在 .dev.vars：AZURE_SPEECH_KEY、AZURE_SPEECH_REGION）
-//   npm run voice -- --force      全部重錄（預設只錄文字有變的片段）
-//   node scripts/record-voice.mjs --provider zhiwei   用 Windows 內建 Microsoft Zhiwei 錄（只用來測流程，不上線）
+//   npm run voice -- --voice <voice_id>    用 ElevenLabs 錄（Leo 2026-10-09 選定；金鑰在 .dev.vars：ELEVENLABS_API_KEY，
+//                                          聲音 id 也可以寫在 .dev.vars：ELEVENLABS_VOICE_ID）
+//   npm run voice -- --list-voices          列出這把金鑰能用的聲音
+//   npm run voice -- --sample <資料夾> --voice <id>   只錄一段試聽（不動 public/voice）
+//   npm run voice -- --force                全部重錄（預設只錄文字有變的片段）
+//   --provider azure                         改用 Azure zh-TW-YunJheNeural（.dev.vars：AZURE_SPEECH_KEY、AZURE_SPEECH_REGION）
+//   --provider zhiwei                        用 Windows 內建 Microsoft Zhiwei（只用來測流程，不上線）
 //
-// 錄一次之後就是普通的音檔，玩的時候不會再呼叫 Azure，不會產生費用。
+// 錄一次之後就是普通的音檔，玩的時候不會再呼叫任何語音服務，不會產生費用。
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { LINES, SILENT, spokenText } from '../public/shared/voice-lines.js';
+import { LINES, SILENT, spokenText, lineText } from '../public/shared/voice-lines.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'public', 'voice');
 const manifestPath = join(outDir, 'manifest.json');
 const args = process.argv.slice(2);
-const provider = args.includes('--provider') ? args[args.indexOf('--provider') + 1] : 'azure';
+const opt = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+const provider = opt('--provider') ?? 'elevenlabs';
 const force = args.includes('--force');
 const AZURE_VOICE = 'zh-TW-YunJheNeural';
 
@@ -27,6 +32,34 @@ function devVars() {
   return Object.fromEntries(readFileSync(p, 'utf8').split(/\r?\n/).map(l => l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/)).filter(Boolean).map(m => [m[1], m[2]]));
 }
 const xml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+
+// ElevenLabs：多語模型唸中文；「——」換成刪節號讓它停頓
+async function elevenlabs(text) {
+  const env = { ...devVars(), ...process.env };
+  const key = env.ELEVENLABS_API_KEY, voiceId = opt('--voice') ?? env.ELEVENLABS_VOICE_ID;
+  if (!key) throw new Error('找不到 ELEVENLABS_API_KEY：請在 wolfWheel/.dev.vars 放 ELEVENLABS_API_KEY=…');
+  if (!voiceId) throw new Error('沒有指定聲音：加 --voice <voice_id>，或在 .dev.vars 放 ELEVENLABS_VOICE_ID=…（先跑 --list-voices 看有哪些）');
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64`, {
+    method: 'POST',
+    headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+    body: JSON.stringify({
+      text: text.replace(/——/g, '……'),
+      model_id: opt('--model') ?? 'eleven_multilingual_v2',
+      voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
+    }),
+  });
+  if (!res.ok) throw new Error(`ElevenLabs 回 ${res.status}：${(await res.text()).slice(0, 300)}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function listVoices() {
+  const key = { ...devVars(), ...process.env }.ELEVENLABS_API_KEY;
+  if (!key) throw new Error('找不到 ELEVENLABS_API_KEY');
+  const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': key } });
+  if (!res.ok) throw new Error(`ElevenLabs 回 ${res.status}：${(await res.text()).slice(0, 300)}`);
+  const { voices } = await res.json();
+  for (const v of voices) console.log([v.voice_id, v.name, v.category, v.labels?.gender, v.labels?.accent, v.labels?.age, v.labels?.description].map(x => x ?? '').join('	'));
+}
 
 async function azure(text) {
   const env = { ...devVars(), ...process.env };
@@ -75,8 +108,28 @@ function trim(mp3In) {
   return out;
 }
 
+const record = async text => {
+  if (provider === 'zhiwei') return zhiwei(text);
+  if (provider === 'azure') return azure(text);
+  return elevenlabs(text);
+};
+
+if (args.includes('--list-voices')) { await listVoices(); process.exit(0); }
+
+// 試聽：錄一段有代表性的台詞（含拼接的死訊），不動 public/voice
+if (opt('--sample')) {
+  const dir = opt('--sample');
+  mkdirSync(dir, { recursive: true });
+  const name = (opt('--voice') ?? provider).replace(/[^\w-]/g, '_');
+  const sample = ['nightStart', 'wolfOpenKing', 'witchSave', 'dawn'].map(spokenText).join('') + '昨晚死亡的是九號、十二號。';
+  const out = join(dir, `sample-${name}.mp3`);
+  writeFileSync(out, trim(await record(sample)));
+  console.log(`試聽檔：${out}（${lineText(['nightStart'])}…）`);
+  process.exit(0);
+}
+
 mkdirSync(outDir, { recursive: true });
-const voiceName = provider === 'zhiwei' ? 'Microsoft Zhiwei（測試用）' : AZURE_VOICE;
+const voiceName = provider === 'zhiwei' ? 'Microsoft Zhiwei（測試用）' : provider === 'azure' ? AZURE_VOICE : `ElevenLabs ${opt('--voice') ?? { ...devVars(), ...process.env }.ELEVENLABS_VOICE_ID}`;
 let manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { files: {} };
 if (manifest.voice !== voiceName) manifest = { voice: voiceName, files: {} }; // 換聲音就全部重錄
 
@@ -86,7 +139,7 @@ for (const key of Object.keys(LINES)) {
   const text = spokenText(key);
   const file = `${key}.mp3`;
   if (!force && manifest.files[key]?.text === text && existsSync(join(outDir, file))) { kept++; continue; }
-  const buf = trim(provider === 'zhiwei' ? zhiwei(text) : await azure(text));
+  const buf = trim(await record(text));
   writeFileSync(join(outDir, file), buf);
   manifest.files[key] = { file, text };
   made++;
