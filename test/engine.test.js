@@ -228,27 +228,54 @@ test('獵人被刀可以開槍，被毒不能；被槍帶走的狼王還能再�
   assert.equal(E.privateGame(poisoned, 7).canShoot, undefined);
 });
 
-test('白癡被放逐翻牌免死；再被放逐才會出局', () => {
+test('白癡被放逐：自己選翻牌（免死）或不翻（出局）；選之前不能天黑；翻過再被放逐直接出局', () => {
   let r = night(newGame('yu-nv-lie-bai')); // 預女獵白：1–4 狼、5 預、6 女、7 獵、8 白癡
+  const seq = r.game.narration.seq;
   r = E.exile(r, 8).room;
   assert.equal(r.game.alive[8], true);
+  assert.equal(r.game.narration.seq, seq, '選之前主機不唸結果');
+  assert.equal(E.publicGame(r).idiotChoice, 8);
+  assert.equal(E.privateGame(r, 8).idiotChoose, true);
+  assert.equal(E.privateGame(r, 9).idiotChoose, undefined);
+  assert.equal(E.nextNight(r, 1e6).ok, false, '等白癡選完才能天黑');
+  assert.equal(E.idiotChoose(r, id(9), true).ok, false, '別人不能替他選');
+  const out = E.idiotChoose(r, id(8), false).room;
+  assert.equal(out.game.alive[8], false, '不翻牌＝出局');
+  assert.match(out.game.narration.text, /8 號被放逐出局/);
+  r = E.idiotChoose(r, id(8), true).room;
+  assert.equal(r.game.alive[8], true);
   assert.deepEqual(r.game.idiotRevealed, [8]);
+  assert.match(r.game.narration.text, /翻牌，是白癡/);
   assert.equal(E.exile(r, 9).ok, false, '一天只能放逐一次');
   r = night(E.nextNight(r, 1e6).room);
   r = E.exile(r, 8).room;
-  assert.equal(r.game.alive[8], false);
+  assert.equal(r.game.alive[8], false, '翻過牌的白癡再被放逐就出局，不用再選');
+  // 主機代按（白癡手機沒電）
+  let h = E.exile(night(newGame('yu-nv-lie-bai')), 8).room;
+  h = E.idiotChooseByHost(h, true).room;
+  assert.deepEqual(h.game.idiotRevealed, [8]);
 });
 
-test('騎士決鬥：對狼 → 狼出局；對好人 → 騎士出局；只能用一次', () => {
+test('騎士決鬥：對狼 → 狼出局、唸天黑請閉眼、不能放逐，主機按了才進黑夜（不再唸一次）；對好人 → 騎士出局、繼續投票；只能用一次', () => {
   // 狼王騎士：1–3 狼、4 狼王、5 預、6 女、7 獵、8 騎士、9–12 民
   const r = night(newGame('lang-wang-qi-shi'));
   assert.equal(E.privateGame(r, 8).canDuel, true);
   let d = E.duel(r, id(8), 2).room;
   assert.equal(d.game.alive[2], false);
+  assert.equal(d.phase, 'day', '主機還沒按，不會自己進黑夜');
+  assert.match(d.game.narration.text, /是狼人，出局！天黑請閉眼。$/);
+  assert.equal(E.publicGame(d).nightCalled, true);
+  assert.equal(E.exile(d, 9).ok, false, '撞到狼就不放逐');
   assert.equal(E.duel(d, id(8), 3).ok, false);
+  const seq = d.game.narration.seq;
+  const n = E.nextNight(d, 1e6).room;
+  assert.equal(n.phase, 'night');
+  assert.equal(n.game.narration.seq, seq, '天黑請閉眼剛唸過，不重唸');
   d = E.duel(r, id(8), 9).room;
   assert.equal(d.game.alive[8], false);
   assert.equal(d.game.alive[9], true);
+  assert.equal(E.publicGame(d).nightCalled, false);
+  assert.equal(E.exile(d, 1).ok, true, '撞到好人繼續投票');
 });
 
 test('勝負（屠邊／屠城）', () => {
@@ -349,7 +376,11 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
         r = res.room; collect(r);
       }
       if (r.phase !== 'day') break;
-      r = E.exile(r, day === 0 && preset === 'yu-nv-lie-bai' ? 8 : [1, 2, 3, 4].find(w => r.game.alive[w]) ?? 0).room; collect(r);
+      if (!r.game.day.nightCalled) {
+        r = E.exile(r, day === 0 && preset === 'yu-nv-lie-bai' ? 8 : [1, 2, 3, 4].find(w => r.game.alive[w]) ?? 0).room;
+        if (r.game.day?.idiotChoice) r = E.idiotChoose(r, id(r.game.day.idiotChoice), true).room;
+        collect(r);
+      }
       if (r.phase === 'day') r = E.nextNight(r, 1e6).room;
     }
   }

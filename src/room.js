@@ -72,7 +72,7 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'announce'];
+    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'idiotHost', 'nextNight', 'newGame', 'announce'];
     const now = Date.now();
     if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
     let result;
@@ -95,6 +95,8 @@ export class Room extends DurableObject {
       case 'shoot': result = E.shoot(this.room, me.clientId, msg.target); break;
       case 'exile': result = E.exile(this.room, msg.target); break;
       case 'duel': result = E.duel(this.room, me.clientId, msg.target); break;
+      case 'idiot': result = E.idiotChoose(this.room, me.clientId, msg.flip); break;
+      case 'idiotHost': result = E.idiotChooseByHost(this.room, msg.flip); break;
       case 'nextNight': result = E.nextNight(this.room, now); break;
       case 'announce': result = E.announceDeaths(this.room); break;
       case 'newGame': result = E.newGame(this.room); break;

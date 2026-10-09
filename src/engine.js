@@ -70,7 +70,8 @@ export function startGame(room, now, rand) {
   return ok(beginNight({ ...room, game: g }, now));
 }
 
-function beginNight(room, now) {
+// silent：「天黑請閉眼」白天已經唸過了（騎士撞到狼），這裡不再唸一次，只等大家閉好眼
+function beginNight(room, now, { silent = false } = {}) {
   const g = room.game;
   const c = room.setup.counts;
   const steps = NIGHT_ORDER.filter(step => (step === 'wolf' ? (c.wolf ?? 0) + (c.king ?? 0) > 0 : (c[step] ?? 0) > 0));
@@ -78,7 +79,7 @@ function beginNight(room, now) {
   g.night = { steps, idx: -1, beat: 0, stage: 'intro', next: null, openedAt: null, wolfVotes: {}, wolfProposal: null, wolfTarget: null, guardTarget: null, witchSave: false, witchPoison: null, seerTarget: null };
   g.canShoot = [];
   g.day = null;
-  say(g, ['nightStart']);
+  if (!silent) say(g, ['nightStart']);
   g.timer = { at: now + INTRO_MS };
   return { ...room, phase: 'night' };
 }
@@ -264,7 +265,8 @@ export function announceDeaths(room) {
   return ok(checkWin({ ...room, game: g }));
 }
 
-const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊') : null);
+const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊')
+  : room.game.day?.idiotChoice ? fail('請等被放逐的玩家選擇') : null);
 
 /* ───────── 白天 ───────── */
 export function shoot(room, clientId, target) {
@@ -287,6 +289,7 @@ export function shoot(room, clientId, target) {
 export function exile(room, target) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
+  if (room.game.day.nightCalled) return fail('騎士撞到狼人，今天直接天黑，不放逐');
   if (room.game.day.exileDone) return fail('今天已經放逐過了');
   const g = structuredClone(room.game);
   target = Number(target ?? 0);
@@ -294,15 +297,42 @@ export function exile(room, target) {
   if (!target) note(g, ['tie']);
   else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
+    // 還沒翻過牌的白癡：由他自己的手機選要不要翻牌（Leo 2026-10-10）；選之前主機不唸結果
     if (g.roles[target] === 'idiot' && !g.idiotRevealed.includes(target)) {
-      g.idiotRevealed.push(target);
-      note(g, [seatKey(target), 'idiotFlip']);
-    } else {
-      kill(g, target);
-      note(g, [seatKey(target), 'exiled']);
+      g.day.idiotChoice = target;
+      return ok({ ...room, game: g });
     }
+    kill(g, target);
+    note(g, [seatKey(target), 'exiled']);
   }
   return ok(checkWin({ ...room, game: g }));
+}
+
+// 被放逐的白癡：flip＝翻牌免死（之後不能投票）；不翻＝照常出局
+function settleIdiot(room, flip) {
+  const g = structuredClone(room.game);
+  const seat = g.day.idiotChoice;
+  g.day.idiotChoice = null;
+  if (flip) {
+    g.idiotRevealed.push(seat);
+    note(g, [seatKey(seat), 'idiotFlip']);
+  } else {
+    kill(g, seat);
+    note(g, [seatKey(seat), 'exiled']);
+  }
+  return ok(checkWin({ ...room, game: g }));
+}
+
+export function idiotChoose(room, clientId, flip) {
+  if (room.phase !== 'day' || !room.game.day?.idiotChoice) return fail('現在不用選');
+  if (L.seatOf(room, clientId) !== room.game.day.idiotChoice) return fail('不是你要選');
+  return settleIdiot(room, Boolean(flip));
+}
+
+// 主機：白癡的手機沒電或斷線，聽他口頭說要不要翻牌，替他按
+export function idiotChooseByHost(room, flip) {
+  if (room.phase !== 'day' || !room.game.day?.idiotChoice) return fail('現在不用選');
+  return settleIdiot(room, Boolean(flip));
 }
 
 export function duel(room, clientId, target) {
@@ -317,9 +347,13 @@ export function duel(room, clientId, target) {
   const g = structuredClone(g0);
   g.knightUsed = true;
   if (isWolfRole(g.roles[target])) {
+    // 撞到狼：狼出局，今天不放逐，直接唸「天黑請閉眼」；主機按「進入黑夜」才開始夜晚（Leo 2026-10-10）
     kill(g, target);
-    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf']);
+    const over = winnerOf(g, room.setup.counts, room.setup.rules);
+    g.day.nightCalled = !over;
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over ? [] : ['nightStart'])]);
   } else {
+    // 撞到好人：騎士出局，白天繼續發言、投票
     kill(g, seat);
     note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelGood']);
   }
@@ -330,8 +364,9 @@ export function nextNight(room, now) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
   const g = structuredClone(room.game);
+  const silent = Boolean(g.day?.nightCalled);
   g.dayNo++;
-  return ok(beginNight({ ...room, game: g }, now));
+  return ok(beginNight({ ...room, game: g }, now, { silent }));
 }
 
 /* ───────── 勝負 ───────── */
@@ -383,6 +418,8 @@ export function publicGame(room) {
     winner: g.winner,
     exileDone: g.day?.exileDone ?? false,
     deathsPending: Boolean(g.day?.pendingDeaths),
+    nightCalled: Boolean(g.day?.nightCalled),
+    idiotChoice: g.day?.idiotChoice ?? null, // 等這個號碼選要不要翻牌（Leo 拍板：只有白癡會出現這個等待）
     // 夜裡只公開「現在輪到哪個角色、第幾句台詞」（本來就唸出來了），不公開死活與進度
     night: g.night ? { step: curStep(g.night) ?? null, beat: g.night.beat, openedAt: g.night.openedAt } : null,
   };
@@ -402,7 +439,8 @@ export function privateGame(room, seat) {
   if (role === 'guard') me.lastGuard = g.lastGuard;
   if (room.phase === 'day' && !g.day?.pendingDeaths) {
     if (g.canShoot.includes(seat)) me.canShoot = true;
-    if (role === 'knight' && g.alive[seat] && !g.knightUsed) me.canDuel = true;
+    if (g.day?.idiotChoice === seat) me.idiotChoose = true;
+    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice) me.canDuel = true;
   }
   const n = g.night;
   if (room.phase === 'night' && n?.stage === 'acting' && g.alive[seat] && actors(g, curStep(n)).includes(seat)) {

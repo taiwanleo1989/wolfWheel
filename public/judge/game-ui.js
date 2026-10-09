@@ -129,6 +129,11 @@ function renderAction() {
         <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 被毒了，不能開槍'}</b></div>
         <button class="btn primary big" type="button" data-do="hunterSeen">知道了</button>`;
     }
+  } else if (phase === 'day' && me.idiotChoose) {
+    html = `<h2>你被投票放逐了</h2>
+      <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
+      <div class="row-gap"><button class="btn primary" type="button" data-do="idiotFlip">翻牌（免於出局）</button>
+      <button class="btn" type="button" data-do="idiotOut">不翻牌，出局</button></div>`;
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
       <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。</p>
@@ -138,7 +143,7 @@ function renderAction() {
   } else if (phase === 'day' && me.canDuel) {
     html = ui.duelOpen
       ? `<h2>騎士決鬥</h2>
-         <p class="hint">選一個人翻牌決鬥：他是狼人就出局；不是的話，你出局。只能用一次。</p>
+         <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續投票。只能用一次。</p>
          ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
          <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
          <button class="btn" type="button" data-do="duelClose">取消</button></div>`
@@ -189,6 +194,8 @@ function onAction(e) {
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
     case 'duelClose': ui.duelOpen = false; ui.pick = null; c.render(); break;
     case 'duel': if (confirm(`確定和 ${pick} 號決鬥？猜錯的話你會出局。`)) c.send({ type: 'duel', target: pick }); break;
+    case 'idiotFlip': if (confirm('確定翻牌？翻牌後不會出局，但之後不能投票。')) c.send({ type: 'idiot', flip: true }); break;
+    case 'idiotOut': if (confirm('確定不翻牌、直接出局？')) c.send({ type: 'idiot', flip: false }); break;
   }
 }
 
@@ -230,6 +237,24 @@ function renderHost() {
       setHTML(box, html);
       return;
     }
+    if (g.nightCalled) {
+      // 騎士撞到狼：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
+      html = `<h2>騎士撞到狼人</h2>
+        <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
+        <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
+        <div class="row-gap">${bgm}</div>`;
+      setHTML(box, html);
+      return;
+    }
+    if (g.idiotChoice) {
+      html = `<h2>白天</h2>
+        <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……</p>
+        <div class="stuck"><p>他的手機沒電或斷線的話，請他口頭說，由你替他按：</p>
+          <div class="row-gap"><button class="btn" type="button" data-host="idiotFlip">替他翻牌</button>
+          <button class="btn" type="button" data-host="idiotOut">替他出局</button></div></div>`;
+      setHTML(box, html);
+      return;
+    }
     html = `<h2>白天</h2>
       <p class="hint">請大家依序發言、投票（口頭進行）。投完票在這裡登記結果。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : `
@@ -261,8 +286,10 @@ function onHost(e) {
     case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': if (confirm(`登記 ${ui.hostPick} 號被放逐？`)) send({ type: 'exile', target: ui.hostPick }); break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
+    case 'idiotFlip': if (confirm('替他翻牌（免於出局）？')) send({ type: 'idiotHost', flip: true }); break;
+    case 'idiotOut': if (confirm('替他選「不翻牌，出局」？')) send({ type: 'idiotHost', flip: false }); break;
     case 'night':
-      if (!state.game.exileDone && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
+      if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
       send({ type: 'nextNight' }); break;
     case 'newGame': send({ type: 'newGame' }); break;
   }
