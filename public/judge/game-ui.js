@@ -2,7 +2,8 @@
 import { ROLES, TEAM_NAME } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
-const STEP_NAME = { guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家', hunter: '獵人', police: '上警' };
+const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
+const STEP_NAME ={ guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家', hunter: '獵人', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
 const ui = { pick: null, pickKey: '', duelOpen: false, showMe: false, hostPick: null, hostKey: '' };
@@ -219,8 +220,7 @@ function renderHost() {
       <p class="hint">${step ? `現在輪到：<b>${STEP_NAME[step]}</b>` : '過場中…'}　手機會自動唸台詞、自動往下走。</p>
       <div class="row-gap"><button class="btn small" type="button" data-host="replay">再唸一次</button>${bgm}</div>
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
-        <p class="hint center">不按的話，12 秒後會自動天亮。</p>` : ''}`;
-    // 角色的步驟沒有「跳過」：主機也是玩家，不能替角色決定，也不能從「卡多久」看出誰還活著（Leo 2026-10-10）
+        <p class="hint center">不按的話，12 秒後會自動天亮。</p>` : skipBox(g.night)}`;
   } else if (phase === 'day') {
     const pick = ui.hostPick;
     if (g.deathsPending) {
@@ -263,6 +263,19 @@ function renderHost() {
   setHTML(box, html);
 }
 
+// 「跳過」防手機沒電卡死（Leo 2026-10-10）：每個角色一樣——睜眼就出現（灰的）、睜眼 30 秒後才能按，文字不提任何角色。
+// 時間從這支手機收到「睜眼」那刻算；伺服器自己也會檢查 30 秒
+function skipBox(night) {
+  if (!night?.step || !night.eyesOpen) { clearTimeout(ui.skipTimer); return ''; }
+  const key = `${c.state.game.dayNo}|${night.step}|${night.beat}|${night.openedAt}`;
+  if (key !== ui.skipKey) { ui.skipKey = key; ui.skipSince = Date.now(); }
+  const left = SKIP_MS - (Date.now() - ui.skipSince);
+  clearTimeout(ui.skipTimer); // 時間到重畫一次，讓按鈕亮起來（只保留一個計時器）
+  if (left > 0) ui.skipTimer = setTimeout(() => c.render(), left + 100);
+  return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 30 秒後可按）</button></div>
+    <p class="hint center">手機沒電、沒辦法操作時才按：這一步當作沒有動作。</p>`;
+}
+
 function onHost(e) {
   const hp = e.target.closest('[data-host-pick]');
   if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = ui.hostPick === n ? null : n; c.render(); return; }
@@ -274,6 +287,7 @@ function onHost(e) {
     case 'voice': voice.toggleSource(); voice.speak(state.game.narration); c.render(); break; // 切完馬上用新聲音重唸這句
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'policeDone': send({ type: 'skip' }); break;
+    case 'skip': if (confirm('跳過這一步？這一步當作沒有動作。')) send({ type: 'skip' }); break;
     case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': if (confirm(`登記 ${ui.hostPick} 號被放逐？`)) send({ type: 'exile', target: ui.hostPick }); break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;

@@ -37,6 +37,7 @@ export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色�
 export const POLICE_MS = 12000; // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
 export const SKILL_MS = 30000;  // 被動技能（獵人／狼王開槍、白癡翻牌）限時；時間到沒按＝棄權（Leo 2026-10-10）。夜裡的步驟不限時
+export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 
 const ok = room => ({ ok: true, room });
 const fail = error => ({ ok: false, error });
@@ -211,11 +212,13 @@ export function nightAction(room, clientId, payload, online, now, rand) {
   return ok({ ...room, game: g });
 }
 
-// 主機：上警時「大家都起立好了，天亮」。
-// 角色的步驟主機不能跳過（Leo 2026-10-10：主機也是玩家，不能替角色做決定；跳過鈕只在活人卡住時出現，會洩漏誰活著）。
-// 手機沒電就一直等，用別支手機接手那個座位。
+// 主機：上警時「大家都起立好了，天亮」；角色的步驟要等這句台詞唸出（角色睜眼）SKIP_MS 之後才能跳過＝當作沒有動作。
+// Leo 2026-10-10：防手機沒電卡死。每個角色、活的死的都同一套：按鈕一律睜眼就出現（灰的）、30 秒才能按；
+// 死掉的角色假等最多 15 秒，按鈕亮不起來，所以不會比「這一步拖多久」多洩漏任何東西
 export function skipStep(room, now, rand) {
-  if (room.phase !== 'night' || room.game.night.stage !== 'acting' || curStep(room.game.night) !== 'police') return fail('現在沒有可以跳過的步驟');
+  if (room.phase !== 'night' || room.game.night.stage !== 'acting') return fail('現在沒有可以跳過的步驟');
+  const n = room.game.night;
+  if (curStep(n) !== 'police' && now - n.openedAt < SKIP_MS) return fail('睜眼 30 秒後才能跳過');
   const g = structuredClone(room.game);
   endBeat(room, g, now, rand);
   return ok({ ...room, game: g });
@@ -470,7 +473,8 @@ export function publicGame(room) {
     nightCalled: Boolean(g.day?.nightCalled),
     idiotChoice: g.day?.idiotChoice ?? null, // 等這個號碼選要不要翻牌（Leo 拍板：只有白癡會出現這個等待）
     // 夜裡只公開「現在輪到哪個角色、第幾句台詞」（本來就唸出來了），不公開死活與進度
-    night: g.night ? { step: curStep(g.night) ?? null, beat: g.night.beat, openedAt: g.night.openedAt } : null,
+    // eyesOpen：這句台詞唸出後到「X 請閉眼」之前（動作中＋做完後的停頓都算，免得從按鈕消失的時間看出角色做完了）
+    night: g.night ? { step: curStep(g.night) ?? null, beat: g.night.beat, openedAt: g.night.openedAt, eyesOpen: ['acting', 'pause'].includes(g.night.stage) } : null,
   };
   if (room.phase === 'ended') pub.allRoles = g.roles; // 結束後翻開所有人的身分
   return pub;

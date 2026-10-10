@@ -361,10 +361,21 @@ test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機�
   assert.ok(said.includes('請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。'), '死掉的女巫第二句也要唸');
 });
 
-test('主機不能跳過角色的步驟（只有上警可以提早天亮）；角色的步驟不限時、一直等', () => {
+test('角色的步驟不限時；主機要等角色睜眼 30 秒才能跳過（當作沒動作）；公開資料只說「眼睛睜著」，不說做完沒', () => {
   let r = play(newGame(), {}, atAct('wolf'));
-  assert.equal(E.skipStep(r, 0, minRand).ok, false);
   assert.equal(r.game.timer, null, '活著的狼人沒有倒數');
+  for (const w of [1, 2, 3, 4]) r = act(r, w, { target: 9 }); // 統一了但沒人按「正確」
+  const t0 = r.game.night.openedAt;
+  assert.equal(E.skipStep(r, t0 + E.SKIP_MS - 1, minRand).ok, false, '還不到 30 秒');
+  assert.equal(E.publicGame(r).night.eyesOpen, true);
+  const s = E.skipStep(r, t0 + E.SKIP_MS, minRand).room;
+  assert.equal(s.game.night.stage, 'pause');
+  assert.equal(E.publicGame(s).night.eyesOpen, true, '做完後的停頓也算睜眼，按鈕不會提早消失');
+  assert.equal(night(s).game.log.at(-1).text.includes('平安夜'), true, '狼人被跳過＝空刀');
+  // 死掉的角色假等最多 15 秒，30 秒的跳過永遠輪不到
+  let d = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room; // 守衛死了
+  d = runUntil(d, x => x.game.night.stage === 'acting' && x.game.night.steps[x.game.night.idx] === 'guard');
+  assert.ok(d.game.timer.at - d.game.night.openedAt < E.SKIP_MS);
 });
 
 test('畫面資料：公開資料沒有身分；不是自己回合拿不到按鈕；狼看得到隊友', () => {
