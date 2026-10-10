@@ -278,6 +278,31 @@ test('騎士決鬥：對狼 → 狼出局、唸天黑請閉眼、不能放逐，
   assert.equal(E.exile(d, 1).ok, true, '撞到好人繼續投票');
 });
 
+test('騎士撞到狼王：狼王先開槍，開完（或不開）才唸天黑請閉眼；按進入黑夜不重唸', () => {
+  const r = night(newGame('lang-wang-qi-shi')); // 4 號狼王、8 號騎士
+  let d = E.duel(r, id(8), 4).room;
+  assert.equal(d.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！', '狼王還要開槍，先不唸天黑');
+  assert.equal(E.privateGame(d, 4).canShoot, true);
+  const shot = E.shoot(d, id(4), 9).room;
+  assert.equal(shot.game.narration.text, '4 號發動技能。天黑請閉眼。');
+  assert.equal(E.nextNight(shot, 1e6).room.game.narration.seq, shot.game.narration.seq, '不重唸');
+  const pass = E.shoot(d, id(4), 0).room;
+  assert.equal(pass.game.narration.text, '天黑請閉眼。', '狼王不開槍也要唸');
+  // 狼王還沒開槍主機就按了：照常唸天黑請閉眼
+  const early = E.nextNight(d, 1e6).room;
+  assert.equal(early.game.narration.text, '天黑請閉眼。');
+});
+
+test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在一起唸（不會被蓋掉）', () => {
+  let r = night(newGame());
+  for (const wolf of [1, 2, 3]) r = night(E.nextNight(E.exile(r, wolf).room, 1e6).room);
+  r = E.exile(r, 4).room;
+  assert.equal(r.phase, 'ended');
+  assert.equal(r.game.narration.text, '4 號被放逐出局。遊戲結束，好人陣營獲勝！');
+  assert.equal(r.game.log.at(-1).text, '遊戲結束，好人陣營獲勝！');
+  assert.equal(r.game.log.at(-2).text, '4 號被放逐出局。');
+});
+
 test('勝負（屠邊／屠城）', () => {
   const g = newGame().game;
   const counts = R.PRESETS[1].counts, side = { win: 'side' }, all = { win: 'all' };

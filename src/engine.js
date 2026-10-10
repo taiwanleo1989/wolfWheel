@@ -111,7 +111,7 @@ function nextStep(room, g, now, rand) {
   const n = g.night;
   n.idx++;
   n.beat = 0;
-  if (n.idx >= n.steps.length) return dawn({ ...room, game: g }, now);
+  if (n.idx >= n.steps.length) return dawn({ ...room, game: g }, now, room.game.narration?.seq);
   openBeat(room, g, now, rand);
   return { ...room, game: g };
 }
@@ -226,7 +226,7 @@ function kill(g, seat, { poisoned = false } = {}) {
 // 「昨晚死亡的是 9 號、10 號。」／「昨晚是平安夜。」
 const deathClips = list => (list.length ? ['deathsAre', ...list.flatMap((s, i) => (i ? ['sep', seatKey(s)] : [seatKey(s)])), 'end'] : ['peace']);
 
-function dawn(room, now) {
+function dawn(room, now, seq0) {
   const g = room.game;
   const n = g.night;
   const deaths = new Set();
@@ -251,7 +251,7 @@ function dawn(room, now) {
   }
   for (const s of list) kill(g, s, { poisoned: s === n.witchPoison });
   note(g, ['dawn', ...deathClips(list)]);
-  return checkWin({ ...room, phase: 'day', game: g });
+  return checkWin({ ...room, phase: 'day', game: g }, seq0);
 }
 
 // 主機：警長選完了，公布昨晚死訊
@@ -262,7 +262,7 @@ export function announceDeaths(room) {
   for (const s of list) kill(g, s, { poisoned: s === g.day.poisoned });
   g.day.pendingDeaths = null;
   note(g, deathClips(list));
-  return ok(checkWin({ ...room, game: g }));
+  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊')
@@ -283,7 +283,12 @@ export function shoot(room, clientId, target) {
     g.log.push({ day: g.dayNo, text: `${seat} 號發動技能，帶走了 ${target} 號。` });
     say(g, [seatKey(seat), 'shootSkill']);
   }
-  return ok(checkWin({ ...room, game: g }));
+  const seq0 = room.game.narration?.seq;
+  // 騎士撞到狼王那天：最後一槍開完（或選不開）才唸「天黑請閉眼」
+  if (g.day?.nightCalled && !g.canShoot.length && !winnerOf(g, room.setup.counts, room.setup.rules)) {
+    say(g, [...(g.narration.seq > seq0 ? g.narration.clips : []), 'nightStart']);
+  }
+  return ok(checkWin({ ...room, game: g }, seq0));
 }
 
 export function exile(room, target) {
@@ -305,7 +310,7 @@ export function exile(room, target) {
     kill(g, target);
     note(g, [seatKey(target), 'exiled']);
   }
-  return ok(checkWin({ ...room, game: g }));
+  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 // 被放逐的白癡：flip＝翻牌免死（之後不能投票）；不翻＝照常出局
@@ -320,7 +325,7 @@ function settleIdiot(room, flip) {
     kill(g, seat);
     note(g, [seatKey(seat), 'exiled']);
   }
-  return ok(checkWin({ ...room, game: g }));
+  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 export function idiotChoose(room, clientId, flip) {
@@ -348,23 +353,25 @@ export function duel(room, clientId, target) {
   g.knightUsed = true;
   if (isWolfRole(g.roles[target])) {
     // 撞到狼：狼出局，今天不放逐，直接唸「天黑請閉眼」；主機按「進入黑夜」才開始夜晚（Leo 2026-10-10）
+    // 撞到狼王：狼王先開槍，開完才唸「天黑請閉眼」（見 shoot）
     kill(g, target);
     const over = winnerOf(g, room.setup.counts, room.setup.rules);
     g.day.nightCalled = !over;
-    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over ? [] : ['nightStart'])]);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over || g.canShoot.length ? [] : ['nightStart'])]);
   } else {
     // 撞到好人：騎士出局，白天繼續發言、投票
     kill(g, seat);
     note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelGood']);
   }
-  return ok(checkWin({ ...room, game: g }));
+  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 export function nextNight(room, now) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
   const g = structuredClone(room.game);
-  const silent = Boolean(g.day?.nightCalled);
+  // 「天黑請閉眼」剛唸過就不重唸；狼王還沒開槍主機就按了，那就照常唸
+  const silent = Boolean(g.day?.nightCalled) && g.narration?.clips.at(-1) === 'nightStart';
   g.dayNo++;
   return ok(beginNight({ ...room, game: g }, now, { silent }));
 }
@@ -385,14 +392,19 @@ export function winnerOf(g, counts, rules) {
   return null;
 }
 
-function checkWin(room) {
+// seq0：這個動作開始前的台詞序號。動作自己剛唸的那句（例如「3 號被放逐出局。」）要和「遊戲結束」接在同一句，
+// 不然主機只會收到最後一句，前一句就沒唸到
+function checkWin(room, seq0) {
   const g = room.game;
   const w = winnerOf(g, room.setup.counts, room.setup.rules);
   if (!w) return room;
   g.winner = w;
   g.timer = null;
   g.canShoot = [];
-  note(g, [w === 'good' ? 'goodWin' : 'wolfWin']);
+  const win = w === 'good' ? 'goodWin' : 'wolfWin';
+  const before = g.narration && seq0 !== undefined && g.narration.seq > seq0 ? g.narration.clips : [];
+  g.log.push({ day: g.dayNo, text: lineText([win]) });
+  say(g, [...before, win]);
   return { ...room, phase: 'ended' };
 }
 
