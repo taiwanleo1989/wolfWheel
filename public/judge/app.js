@@ -278,6 +278,7 @@ async function keepAwake() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !session) return;
   keepAwake();
+  voice.wake();
   if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) { retry = 0; connect(); }
 });
 
@@ -393,6 +394,7 @@ $('#startBtn').onclick = () => {
   send({ type: 'start' });
 };
 $('#voiceOn').onclick = () => { voice.unlock(); voice.onNarration(state?.game?.narration, { replay: true }); render(); };
+voice.onStateChange(() => render()); // 聲音被暫停 → 重新出現「點這裡開啟主持語音」；恢復 → 收起來
 bindGame($);
 
 /* ───────── 啟動 ───────── */

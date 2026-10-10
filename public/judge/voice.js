@@ -8,7 +8,7 @@
 const BGM_VOL = 0.18, BGM_DUCK = 0.05;
 const GAP = { sep: 0.28, colon: 0.22, end: 0 }; // 標點片段：只停頓、不出聲
 const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
-let zhVoice = null, unlocked = false, lastSeq = null;
+let zhVoice = null, unlocked = false, lastSeq = null, ranOnce = false, onChange = null;
 let actx = null, gain = null, voiceGain = null, bgm = null, bgmOn = true, speaking = 0;
 let source = 'recorded';              // 'recorded' | 'device'
 let manifest = null, buffers = {}, loading = null, playingUntil = 0, playing = [];
@@ -44,7 +44,9 @@ const recordedReady = clips => manifest && clips?.length && clips.every(k => k i
 
 export const voice = {
   supported: Boolean(synth),
-  get unlocked() { return unlocked; },
+  // 「現在出得了聲」：點過解鎖，而且聲音系統還在跑。
+  // iPhone 接電話、切 App、鎖螢幕後回來，聲音系統會被暫停（suspended／Safari 的 interrupted），要再點一下才能恢復（Leo 2026-10-10）
+  get unlocked() { return unlocked && !(ranOnce && actx && actx.state !== 'running'); },
   get bgmOn() { return bgmOn; },
   get source() { return source; },
   get voiceName() { return source === 'recorded' && manifest ? '男聲（錄音）' : '手機內建'; },
@@ -58,11 +60,20 @@ export const voice = {
       bgm = new Audio('../bgm.m4a'); bgm.loop = true; bgm.preload = 'auto';
       try { const src = actx.createMediaElementSource(bgm); gain = actx.createGain(); gain.gain.value = 0; src.connect(gain).connect(actx.destination); } catch { gain = null; }
       voiceGain = actx.createGain(); voiceGain.gain.value = 1; voiceGain.connect(actx.destination);
+      actx.onstatechange = () => { if (actx.state === 'running') ranOnce = true; onChange?.(); };
       loadRecorded();
     }
-    if (actx && actx.state === 'suspended') actx.resume();
+    if (actx && actx.state !== 'running') actx.resume().catch(() => {});
     unlocked = true;
   },
+
+  // 切回網頁時呼叫：先試著自己恢復（有些手機不用點就能恢復）；恢復不了，畫面會重新出現「點這裡開啟主持語音」
+  wake() {
+    if (actx && actx.state !== 'running') actx.resume().catch(() => {});
+  },
+
+  // 聲音系統狀態變了（被暫停／恢復）就通知畫面重畫
+  onStateChange(fn) { onChange = fn; },
 
   // 每次收到新狀態呼叫：台詞編號變大就唸
   onNarration(narration, { replay = false } = {}) {
