@@ -51,6 +51,7 @@ export class Room extends DurableObject {
     if (!this.room) { ws.close(4004, '房間已關閉'); return; }
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
+    if (!msg || typeof msg !== 'object') return; // 「null」「5」這種也是合法 JSON，但不是訊息
     const me = ws.deserializeAttachment() ?? {};
 
     if (msg.type === 'hello') {
