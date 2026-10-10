@@ -214,7 +214,8 @@ export function nightAction(room, clientId, payload, online, now, rand) {
 
 // 主機：上警時「大家都起立好了，天亮」；角色的步驟要等這句台詞唸出（角色睜眼）SKIP_MS 之後才能跳過＝當作沒有動作。
 // Leo 2026-10-10：防手機沒電卡死。每個角色、活的死的都同一套：按鈕一律睜眼就出現（灰的）、30 秒才能按；
-// 死掉的角色假等最多 15 秒，按鈕亮不起來，所以不會比「這一步拖多久」多洩漏任何東西
+// 死掉的角色假等預設最多 15 秒，按鈕亮不起來，所以不會比「這一步拖多久」多洩漏任何東西；
+// 假等設成超過 30 秒時，死的角色也一樣 30 秒後能跳過——活的死的仍是同一套，照樣看不出差別
 export function skipStep(room, now, rand) {
   if (room.phase !== 'night' || room.game.night.stage !== 'acting') return fail('現在沒有可以跳過的步驟');
   const n = room.game.night;
