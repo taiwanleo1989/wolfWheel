@@ -3,10 +3,9 @@ import { ROLES, TEAM_NAME } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
 const STEP_NAME = { guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家', hunter: '獵人', police: '上警' };
-const SKIP_AFTER_MS = 30000; // 主機的「跳過」在同一步卡超過 30 秒才出現
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
-const ui = { pick: null, pickKey: '', duelOpen: false, showMe: false, stepKey: '', stepSince: 0, hostPick: null, hostKey: '' };
+const ui = { pick: null, pickKey: '', duelOpen: false, showMe: false, hostPick: null, hostKey: '' };
 
 export function renderGame(ctx) {
   c = ctx;
@@ -132,11 +131,12 @@ function renderAction() {
   } else if (phase === 'day' && me.idiotChoose) {
     html = `<h2>你被投票放逐了</h2>
       <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
+      <p class="hint"><b>30 秒內沒選，就當作不翻牌、出局。</b></p>
       <div class="row-gap"><button class="btn primary" type="button" data-do="idiotFlip">翻牌（免於出局）</button>
       <button class="btn" type="button" data-do="idiotOut">不翻牌，出局</button></div>`;
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
-      <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。</p>
+      <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。<b>30 秒內沒選，就當作不發動。</b></p>
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;
@@ -215,17 +215,12 @@ function renderHost() {
   let html = '';
   if (phase === 'night') {
     const step = g.night?.step;
-    const stepKey = `${g.dayNo}|${step}|${g.night?.openedAt}`;
-    if (stepKey !== ui.stepKey) { ui.stepKey = stepKey; ui.stepSince = Date.now(); }
-    const stuck = step && step !== 'police' && Date.now() - ui.stepSince > SKIP_AFTER_MS;
     html = `<h2>主持中</h2>
       <p class="hint">${step ? `現在輪到：<b>${STEP_NAME[step]}</b>` : '過場中…'}　手機會自動唸台詞、自動往下走。</p>
       <div class="row-gap"><button class="btn small" type="button" data-host="replay">再唸一次</button>${bgm}</div>
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
-        <p class="hint center">不按的話，12 秒後會自動天亮。</p>` : stuck ? `<div class="stuck"><p>這一步等很久了。如果有人的手機沒電或斷線，可以跳過（當作沒有動作）。</p>
-        <button class="btn" type="button" data-host="skip">跳過這一步</button></div>` : ''}`;
-    clearTimeout(ui.skipTimer); // 時間到了重畫一次，讓「跳過」按鈕出現（只保留一個計時器）
-    if (step && !stuck) ui.skipTimer = setTimeout(() => c.render(), SKIP_AFTER_MS - (Date.now() - ui.stepSince) + 100);
+        <p class="hint center">不按的話，12 秒後會自動天亮。</p>` : ''}`;
+    // 角色的步驟沒有「跳過」：主機也是玩家，不能替角色決定，也不能從「卡多久」看出誰還活著（Leo 2026-10-10）
   } else if (phase === 'day') {
     const pick = ui.hostPick;
     if (g.deathsPending) {
@@ -248,10 +243,7 @@ function renderHost() {
     }
     if (g.idiotChoice) {
       html = `<h2>白天</h2>
-        <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……</p>
-        <div class="stuck"><p>他的手機沒電或斷線的話，請他口頭說，由你替他按：</p>
-          <div class="row-gap"><button class="btn" type="button" data-host="idiotFlip">替他翻牌</button>
-          <button class="btn" type="button" data-host="idiotOut">替他出局</button></div></div>`;
+        <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……（30 秒內沒選就當作出局）</p>`;
       setHTML(box, html);
       return;
     }
@@ -281,13 +273,10 @@ function onHost(e) {
     case 'replay': voice.speak(state.game.narration); break;
     case 'voice': voice.toggleSource(); voice.speak(state.game.narration); c.render(); break; // 切完馬上用新聲音重唸這句
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
-    case 'skip': if (confirm('跳過這一步？這個角色今晚當作沒有動作。')) send({ type: 'skip' }); break;
     case 'policeDone': send({ type: 'skip' }); break;
     case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': if (confirm(`登記 ${ui.hostPick} 號被放逐？`)) send({ type: 'exile', target: ui.hostPick }); break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
-    case 'idiotFlip': if (confirm('替他翻牌（免於出局）？')) send({ type: 'idiotHost', flip: true }); break;
-    case 'idiotOut': if (confirm('替他選「不翻牌，出局」？')) send({ type: 'idiotHost', flip: false }); break;
     case 'night':
       if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
       send({ type: 'nextNight' }); break;

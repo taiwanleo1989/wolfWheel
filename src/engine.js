@@ -36,6 +36,7 @@ export const INTRO_MS = 5000;   // 「天黑請閉眼」之後，等大家閉好
 export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色睜眼
 export const POLICE_MS = 12000; // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
+export const SKILL_MS = 30000;  // 被動技能（獵人／狼王開槍、白癡翻牌）限時；時間到沒按＝棄權（Leo 2026-10-10）。夜裡的步驟不限時
 
 const ok = room => ({ ok: true, room });
 const fail = error => ({ ok: false, error });
@@ -116,9 +117,11 @@ function nextStep(room, g, now, rand) {
   return { ...room, game: g };
 }
 
-// 鬧鐘到了：往下一步走
+// 鬧鐘到了：往下一步走（白天的鬧鐘＝被動技能 30 秒到期，見 dayTimeout）
 export function advance(room, now, rand) {
-  if (room.phase !== 'night' || !room.game.timer || now < room.game.timer.at) return ok(room);
+  if (!room.game?.timer || now < room.game.timer.at) return ok(room);
+  if (room.phase === 'day') return ok(dayTimeout(room, now));
+  if (room.phase !== 'night') return ok(room);
   const g = structuredClone(room.game);
   const n = g.night;
   g.timer = null;
@@ -208,9 +211,11 @@ export function nightAction(room, clientId, payload, online, now, rand) {
   return ok({ ...room, game: g });
 }
 
-// 主機：這一步卡住了（例如狼的手機沒電）就跳過——當作沒有動作；上警時用來「大家都好了，繼續」
+// 主機：上警時「大家都起立好了，天亮」。
+// 角色的步驟主機不能跳過（Leo 2026-10-10：主機也是玩家，不能替角色做決定；跳過鈕只在活人卡住時出現，會洩漏誰活著）。
+// 手機沒電就一直等，用別支手機接手那個座位。
 export function skipStep(room, now, rand) {
-  if (room.phase !== 'night' || room.game.night.stage !== 'acting') return fail('現在沒有可以跳過的步驟');
+  if (room.phase !== 'night' || room.game.night.stage !== 'acting' || curStep(room.game.night) !== 'police') return fail('現在沒有可以跳過的步驟');
   const g = structuredClone(room.game);
   endBeat(room, g, now, rand);
   return ok({ ...room, game: g });
@@ -251,17 +256,19 @@ function dawn(room, now, seq0) {
   }
   for (const s of list) kill(g, s, { poisoned: s === n.witchPoison });
   note(g, ['dawn', ...deathClips(list)]);
+  armDay(g, now);
   return checkWin({ ...room, phase: 'day', game: g }, seq0);
 }
 
 // 主機：警長選完了，公布昨晚死訊
-export function announceDeaths(room) {
+export function announceDeaths(room, now = 0) {
   if (room.phase !== 'day' || !room.game.day?.pendingDeaths) return fail('現在沒有要公布的死訊');
   const g = structuredClone(room.game);
   const list = g.day.pendingDeaths;
   for (const s of list) kill(g, s, { poisoned: s === g.day.poisoned });
   g.day.pendingDeaths = null;
   note(g, deathClips(list));
+  armDay(g, now);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
@@ -269,7 +276,40 @@ const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布�
   : room.game.day?.idiotChoice ? fail('請等被放逐的玩家選擇') : null);
 
 /* ───────── 白天 ───────── */
-export function shoot(room, clientId, target) {
+// 被動技能限時：可以開槍的人、被放逐還沒選的白癡，各自從拿到技能那一刻起算 SKILL_MS，用房間鬧鐘計時
+// day.due = { [座位]: 到期時間, idiot: 到期時間 }；game.timer＝最早到期的那個
+function armDay(g, now) {
+  if (!g.day) return;
+  const due = (g.day.due ??= {});
+  for (const k of Object.keys(due)) if (k === 'idiot' ? !g.day.idiotChoice : !g.canShoot.includes(Number(k))) delete due[k];
+  for (const s of g.canShoot) due[s] ??= now + SKILL_MS;
+  if (g.day.idiotChoice) due.idiot ??= now + SKILL_MS;
+  const ats = Object.values(due);
+  g.timer = ats.length ? { at: Math.min(...ats) } : null;
+}
+
+// 30 秒到了：沒開槍＝不發動；白癡沒選＝不翻牌、出局。不唸「誰放棄了」，免得洩漏身分
+function dayTimeout(room, now) {
+  const g = structuredClone(room.game);
+  const seq0 = g.narration?.seq;
+  const due = g.day?.due ?? {};
+  const expired = k => (due[k] ?? Infinity) <= now;
+  const shooters = g.canShoot.length;
+  g.canShoot = g.canShoot.filter(s => !expired(s));
+  if (g.canShoot.length < shooters) callNightIfReady(room, g, seq0);
+  if (g.day?.idiotChoice && expired('idiot')) resolveIdiot(g, false);
+  armDay(g, now);
+  return checkWin({ ...room, game: g }, seq0);
+}
+
+// 騎士撞到狼王那天：最後一槍開完（或放棄）才唸「天黑請閉眼」
+function callNightIfReady(room, g, seq0) {
+  if (g.day?.nightCalled && !g.canShoot.length && !winnerOf(g, room.setup.counts, room.setup.rules)) {
+    say(g, [...(g.narration.seq > seq0 ? g.narration.clips : []), 'nightStart']);
+  }
+}
+
+export function shoot(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('現在不能開槍');
   const seat = L.seatOf(room, clientId);
   if (!seat || !room.game.canShoot.includes(seat)) return fail('你現在不能開槍');
@@ -284,14 +324,12 @@ export function shoot(room, clientId, target) {
     say(g, [seatKey(seat), 'shootSkill']);
   }
   const seq0 = room.game.narration?.seq;
-  // 騎士撞到狼王那天：最後一槍開完（或選不開）才唸「天黑請閉眼」
-  if (g.day?.nightCalled && !g.canShoot.length && !winnerOf(g, room.setup.counts, room.setup.rules)) {
-    say(g, [...(g.narration.seq > seq0 ? g.narration.clips : []), 'nightStart']);
-  }
+  callNightIfReady(room, g, seq0);
+  armDay(g, now);
   return ok(checkWin({ ...room, game: g }, seq0));
 }
 
-export function exile(room, target) {
+export function exile(room, target, now = 0) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
   if (room.game.day.nightCalled) return fail('騎士撞到狼人，今天直接天黑，不放逐');
@@ -302,20 +340,21 @@ export function exile(room, target) {
   if (!target) note(g, ['tie']);
   else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
-    // 還沒翻過牌的白癡：由他自己的手機選要不要翻牌（Leo 2026-10-10）；選之前主機不唸結果
+    // 還沒翻過牌的白癡：由他自己的手機選要不要翻牌（Leo 2026-10-10）；選之前主機不唸結果；30 秒沒選＝出局
     if (g.roles[target] === 'idiot' && !g.idiotRevealed.includes(target)) {
       g.day.idiotChoice = target;
+      armDay(g, now);
       return ok({ ...room, game: g });
     }
     kill(g, target);
     note(g, [seatKey(target), 'exiled']);
   }
+  armDay(g, now);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 // 被放逐的白癡：flip＝翻牌免死（之後不能投票）；不翻＝照常出局
-function settleIdiot(room, flip) {
-  const g = structuredClone(room.game);
+function resolveIdiot(g, flip) {
   const seat = g.day.idiotChoice;
   g.day.idiotChoice = null;
   if (flip) {
@@ -325,22 +364,19 @@ function settleIdiot(room, flip) {
     kill(g, seat);
     note(g, [seatKey(seat), 'exiled']);
   }
+}
+
+// 只有白癡本人能選；主機不能代按（Leo 2026-10-10：手機沒電就當棄權，30 秒後自動出局）
+export function idiotChoose(room, clientId, flip, now = 0) {
+  if (room.phase !== 'day' || !room.game.day?.idiotChoice) return fail('現在不用選');
+  if (L.seatOf(room, clientId) !== room.game.day.idiotChoice) return fail('不是你要選');
+  const g = structuredClone(room.game);
+  resolveIdiot(g, Boolean(flip));
+  armDay(g, now);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
-export function idiotChoose(room, clientId, flip) {
-  if (room.phase !== 'day' || !room.game.day?.idiotChoice) return fail('現在不用選');
-  if (L.seatOf(room, clientId) !== room.game.day.idiotChoice) return fail('不是你要選');
-  return settleIdiot(room, Boolean(flip));
-}
-
-// 主機：白癡的手機沒電或斷線，聽他口頭說要不要翻牌，替他按
-export function idiotChooseByHost(room, flip) {
-  if (room.phase !== 'day' || !room.game.day?.idiotChoice) return fail('現在不用選');
-  return settleIdiot(room, Boolean(flip));
-}
-
-export function duel(room, clientId, target) {
+export function duel(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能決鬥');
   const blocked = pendingBlock(room); if (blocked) return blocked;
   const seat = L.seatOf(room, clientId);
@@ -363,6 +399,7 @@ export function duel(room, clientId, target) {
     kill(g, seat);
     note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelGood']);
   }
+  armDay(g, now);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
@@ -450,7 +487,7 @@ export function privateGame(room, seat) {
   if (role === 'witch') me.potions = g.potions;
   if (role === 'guard') me.lastGuard = g.lastGuard;
   if (room.phase === 'day' && !g.day?.pendingDeaths) {
-    if (g.canShoot.includes(seat)) me.canShoot = true;
+    if (g.canShoot.includes(seat)) me.canShoot = true; // 限時 SKILL_MS，畫面上寫「30 秒內沒選＝不發動」
     if (g.day?.idiotChoice === seat) me.idiotChoose = true;
     else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice) me.canDuel = true;
   }

@@ -250,10 +250,37 @@ test('白癡被放逐：自己選翻牌（免死）或不翻（出局）；選�
   r = night(E.nextNight(r, 1e6).room);
   r = E.exile(r, 8).room;
   assert.equal(r.game.alive[8], false, '翻過牌的白癡再被放逐就出局，不用再選');
-  // 主機代按（白癡手機沒電）
-  let h = E.exile(night(newGame('yu-nv-lie-bai')), 8).room;
-  h = E.idiotChooseByHost(h, true).room;
-  assert.deepEqual(h.game.idiotRevealed, [8]);
+  assert.equal(E.idiotChooseByHost, undefined, '主機不能代按');
+});
+
+test('被動技能限時 30 秒：白癡沒選＝出局；獵人／狼王沒開槍＝不發動、不唸；主機看不到誰在倒數', () => {
+  // 白癡
+  let r = E.exile(night(newGame('yu-nv-lie-bai')), 8, 1000).room;
+  assert.equal(r.game.timer.at, 1000 + E.SKILL_MS);
+  assert.equal(E.advance(r, 1000 + E.SKILL_MS - 1, minRand).room.game.alive[8], true, '還沒到');
+  r = E.advance(r, 1000 + E.SKILL_MS, minRand).room;
+  assert.equal(r.game.alive[8], false);
+  assert.equal(r.game.day.idiotChoice, null);
+  assert.match(r.game.narration.text, /8 號被放逐出局/);
+  assert.equal(r.game.timer, null);
+  // 獵人晚上被刀：天亮起算 30 秒
+  let h = night(newGame(), { wolf: 7 });
+  assert.equal(E.privateGame(h, 7).canShoot, true);
+  const at = h.game.timer.at, seq = h.game.narration.seq;
+  assert.equal(JSON.stringify(E.publicGame(h)).includes('due'), false, '倒數不公開');
+  h = E.advance(h, at, minRand).room;
+  assert.equal(E.privateGame(h, 7).canShoot, undefined, '時間到＝不發動');
+  assert.equal(h.game.narration.seq, seq, '放棄不唸（不然會洩漏他是獵人）');
+  assert.equal(E.shoot(h, id(7), 9).ok, false);
+  // 騎士撞到狼王、狼王 30 秒沒按：放棄，接著唸天黑請閉眼
+  let k = E.duel(night(newGame('lang-wang-qi-shi')), id(8), 4, 5000).room;
+  k = E.advance(k, 5000 + E.SKILL_MS, minRand).room;
+  assert.equal(k.game.narration.text, '天黑請閉眼。');
+  assert.equal(E.nextNight(k, 1e6).room.game.narration.seq, k.game.narration.seq, '主機按進入黑夜不重唸');
+  // 狼王帶走獵人：獵人從被帶走那一刻另外起算 30 秒
+  let c = night(newGame());
+  c = E.shoot(E.exile(c, 4, 0).room, id(4), 7, 20000).room;
+  assert.equal(c.game.day.due[7], 20000 + E.SKILL_MS);
 });
 
 test('騎士決鬥：對狼 → 狼出局、唸天黑請閉眼、不能放逐，主機按了才進黑夜（不再唸一次）；對好人 → 騎士出局、繼續投票；只能用一次', () => {
@@ -334,12 +361,10 @@ test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機�
   assert.ok(said.includes('請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。'), '死掉的女巫第二句也要唸');
 });
 
-test('主機可以跳過卡住的步驟', () => {
+test('主機不能跳過角色的步驟（只有上警可以提早天亮）；角色的步驟不限時、一直等', () => {
   let r = play(newGame(), {}, atAct('wolf'));
-  r = E.skipStep(r, 0, minRand).room;
-  r = night(r);
-  assert.equal(r.phase, 'day');
-  assert.match(r.game.log.at(-1).text, /平安夜/);
+  assert.equal(E.skipStep(r, 0, minRand).ok, false);
+  assert.equal(r.game.timer, null, '活著的狼人沒有倒數');
 });
 
 test('畫面資料：公開資料沒有身分；不是自己回合拿不到按鈕；狼看得到隊友', () => {
