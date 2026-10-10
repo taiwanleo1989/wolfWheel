@@ -132,12 +132,11 @@ function renderAction() {
   } else if (phase === 'day' && me.idiotChoose) {
     html = `<h2>你被投票放逐了</h2>
       <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
-      <p class="hint"><b>30 秒內沒選，就當作不翻牌、出局。</b></p>
       <div class="row-gap"><button class="btn primary" type="button" data-do="idiotFlip">翻牌（免於出局）</button>
       <button class="btn" type="button" data-do="idiotOut">不翻牌，出局</button></div>`;
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
-      <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。<b>30 秒內沒選，就當作不發動。</b></p>
+      <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。</p>
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;
@@ -171,6 +170,8 @@ function onAction(e) {
   const d = e.target.closest('[data-do]');
   if (!d) return;
   const pick = ui.pick, act = payload => c.send({ type: 'act', payload });
+  // 主機也是玩家時：確認視窗可能把主機的聲音暫停，按完順便恢復（其他手機不出聲，不用）
+  const confirm = msg => { const yes = window.confirm(msg); if (c.state.you.isHost) c.voice.unlock(); return yes; };
   const ask = (text, payload) => { ui.confirm = { text, payload }; c.render(); };
   switch (d.dataset.do) {
     // 先問「是否正確」
@@ -243,7 +244,7 @@ function renderHost() {
     }
     if (g.idiotChoice) {
       html = `<h2>白天</h2>
-        <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……（30 秒內沒選就當作出局）</p>`;
+        <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……</p>`;
       setHTML(box, html);
       return;
     }
@@ -281,10 +282,14 @@ function onHost(e) {
   if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = ui.hostPick === n ? null : n; c.render(); return; }
   const b = e.target.closest('[data-host]');
   if (!b) return;
-  const { send, voice, state } = c;
+  const { voice, state } = c;
+  // 主機每按一個按鈕都順便恢復聲音：iPhone 跳出確認視窗時可能把網頁聲音暫停（Leo 2026-10-10 實玩：按放逐後沒聲音、要再按才唸、還唸兩次）
+  voice.unlock();
+  const confirm = msg => { const yes = window.confirm(msg); voice.unlock(); return yes; };
+  const send = msg => { voice.unlock(); c.send(msg); };
   switch (b.dataset.host) {
-    case 'replay': voice.speak(state.game.narration); break;
-    case 'voice': voice.toggleSource(); voice.speak(state.game.narration); c.render(); break; // 切完馬上用新聲音重唸這句
+    case 'replay': voice.stop(); voice.speak(state.game.narration); break;
+    case 'voice': voice.toggleSource(); voice.stop(); voice.speak(state.game.narration); c.render(); break; // 切完馬上用新聲音重唸這句
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'policeDone': send({ type: 'skip' }); break;
     case 'skip': if (confirm('跳過這一步？這一步當作沒有動作。')) send({ type: 'skip' }); break;

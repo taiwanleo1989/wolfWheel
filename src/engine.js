@@ -36,7 +36,7 @@ export const INTRO_MS = 5000;   // 「天黑請閉眼」之後，等大家閉好
 export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色睜眼
 export const POLICE_MS = 12000; // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
-export const SKILL_MS = 30000;  // 被動技能（獵人／狼王開槍、白癡翻牌）限時；時間到沒按＝棄權（Leo 2026-10-10）。夜裡的步驟不限時
+export const SKILL_MS = 0;      // 被動技能（獵人／狼王開槍、白癡翻牌）限時；0＝不限時（Leo 2026-10-10 實玩後拿掉 30 秒）
 export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 
 const ok = room => ({ ok: true, room });
@@ -284,6 +284,7 @@ const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布�
 // day.due = { [座位]: 到期時間, idiot: 到期時間 }；game.timer＝最早到期的那個
 function armDay(g, now) {
   if (!g.day) return;
+  if (!SKILL_MS) { g.timer = null; return; } // 不限時
   const due = (g.day.due ??= {});
   for (const k of Object.keys(due)) if (k === 'idiot' ? !g.day.idiotChoice : !g.canShoot.includes(Number(k))) delete due[k];
   for (const s of g.canShoot) due[s] ??= now + SKILL_MS;
@@ -323,9 +324,8 @@ export function shoot(room, clientId, target, now = 0) {
   if (target) {
     if (!g.alive[target] || target === seat) return fail('只能帶走活著的其他玩家');
     kill(g, target); // 被槍帶走的獵人／狼王也可以再開槍
-    // 主機只唸「7 號發動技能。」（帶走誰由開槍的人自己說）；紀錄寫完整
-    g.log.push({ day: g.dayNo, text: `${seat} 號發動技能，帶走了 ${target} 號。` });
-    say(g, [seatKey(seat), 'shootSkill']);
+    // 主機唸「7 號發動技能，帶走了 4 號。」（Leo 2026-10-10 實玩：只唸發動技能聽不到誰死）
+    note(g, [seatKey(seat), 'shootTook', seatKey(target), 'end']);
   }
   const seq0 = room.game.narration?.seq;
   callNightIfReady(room, g, seq0);

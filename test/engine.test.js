@@ -220,8 +220,8 @@ test('獵人被刀可以開槍，被毒不能；被槍帶走的狼王還能再�
   assert.equal(E.privateGame(r, 7).canShoot, true);
   r = E.shoot(r, id(7), 4).room;
   assert.equal(r.game.alive[4], false);
-  assert.equal(r.game.narration.text, '7 號發動技能。', '主機只唸到發動技能（Leo 2026-10-09）');
-  assert.equal(r.game.log.at(-1).text, '7 號發動技能，帶走了 4 號。', '紀錄寫完整');
+  assert.equal(r.game.narration.text, '7 號發動技能，帶走了 4 號。', '主機唸出帶走誰（Leo 2026-10-10 實玩）');
+  assert.equal(r.game.log.at(-1).text, '7 號發動技能，帶走了 4 號。');
   assert.equal(E.privateGame(r, 4).canShoot, true, '狼王被槍帶走也能開槍');
   const poisoned = night(newGame(), { poison: 7 });
   assert.equal(poisoned.game.alive[7], false);
@@ -253,34 +253,17 @@ test('白癡被放逐：自己選翻牌（免死）或不翻（出局）；選�
   assert.equal(E.idiotChooseByHost, undefined, '主機不能代按');
 });
 
-test('被動技能限時 30 秒：白癡沒選＝出局；獵人／狼王沒開槍＝不發動、不唸；主機看不到誰在倒數', () => {
-  // 白癡
+test('被動技能不限時（Leo 2026-10-10 實玩後拿掉 30 秒）：白天沒有鬧鐘，一直等本人按', () => {
   let r = E.exile(night(newGame('yu-nv-lie-bai')), 8, 1000).room;
-  assert.equal(r.game.timer.at, 1000 + E.SKILL_MS);
-  assert.equal(E.advance(r, 1000 + E.SKILL_MS - 1, minRand).room.game.alive[8], true, '還沒到');
-  r = E.advance(r, 1000 + E.SKILL_MS, minRand).room;
-  assert.equal(r.game.alive[8], false);
-  assert.equal(r.game.day.idiotChoice, null);
-  assert.match(r.game.narration.text, /8 號被放逐出局/);
   assert.equal(r.game.timer, null);
-  // 獵人晚上被刀：天亮起算 30 秒
+  assert.equal(E.advance(r, 1e12, minRand).room.game.day.idiotChoice, 8, '過再久都還在等白癡');
   let h = night(newGame(), { wolf: 7 });
-  assert.equal(E.privateGame(h, 7).canShoot, true);
-  const at = h.game.timer.at, seq = h.game.narration.seq;
-  assert.equal(JSON.stringify(E.publicGame(h)).includes('due'), false, '倒數不公開');
-  h = E.advance(h, at, minRand).room;
-  assert.equal(E.privateGame(h, 7).canShoot, undefined, '時間到＝不發動');
-  assert.equal(h.game.narration.seq, seq, '放棄不唸（不然會洩漏他是獵人）');
-  assert.equal(E.shoot(h, id(7), 9).ok, false);
-  // 騎士撞到狼王、狼王 30 秒沒按：放棄，接著唸天黑請閉眼
+  assert.equal(h.game.timer, null);
+  assert.equal(E.privateGame(E.advance(h, 1e12, minRand).room, 7).canShoot, true, '過再久獵人都還能開槍');
   let k = E.duel(night(newGame('lang-wang-qi-shi')), id(8), 4, 5000).room;
-  k = E.advance(k, 5000 + E.SKILL_MS, minRand).room;
-  assert.equal(k.game.narration.text, '天黑請閉眼。');
-  assert.equal(E.nextNight(k, 1e6).room.game.narration.seq, k.game.narration.seq, '主機按進入黑夜不重唸');
-  // 狼王帶走獵人：獵人從被帶走那一刻另外起算 30 秒
-  let c = night(newGame());
-  c = E.shoot(E.exile(c, 4, 0).room, id(4), 7, 20000).room;
-  assert.equal(c.game.day.due[7], 20000 + E.SKILL_MS);
+  assert.equal(k.game.timer, null);
+  assert.equal(k.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！', '狼王還沒決定，不唸天黑');
+  assert.equal(JSON.stringify(E.publicGame(k)).includes('"due"'), false);
 });
 
 test('騎士決鬥：對狼 → 狼出局、唸天黑請閉眼、不能放逐，主機按了才進黑夜（不再唸一次）；對好人 → 騎士出局、繼續投票；只能用一次', () => {
@@ -311,7 +294,7 @@ test('騎士撞到狼王：狼王先開槍，開完（或不開）才唸天黑�
   assert.equal(d.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！', '狼王還要開槍，先不唸天黑');
   assert.equal(E.privateGame(d, 4).canShoot, true);
   const shot = E.shoot(d, id(4), 9).room;
-  assert.equal(shot.game.narration.text, '4 號發動技能。天黑請閉眼。');
+  assert.equal(shot.game.narration.text, '4 號發動技能，帶走了 9 號。天黑請閉眼。');
   assert.equal(E.nextNight(shot, 1e6).room.game.narration.seq, shot.game.narration.seq, '不重唸');
   const pass = E.shoot(d, id(4), 0).room;
   assert.equal(pass.game.narration.text, '天黑請閉眼。', '狼王不開槍也要唸');
@@ -452,5 +435,5 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
     assert.equal(n.text, lineText(n.clips));
   }
   const texts = seen.map(n => n.text);
-  for (const re of [/被放逐出局/, /^\d+ 號發動技能。$/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
+  for (const re of [/被放逐出局/, /^\d+ 號發動技能，帶走了 \d+ 號。/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
 });

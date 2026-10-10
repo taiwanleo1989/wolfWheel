@@ -393,7 +393,7 @@ $('#startBtn').onclick = () => {
   voice.expectFresh();
   send({ type: 'start' });
 };
-$('#voiceOn').onclick = () => { voice.unlock(); voice.onNarration(state?.game?.narration, { replay: true }); render(); };
+$('#voiceOn').onclick = () => { voice.unlock(); voice.stop(); voice.onNarration(state?.game?.narration, { replay: true }); render(); };
 voice.onStateChange(() => render()); // 聲音被暫停 → 重新出現「點這裡開啟主持語音」；恢復 → 收起來
 bindGame($);
 

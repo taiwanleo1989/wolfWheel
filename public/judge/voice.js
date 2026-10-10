@@ -67,6 +67,13 @@ export const voice = {
     unlocked = true;
   },
 
+  // 停掉正在唸、排隊中的台詞（重唸前呼叫，免得被暫停時排進去的那句恢復後又唸一次）
+  stop() {
+    for (const s of playing) { try { s.stop(); } catch {} }
+    playing = []; playingUntil = 0;
+    if (synth) synth.cancel();
+  },
+
   // 切回網頁時呼叫：先試著自己恢復（有些手機不用點就能恢復）；恢復不了，畫面會重新出現「點這裡開啟主持語音」
   wake() {
     if (actx && actx.state !== 'running') actx.resume().catch(() => {});

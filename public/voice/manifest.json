@@ -77,6 +77,10 @@
       "file": "shootSkill.mp3",
       "text": "發動技能。"
     },
+    "shootTook": {
+      "file": "shootTook.mp3",
+      "text": "發動技能，帶走了"
+    },
     "tie": {
       "file": "tie.mp3",
       "text": "平票，今天沒有人出局。"
