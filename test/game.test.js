@@ -100,3 +100,12 @@ test('回到設定：清掉身分、回大廳', () => {
   assert.equal(r.phase, 'lobby');
   assert.equal(r.game, undefined);
 });
+
+test('本局板子：依陣營分組、寫出狼人陣營總數（狼王也算），沒有的陣營不列', () => {
+  assert.deepEqual(R.boardByTeam({ wolf: 2, king: 1, seer: 1, witch: 1, villager: 3 }), [
+    { label: '狼人陣營 3 隻', text: '狼人 ×2、狼王' },
+    { label: '神職', text: '預言家、女巫' },
+    { label: '平民', text: '平民 ×3' },
+  ]);
+  assert.deepEqual(R.boardByTeam({ wolf: 1, seer: 1, hunter: 1, idiot: 1 }).map(x => x.label), ['狼人陣營 1 隻', '神職']);
+});

@@ -144,6 +144,9 @@ h1 span{color:#fff2c4}
 .seat.acked .n{color:#fff}
 .row-gap{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
 .board-line{font-weight:900;font-size:17px;line-height:1.6;margin:6px 0 0}
+.game-board{margin-top:14px;padding-top:10px;border-top:2px dashed currentColor;display:grid;gap:4px;font-weight:900;line-height:1.5}
+.game-board .gb-title{font-size:14px;opacity:.7}
+.game-board .gb-row b{display:inline-block;min-width:6.5em}
 
 /* M2：角色卡 */
 .card-cover{width:100%;display:grid;justify-items:center;gap:8px;background:none;border:none;padding:4px;color:var(--ink)}

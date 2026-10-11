@@ -14,6 +14,19 @@ export const ROLES = {
 export const ROLE_ORDER = ['wolf', 'king', 'seer', 'witch', 'hunter', 'guard', 'knight', 'idiot', 'villager'];
 export const TEAM_NAME = { wolf: '狼人陣營', god: '神職（好人）', villager: '平民（好人）' };
 
+// 對局畫面的「本局板子」：依陣營分組、寫出狼人陣營總數（Leo 2026-10-10：自訂板子會記錯有幾隻狼）。
+// 板子開局前本來就公開，這裡只講「有哪些角色」，不講誰死誰活
+export function boardByTeam(counts) {
+  const part = team => ROLE_ORDER.filter(id => ROLES[id].team === team && counts[id] > 0)
+    .map(id => (counts[id] > 1 ? `${ROLES[id].name} ×${counts[id]}` : ROLES[id].name)).join('、');
+  const wolves = ROLE_ORDER.filter(id => ROLES[id].team === 'wolf').reduce((n, id) => n + (counts[id] ?? 0), 0);
+  return [
+    { label: `狼人陣營 ${wolves} 隻`, text: part('wolf') },
+    { label: '神職', text: part('god') },
+    { label: '平民', text: part('villager') },
+  ].filter(x => x.text);
+}
+
 export const PRESETS = [
   { id: 'yu-nv-lie-bai', name: '預女獵白', players: 12, counts: { wolf: 4, seer: 1, witch: 1, hunter: 1, idiot: 1, villager: 4 } },
   { id: 'lang-wang-shou-wei', name: '狼王守衛', players: 12, counts: { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, guard: 1, villager: 4 } },

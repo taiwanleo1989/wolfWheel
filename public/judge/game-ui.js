@@ -1,5 +1,5 @@
 // 對局畫面（黑夜／白天／結束）。所有人共用一個畫面，依「你是誰、輪到誰」顯示不同區塊。
-import { ROLES, TEAM_NAME } from '../shared/roles.js';
+import { ROLES, TEAM_NAME, boardByTeam } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
 const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
@@ -309,6 +309,8 @@ function renderBoard() {
   const g = state.game;
   const seats = Object.keys(g.alive).map(Number).sort((a, b) => a - b);
   $('#aliveCount').textContent = `存活 ${seats.filter(s => g.alive[s]).length}／${seats.length}`;
+  setHTML($('#gameBoard'), `<div class="gb-title">本局板子</div>` +
+    boardByTeam(state.setup.counts).map(x => `<div class="gb-row"><b>${x.label}</b>${x.text}</div>`).join(''));
   setHTML($('#boardSeats'), seats.map(n => {
     const role = g.allRoles?.[n];
     const tag = role ? ROLES[role].name : g.idiotRevealed.includes(n) ? '白癡' : n === state.you.seat ? '你' : '';
