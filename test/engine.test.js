@@ -448,7 +448,7 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
 });
 
 /* ───────── Leo 2026-10-11 ───────── */
-test('夜裡活著的角色沒操作：20 秒後主機再唸一次同一句，之後每 20 秒一次；有操作就重新算；死掉的角色永遠輪不到重唸', () => {
+test('夜裡活著的角色沒操作：15 秒後主機再唸一次同一句，之後每 15 秒一次；有操作就重新算；死掉的角色永遠輪不到重唸', () => {
   let r = play(newGame(), {}, atAct('wolf'));
   const first = r.game.narration, opened = r.game.night.openedAt;
   assert.equal(r.game.timer.at - opened, E.REPEAT_MS);
@@ -460,7 +460,7 @@ test('夜裡活著的角色沒操作：20 秒後主機再唸一次同一句，�
   assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 30 秒');
   assert.equal(r.game.log.filter(e => e.text === first.text).length, 0, '重唸不進紀錄');
   r = E.advance(r, r.game.timer.at, minRand).room;
-  assert.equal(r.game.narration.seq, first.seq + 2, '再過 20 秒再唸');
+  assert.equal(r.game.narration.seq, first.seq + 2, '再過 15 秒再唸');
   // 有人操作（狼人投票）：倒數從那一刻重算
   const t = opened + 50000;
   r = E.nightAction(r, id(1), { target: 9 }, everyone(r), t, minRand).room;
@@ -478,11 +478,21 @@ test('夜裡活著的角色沒操作：20 秒後主機再唸一次同一句，�
   d = E.advance(d, d.game.timer.at, minRand).room;
   assert.equal(d.game.night.stage, 'pause', '假等結束直接往下走，不重唸');
   assert.equal(d.game.narration.seq, seq);
-  // 假等設很長：重唸也跟著延後，永遠比假等晚
-  assert.equal(E.repeatMs({ fakeWaitMax: 40 }), 45000);
+  // 邊界：死掉的角色假等抽到最長（15 秒＝跟重唸一樣久）也是直接往下走，不重唸
+  const maxRand = k => k - 1;
+  let m = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room;
+  for (let i = 0; i < 20 && !(m.game.night.stage === 'acting' && m.game.night.steps[m.game.night.idx] === 'guard'); i++) m = E.advance(m, m.game.timer.at, maxRand).room;
+  assert.equal(m.game.timer.at - m.game.night.openedAt, 15000, '抽到最長 15 秒');
+  assert.equal(m.game.timer.at - m.game.night.openedAt, E.repeatMs(m.setup.rules), '跟活人重唸同一個秒數');
+  const mSeq = m.game.narration.seq;
+  m = E.advance(m, m.game.timer.at, maxRand).room;
+  assert.equal(m.game.night.stage, 'pause');
+  assert.equal(m.game.narration.seq, mSeq, '死掉的角色到 15 秒也不重唸');
+  // 假等設很長：重唸也跟著延後，永遠不早於假等
+  assert.equal(E.repeatMs({ fakeWaitMax: 40 }), 40000);
   assert.equal(E.repeatMs({ fakeWaitMax: 15 }), E.REPEAT_MS);
   const long = play(newGame('lang-wang-shou-wei', { fakeWaitMax: 40 }), {}, atAct('guard'));
-  assert.equal(long.game.timer.at - long.game.night.openedAt, 45000);
+  assert.equal(long.game.timer.at - long.game.night.openedAt, 40000);
   // 女巫兩句、預言家看結果中也會重唸自己那句
   let s = play(newGame(), {}, atAct('seer'));
   s = act(s, 5, { target: 1 });

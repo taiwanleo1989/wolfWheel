@@ -39,10 +39,11 @@ export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機
 export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
 
-// 夜裡活著的角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11）。
-// 一定要比「死掉的角色假等」最長的秒數還久：死掉的角色永遠等不到重唸，所以重唸不會比「這一步拖多久」多洩漏
-export const REPEAT_MS = 20000;
-export const repeatMs = rules => Math.max(REPEAT_MS, ((rules?.fakeWaitMax ?? 15) + 5) * 1000);
+// 夜裡活著的角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒）。
+// 不能早於「死掉的角色假等」最長的秒數：假等最晚在那一刻結束、直接往下走，死掉的角色永遠等不到重唸，
+// 所以重唸不會比「這一步拖多久」多洩漏。假等最長設超過 15 秒時，重唸跟著延到那個秒數
+export const REPEAT_MS = 15000;
+export const repeatMs = rules => Math.max(REPEAT_MS, (rules?.fakeWaitMax ?? 15) * 1000);
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
 export const waitingForPeople = room => room.phase === 'night' && room.game?.night?.stage === 'acting' && room.game.night.wait === 'people';

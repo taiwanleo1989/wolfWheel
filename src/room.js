@@ -66,7 +66,7 @@ export class Room extends DurableObject {
         const r = L.claimHost(this.room, clientId, this.onlineIds(ws));
         if (r.ok) this.room = r.room; else this.send(ws, { type: 'error', error: r.error });
       }
-      // 主機回來了：夜裡還在等角色的話，接著每 20 秒重唸
+      // 主機回來了：夜裡還在等角色的話，接著每 15 秒重唸
       if (this.room.hostClientId === clientId) this.room = E.resumeRepeat(this.room, Date.now());
       await this.touch();
       return;
