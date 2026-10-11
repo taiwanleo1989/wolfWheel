@@ -27,13 +27,6 @@ export function boardByTeam(counts) {
   ].filter(x => x.text);
 }
 
-export const PRESETS = [
-  { id: 'yu-nv-lie-bai', name: '預女獵白', players: 12, counts: { wolf: 4, seer: 1, witch: 1, hunter: 1, idiot: 1, villager: 4 } },
-  { id: 'lang-wang-shou-wei', name: '狼王守衛', players: 12, counts: { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, guard: 1, villager: 4 } },
-  { id: 'lang-wang-qi-shi', name: '狼王騎士', players: 12, counts: { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, knight: 1, villager: 4 } },
-  { id: 'yu-nv-lie-9', name: '預女獵（9 人）', players: 9, counts: { wolf: 3, seer: 1, witch: 1, hunter: 1, villager: 3 } },
-];
-
 export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 15 };
 const WITCH_OPTS = ['never', 'first', 'always']; // 預設不能自救（Leo 手稿，2026-10-08）
 const WIN_OPTS = ['side', 'all'];

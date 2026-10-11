@@ -66,6 +66,8 @@ export class Room extends DurableObject {
         const r = L.claimHost(this.room, clientId, this.onlineIds(ws));
         if (r.ok) this.room = r.room; else this.send(ws, { type: 'error', error: r.error });
       }
+      // 主機回來了：夜裡還在等角色的話，接著每 20 秒重唸
+      if (this.room.hostClientId === clientId) this.room = E.resumeRepeat(this.room, Date.now());
       await this.touch();
       return;
     }
@@ -73,14 +75,14 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'announce'];
+    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce'];
     const now = Date.now();
     if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
     let result;
     switch (msg.type) {
       case 'claimSeat': result = G.claimSeat(this.room, me.clientId, msg.seat, online); break;
       case 'leaveSeat': result = G.leaveSeat(this.room, me.clientId); break;
-      case 'claimHost': result = L.claimHost(this.room, me.clientId, online); break;
+      case 'claimHost': result = L.claimHost(this.room, me.clientId, online); if (result.ok) result.room = E.resumeRepeat(result.room, now); break;
       case 'setPlayers':
         if (this.room.phase !== 'lobby') return this.send(ws, { type: 'error', error: '發牌後不能改人數' });
         result = { ok: true, room: L.setPlayers(this.room, msg.players) }; break;
@@ -100,6 +102,7 @@ export class Room extends DurableObject {
       case 'nextNight': result = E.nextNight(this.room, now); break;
       case 'announce': result = E.announceDeaths(this.room, now); break;
       case 'newGame': result = E.newGame(this.room); break;
+      case 'restart': result = G.restart(this.room, rand); break;
       default: return;
     }
     if (!result.ok) return this.send(ws, { type: 'error', error: result.error });
@@ -126,6 +129,13 @@ export class Room extends DurableObject {
   async alarm() {
     if (!this.room) return;
     const t = this.room.game?.timer?.at;
+    if (t && E.waitingForPeople(this.room) && !this.onlineIds().has(this.room.hostClientId)) {
+      // 該重唸了，但主機不在線上（沒人出聲）：不重唸、不更新最後活動時間，讓沒人的房間 2 小時後照樣清掉
+      this.room = E.pauseRepeat(this.room);
+      await this.save();
+      await this.schedule();
+      return;
+    }
     if (t) {
       const r = E.advance(this.room, Math.max(Date.now(), t), rand);
       this.room = r.room;

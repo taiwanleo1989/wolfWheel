@@ -12,21 +12,28 @@ const noShuffle = n => n - 1;
 const minRand = () => 0;          // 隨機等待取最短
 const id = n => 'p' + n;
 
+// 測試用的板子（網頁上已經沒有預設板子，Leo 2026-10-11）
+const BOARDS = {
+  'lang-wang-shou-wei': { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, guard: 1, villager: 4 },
+  'yu-nv-lie-bai': { wolf: 4, seer: 1, witch: 1, hunter: 1, idiot: 1, villager: 4 },
+  'lang-wang-qi-shi': { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, knight: 1, villager: 4 },
+};
 function newGame(preset = 'lang-wang-shou-wei', rules = {}) {
-  const p = R.PRESETS.find(x => x.id === preset);
-  let r = L.newRoom('1234', p.players, 'host', 0);
-  for (let n = 1; n <= p.players; n++) r = L.claimSeat(r, id(n), n, new Set()).room;
-  r = G.setSetup(r, { preset, counts: p.counts, rules }).room;
+  const counts = typeof preset === 'string' ? BOARDS[preset] : preset;
+  const players = R.totalOf(counts);
+  let r = L.newRoom('1234', players, 'host', 0);
+  for (let n = 1; n <= players; n++) r = L.claimSeat(r, id(n), n, new Set()).room;
+  r = G.setSetup(r, { counts, rules }).room;
   r = G.startDeal(r, noShuffle).room;
   return E.startGame(r, 0, minRand).room;
 }
 const everyone = r => new Set(Object.values(r.seats));
 const beatAct = r => E.scriptFor(r.game.night.steps[r.game.night.idx], r.setup.counts).beats[r.game.night.beat].act;
-const waitingForPeople = r => r.phase === 'night' && r.game.night.stage === 'acting' && !r.game.timer;
-// 把鬧鐘一路撥到條件成立（或沒有鬧鐘＝在等人）為止
+const waitingForPeople = r => r.phase === 'night' && r.game.night.stage === 'acting' && r.game.night.wait === 'people';
+// 把鬧鐘一路撥到條件成立（或在等活著的人＝鬧鐘只是「重唸」）為止
 function runUntil(r, pred) {
   for (let i = 0; i < 80 && !pred(r); i++) {
-    if (!r.game.timer) break;
+    if (!r.game.timer || waitingForPeople(r)) break;
     r = E.advance(r, r.game.timer.at, minRand).room;
   }
   return r;
@@ -90,7 +97,7 @@ test('台詞照手稿：天黑請閉眼、狼王請確認身分（有狼王才�
   assert.ok(lines.includes('要上警的玩家請起立。'));
   assert.equal(lines.at(-1), '天亮請睜眼。');
   assert.ok(lines.every(l => !/\d+ 號/.test(l)), '主機的台詞不能唸出任何號碼');
-  assert.deepEqual(E.scriptFor('wolf', R.PRESETS[0].counts).beats[0].say, ['wolfOpen'], '沒有狼王的板子不唸狼王');
+  assert.deepEqual(E.scriptFor('wolf', BOARDS['yu-nv-lie-bai']).beats[0].say, ['wolfOpen'], '沒有狼王的板子不唸狼王');
 });
 
 test('狼人：全體一致才出現確認；按「正確」才算數；「重選」清掉', () => {
@@ -253,7 +260,8 @@ test('白癡被放逐：自己選翻牌（免死）或不翻（出局）；選�
   assert.equal(E.idiotChooseByHost, undefined, '主機不能代按');
 });
 
-test('被動技能不限時（Leo 2026-10-10 實玩後拿掉 30 秒）：白天沒有鬧鐘，一直等本人按', () => {
+test('白天技能不限時（Leo 2026-10-10 拿掉 30 秒、10-11 拆掉計時機制）：白天沒有鬧鐘，一直等本人按', () => {
+  assert.equal(E.SKILL_MS, undefined, '白天的計時常數已經拆掉');
   let r = E.exile(night(newGame('yu-nv-lie-bai')), 8, 1000).room;
   assert.equal(r.game.timer, null);
   assert.equal(E.advance(r, 1e12, minRand).room.game.day.idiotChoice, 8, '過再久都還在等白癡');
@@ -315,7 +323,7 @@ test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在�
 
 test('勝負（屠邊／屠城）', () => {
   const g = newGame().game;
-  const counts = R.PRESETS[1].counts, side = { win: 'side' }, all = { win: 'all' };
+  const counts = BOARDS['lang-wang-shou-wei'], side = { win: 'side' }, all = { win: 'all' };
   const dead = seats => ({ ...g, alive: { ...g.alive, ...Object.fromEntries(seats.map(s => [s, false])) } });
   assert.equal(E.winnerOf(dead([5, 6, 7, 8]), counts, side), 'wolf');
   assert.equal(E.winnerOf(dead([9, 10, 11, 12]), counts, side), 'wolf');
@@ -346,7 +354,8 @@ test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機�
 
 test('角色的步驟不限時；主機要等角色睜眼 30 秒才能跳過（當作沒動作）；公開資料只說「眼睛睜著」，不說做完沒', () => {
   let r = play(newGame(), {}, atAct('wolf'));
-  assert.equal(r.game.timer, null, '活著的狼人沒有倒數');
+  assert.equal(r.game.night.wait, 'people', '活著的狼人一直等（鬧鐘只用來重唸台詞）');
+  assert.equal(E.advance(r, 1e12, minRand).room.game.night.stage, 'acting', '過再久都還在等狼人');
   for (const w of [1, 2, 3, 4]) r = act(r, w, { target: 9 }); // 統一了但沒人按「正確」
   const t0 = r.game.night.openedAt;
   assert.equal(E.skipStep(r, t0 + E.SKIP_MS - 1, minRand).ok, false, '還不到 30 秒');
@@ -436,4 +445,130 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
   }
   const texts = seen.map(n => n.text);
   for (const re of [/被放逐出局/, /^\d+ 號發動技能，帶走了 \d+ 號。/, /翻牌，是白癡/, /騎士 8 號決鬥 \d+ 號/, /遊戲結束/]) assert.ok(texts.some(t => re.test(t)), `沒走到：${re}`);
+});
+
+/* ───────── Leo 2026-10-11 ───────── */
+test('夜裡活著的角色沒操作：20 秒後主機再唸一次同一句，之後每 20 秒一次；有操作就重新算；死掉的角色永遠輪不到重唸', () => {
+  let r = play(newGame(), {}, atAct('wolf'));
+  const first = r.game.narration, opened = r.game.night.openedAt;
+  assert.equal(r.game.timer.at - opened, E.REPEAT_MS);
+  r = E.advance(r, r.game.timer.at, minRand).room;
+  assert.equal(r.game.narration.seq, first.seq + 1, '序號變大，主機才會再唸');
+  assert.equal(r.game.narration.text, first.text, '唸同一句');
+  assert.deepEqual(r.game.narration.clips, first.clips);
+  assert.equal(r.game.night.stage, 'acting', '還在等狼人');
+  assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 30 秒');
+  assert.equal(r.game.log.filter(e => e.text === first.text).length, 0, '重唸不進紀錄');
+  r = E.advance(r, r.game.timer.at, minRand).room;
+  assert.equal(r.game.narration.seq, first.seq + 2, '再過 20 秒再唸');
+  // 有人操作（狼人投票）：倒數從那一刻重算
+  const t = opened + 50000;
+  r = E.nightAction(r, id(1), { target: 9 }, everyone(r), t, minRand).room;
+  assert.equal(r.game.timer.at, t + E.REPEAT_MS);
+  assert.equal(E.skipStep(r, opened + E.SKIP_MS, minRand).ok, true, '跳過照舊');
+  // 動作完成就不再重唸
+  for (const w of [1, 2, 3, 4]) r = act(r, w, { target: 9 });
+  r = act(r, 1, { confirm: true });
+  assert.equal(r.game.night.stage, 'pause');
+  // 死掉的角色：假等最長也比重唸早結束
+  let d = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room; // 守衛死了
+  d = runUntil(d, x => x.game.night.stage === 'acting' && x.game.night.steps[x.game.night.idx] === 'guard');
+  assert.equal(d.game.night.wait, 'fake');
+  const seq = d.game.narration.seq;
+  d = E.advance(d, d.game.timer.at, minRand).room;
+  assert.equal(d.game.night.stage, 'pause', '假等結束直接往下走，不重唸');
+  assert.equal(d.game.narration.seq, seq);
+  // 假等設很長：重唸也跟著延後，永遠比假等晚
+  assert.equal(E.repeatMs({ fakeWaitMax: 40 }), 45000);
+  assert.equal(E.repeatMs({ fakeWaitMax: 15 }), E.REPEAT_MS);
+  const long = play(newGame('lang-wang-shou-wei', { fakeWaitMax: 40 }), {}, atAct('guard'));
+  assert.equal(long.game.timer.at - long.game.night.openedAt, 45000);
+  // 女巫兩句、預言家看結果中也會重唸自己那句
+  let s = play(newGame(), {}, atAct('seer'));
+  s = act(s, 5, { target: 1 });
+  const before = s.game.narration.seq;
+  s = E.advance(s, s.game.timer.at, minRand).room;
+  assert.equal(s.game.narration.seq, before + 1);
+  assert.match(s.game.narration.text, /預言家請睜眼/);
+});
+
+test('綁票（Leo 2026-10-11）：天亮睜眼時狼人跟好人一樣多，狼人陣營直接獲勝；白天中途一樣多不算', () => {
+  // 1–2 狼、3 預、4 女、5–6 民；屠城（排除屠邊的影響）
+  const board = { wolf: 2, seer: 1, witch: 1, villager: 2 };
+  let r = night(newGame(board, { win: 'all', police: false }), { wolf: 5 });
+  assert.equal(r.phase, 'day', '2 狼對 3 好人');
+  r = E.exile(r, 6).room;
+  assert.equal(r.phase, 'day', '投完票 2 對 2，但不是天亮，不算');
+  r = night(E.nextNight(r, 1e6).room); // 狼空刀
+  assert.equal(r.phase, 'ended', '天亮 2 對 2：綁票');
+  assert.equal(r.game.winner, 'wolf');
+  assert.ok(r.game.log.some(e => /綁票/.test(e.text)));
+  assert.equal(r.game.narration.text, '天亮請睜眼。昨晚是平安夜。遊戲結束，狼人陣營獲勝！', '天亮那句和遊戲結束接著唸');
+  // 狼人比好人多也算（例如刀一個、毒一個）
+  r = E.exile(night(newGame(board, { win: 'all', police: false }), { wolf: 5 }), 6).room;
+  r = night(E.nextNight(r, 1e6).room, { wolf: 3, poison: 0 });
+  assert.equal(r.game.winner, 'wolf', '2 狼對 1 好人');
+  // 第一天上警：公布死訊那一刻才算天亮
+  let p = play(newGame({ wolf: 2, seer: 1, villager: 2 }, { win: 'all' }), { wolf: 5 });
+  assert.equal(p.phase, 'day');
+  p = E.announceDeaths(p).room;
+  assert.equal(p.phase, 'ended', '公布死訊後 2 對 2');
+});
+
+test('綁票要等槍開完：獵人帶走狼就不綁票，不開槍才綁票', () => {
+  // 1–2 狼、3 預、4 獵、5–7 民；屠城
+  const board = { wolf: 2, seer: 1, hunter: 1, villager: 3 };
+  let r = night(newGame(board, { win: 'all', police: false }), { wolf: 5 });
+  r = E.exile(r, 6).room;
+  r = night(E.nextNight(r, 1e6).room, { wolf: 4 }); // 刀獵人：天亮 2 狼對 2 好人，但獵人還能開槍
+  assert.equal(r.phase, 'day', '先等獵人');
+  assert.equal(r.game.winner, null);
+  const shot = E.shoot(r, id(4), 1).room;
+  assert.equal(shot.phase, 'day', '帶走一隻狼：1 對 2，繼續');
+  assert.equal(shot.game.day.bindCheck, false, '天亮的檢查做完就結束');
+  const pass = E.shoot(r, id(4), 0).room;
+  assert.equal(pass.phase, 'ended', '不開槍：2 對 2 綁票');
+  assert.equal(pass.game.winner, 'wolf');
+});
+
+test('一狼一神一民（Leo 2026-10-11）：投完票剩這三個人，狼人陣營直接獲勝；屠邊屠城都算；有槍先等槍', () => {
+  // 1 狼、2 預、3–4 民
+  for (const win of ['side', 'all']) {
+    let r = night(newGame({ wolf: 1, seer: 1, villager: 2 }, { win, police: false })); // 空刀
+    assert.equal(r.phase, 'day');
+    r = E.exile(r, 3).room;
+    assert.equal(r.phase, 'ended', win);
+    assert.equal(r.game.winner, 'wolf');
+    assert.equal(r.game.narration.text, '3 號被放逐出局。遊戲結束，狼人陣營獲勝！');
+    assert.ok(r.game.log.some(e => /一狼、一神、一民/.test(e.text)));
+  }
+  // 平票也算「投完票」
+  let t = night(newGame({ wolf: 1, seer: 1, villager: 2 }, { police: false }), { wolf: 4 });
+  assert.equal(t.phase, 'day', '天亮 1 狼對 2 好人不綁票');
+  assert.equal(E.exile(t, 0).room.game.winner, 'wolf');
+  // 還沒投票不算
+  assert.equal(t.game.winner, null);
+  // 放逐獵人剩一狼一神一民：先等獵人開槍
+  // 1 狼、2 預、3 獵、4–5 民
+  let h = night(newGame({ wolf: 1, seer: 1, hunter: 1, villager: 2 }, { police: false }), { wolf: 5 });
+  h = E.exile(h, 3).room;
+  assert.equal(h.phase, 'day', '獵人還能開槍');
+  assert.equal(E.shoot(h, id(3), 1).room.game.winner, 'good', '帶走狼：好人贏');
+  assert.equal(E.shoot(h, id(3), 0).room.game.winner, 'wolf', '不開槍：一狼一神一民');
+  // 一狼兩民、一狼兩神都不是這條
+  let v = night(newGame({ wolf: 1, seer: 1, villager: 3 }, { win: 'all', police: false }));
+  v = E.exile(v, 2).room;
+  assert.equal(v.phase, 'day', '一狼兩民：不適用');
+});
+
+test('重唸的鬧鐘：主機離線時房間會先停掉（不讓沒人的房間一直醒來），主機回來再接著算', () => {
+  let r = play(newGame(), {}, atAct('wolf'));
+  assert.equal(E.waitingForPeople(r), true);
+  const paused = E.pauseRepeat(r);
+  assert.equal(paused.game.timer, null);
+  assert.equal(E.resumeRepeat(paused, 5000).game.timer.at, 5000 + E.REPEAT_MS);
+  assert.equal(E.resumeRepeat(r, 5000), r, '本來就在算就不動');
+  const day = night(newGame());
+  assert.equal(E.resumeRepeat(day, 5000), day, '白天不會有重唸');
+  assert.equal(E.waitingForPeople(day), false);
 });

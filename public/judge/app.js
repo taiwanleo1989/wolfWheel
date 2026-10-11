@@ -1,5 +1,5 @@
 // 法官工具：M1 開房／加入／座位／重連，M2 設定板子／發牌／看身分
-import { ROLES, ROLE_ORDER, TEAM_NAME, PRESETS, totalOf } from '../shared/roles.js';
+import { ROLES, ROLE_ORDER, TEAM_NAME, totalOf } from '../shared/roles.js';
 import { installArt, portrait } from '../shared/art.js';
 import { renderGame, bindGame } from './game-ui.js';
 import { voice } from './voice.js';
@@ -89,9 +89,6 @@ const sendSetup = setup => send({ type: 'setSetup', setup });
 
 function renderSetup() {
   const s = state.setup;
-  setHTML($('#presets'), PRESETS.map(p =>
-    `<button type="button" class="chip" data-preset="${p.id}" aria-pressed="${s.preset === p.id}">${p.name}<small>${p.players} 人</small></button>`).join('') +
-    `<span class="chip ghost" aria-pressed="${!s.preset}">自訂</span>`);
   // 依陣營分三組（狼／神／民）：可以有很多個的角色用 ＋／−，只能有一個的角色點一下加入或拿掉
   const teamCount = team => ROLE_ORDER.filter(id => ROLES[id].team === team).reduce((a, id) => a + (s.counts[id] ?? 0), 0);
   const FACTIONS = [['wolf', '狼人陣營'], ['god', '神職'], ['villager', '平民']];
@@ -171,6 +168,7 @@ function render() {
     return;
   }
   document.body.classList.remove('is-night');
+  if (state.you.isHost) voice.setNight(false); // 夜裡直接重開回到這裡：背景音樂要停
 
   if (state.you.isHost) {
     show('host');
@@ -363,13 +361,7 @@ $('#playerSeats').addEventListener('click', e => {
   ui.picking = false;
   send({ type: 'claimSeat', seat: seat.n });
 });
-// 板子：點常用板子（人數不同就順便改人數）、＋／−微調角色、規則
-$('#presets').addEventListener('click', e => {
-  const b = e.target.closest('[data-preset]'); if (!b) return;
-  const p = PRESETS.find(x => x.id === b.dataset.preset);
-  if (p.players !== state.players) send({ type: 'setPlayers', players: p.players });
-  sendSetup({ preset: p.id, counts: p.counts });
-});
+// 板子：自己定義（沒有預設板子）——＋／−調狼人、平民，點選加入狼王與各神職；規則
 $('#roleRows').addEventListener('click', e => {
   const counts = { ...state.setup.counts };
   const step = e.target.closest('[data-role]');   // 狼人、平民：＋／−

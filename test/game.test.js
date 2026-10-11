@@ -20,8 +20,18 @@ test('規則整理：不認得的值退回預設、假等秒數上下限', () =>
   assert.equal(R.cleanRules({ fakeWaitMin: 20, fakeWaitMax: 10 }).fakeWaitMax, 20);
 });
 
-test('預設板子人數都對、都能開局', () => {
-  for (const p of R.PRESETS) assert.deepEqual(R.problems(p.counts, p.players), [], p.name);
+const KING_GUARD = { wolf: 3, king: 1, seer: 1, witch: 1, hunter: 1, guard: 1, villager: 4 };
+const SEER_IDIOT = { wolf: 4, seer: 1, witch: 1, hunter: 1, idiot: 1, villager: 4 };
+
+test('沒有預設板子（Leo 2026-10-11）：新房間先放狼人＋平民湊滿人數、可以直接發牌，主機自己加角色', () => {
+  assert.equal(R.PRESETS, undefined);
+  for (const players of [4, 6, 9, 12, 20]) {
+    const r = fullRoom(players);
+    assert.equal(r.setup.preset, undefined);
+    assert.deepEqual(R.problems(r.setup.counts, players), [], `${players} 人`);
+    assert.deepEqual(Object.keys(r.setup.counts).sort(), ['villager', 'wolf']);
+  }
+  assert.deepEqual(fullRoom(12).setup.counts, { wolf: 3, villager: 9 });
 });
 
 test('開局檢查：人數不符、沒狼、狼太多', () => {
@@ -31,7 +41,7 @@ test('開局檢查：人數不符、沒狼、狼太多', () => {
 });
 
 test('發牌：每種角色張數正確、每個座位都有角色', () => {
-  const counts = R.PRESETS[1].counts;
+  const counts = KING_GUARD;
   const roles = R.deal(counts, 12, rand);
   assert.equal(Object.keys(roles).length, 12);
   const tally = {};
@@ -41,7 +51,7 @@ test('發牌：每種角色張數正確、每個座位都有角色', () => {
 
 test('發牌是真的亂：同一個座位 2000 次裡各角色都出現過', () => {
   const seen = new Set();
-  for (let i = 0; i < 2000; i++) seen.add(R.deal(R.PRESETS[0].counts, 12, rand)[1]);
+  for (let i = 0; i < 2000; i++) seen.add(R.deal(SEER_IDIOT, 12, rand)[1]);
   assert.deepEqual([...seen].sort(), ['idiot', 'hunter', 'seer', 'villager', 'witch', 'wolf'].sort());
 });
 
@@ -87,12 +97,34 @@ test('發牌後不能換座位、不能改板子；但可以接手離線的座�
   assert.equal(G.claimSeat(r, 'newPhone', 4, new Set(['p4', 'newPhone'])).ok, false, '原主人還在線上就不行');
 });
 
-test('板子名稱：只改規則維持原板子；改角色數量變自訂', () => {
+test('改板子：只改規則不動角色；改角色不動規則；送來的 preset 一律不理', () => {
   const r = fullRoom();
-  const preset = r.setup.preset;
-  assert.equal(G.setSetup(r, { rules: { win: 'all' } }).room.setup.preset, preset);
-  assert.equal(G.setSetup(r, { counts: { wolf: 4, villager: 8 } }).room.setup.preset, null);
-  assert.equal(G.setSetup(r, { preset: 'lang-wang-qi-shi', counts: R.PRESETS[2].counts }).room.setup.preset, 'lang-wang-qi-shi');
+  const counts = r.setup.counts;
+  assert.deepEqual(G.setSetup(r, { rules: { win: 'all' } }).room.setup.counts, counts);
+  const c = G.setSetup(r, { counts: KING_GUARD, preset: 'lang-wang-qi-shi' }).room.setup;
+  assert.deepEqual(c, { counts: KING_GUARD, rules: r.setup.rules });
+});
+
+test('直接重開（Leo 2026-10-11）：夜裡、白天、結束、發牌中都能按；座位板子不變、馬上重新發牌', async () => {
+  const E = await import('../src/engine.js');
+  const base = G.setSetup(fullRoom(), { counts: KING_GUARD }).room;
+  const dealt = G.startDeal(base, rand).room;
+  const night = E.startGame(dealt, 0, () => 0).room;
+  for (const r of [dealt, night]) {
+    const x = G.restart(r, rand);
+    assert.equal(x.ok, true, x.error);
+    assert.equal(x.room.phase, 'deal');
+    assert.deepEqual(x.room.game.acked, {}, '大家要重新看身分');
+    assert.equal(x.room.game.alive, undefined, '舊的對局資料清光');
+    assert.deepEqual(x.room.seats, r.seats);
+    assert.deepEqual(x.room.setup, r.setup);
+    const tally = {};
+    for (const id of Object.values(x.room.game.roles)) tally[id] = (tally[id] ?? 0) + 1;
+    assert.deepEqual(tally, KING_GUARD);
+  }
+  assert.equal(G.restart(base, rand).ok, false, '大廳不用重開');
+  assert.equal(G.restart({ ...night, phase: 'day' }, rand).ok, true);
+  assert.equal(G.restart({ ...night, phase: 'ended' }, rand).ok, true);
 });
 
 test('回到設定：清掉身分、回大廳', () => {

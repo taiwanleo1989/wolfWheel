@@ -7,6 +7,9 @@
 
 const BGM_VOL = 0.18, BGM_DUCK = 0.05;
 const GAP = { sep: 0.28, colon: 0.22, end: 0 }; // 標點片段：只停頓、不出聲
+// 個別片段放大（倍數）。「天黑請閉眼」是大家還在聊天時唸的第一句，Leo 2026-10-11 實玩嫌太小聲：放大 2 倍（約 +6 dB），
+// 後面接限幅器，放大後也不會破音。錄音本身跟其他句一樣大聲（-21.5 LUFS），所以重錄後這裡照樣有效
+export const CLIP_GAIN = { nightStart: 2 };
 const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
 let zhVoice = null, unlocked = false, lastSeq = null, ranOnce = false, onChange = null;
 let actx = null, gain = null, voiceGain = null, bgm = null, bgmOn = true, speaking = 0;
@@ -59,7 +62,11 @@ export const voice = {
       actx = new C();
       bgm = new Audio('../bgm.m4a'); bgm.loop = true; bgm.preload = 'auto';
       try { const src = actx.createMediaElementSource(bgm); gain = actx.createGain(); gain.gain.value = 0; src.connect(gain).connect(actx.destination); } catch { gain = null; }
-      voiceGain = actx.createGain(); voiceGain.gain.value = 1; voiceGain.connect(actx.destination);
+      // 台詞 → 限幅器 → 喇叭：個別片段放大後超過 0 dB 的部分壓下來，不會破音
+      const limiter = actx.createDynamicsCompressor();
+      limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.15;
+      limiter.connect(actx.destination);
+      voiceGain = actx.createGain(); voiceGain.gain.value = 1; voiceGain.connect(limiter);
       actx.onstatechange = () => { if (actx.state === 'running') ranOnce = true; onChange?.(); };
       loadRecorded();
     }
@@ -143,7 +150,8 @@ function playClips(clips) {
     if (k in GAP) { t += GAP[k]; continue; }
     const src = actx.createBufferSource();
     src.buffer = buffers[k];
-    src.connect(voiceGain);
+    if (CLIP_GAIN[k]) { const g = actx.createGain(); g.gain.value = CLIP_GAIN[k]; src.connect(g).connect(voiceGain); }
+    else src.connect(voiceGain);
     src.start(t);
     playing.push(src);
     t += buffers[k].duration + 0.04;

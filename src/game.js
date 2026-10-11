@@ -1,24 +1,23 @@
 // 遊戲階段：大廳（設定板子）→ 發牌（各自看身分）。純函式，伺服器的房間用它推進狀態。
-// room.setup = { preset, counts, rules }        —— 公開：板子大家都看得到
+// room.setup = { counts, rules }                —— 公開：板子大家都看得到
 // room.game  = { roles: {座位: 角色}, acked: {座位: true} } —— 秘密：只送出「你自己的」角色
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
 import * as E from './engine.js';
 
+// 沒有預設板子（Leo 2026-10-11：都是自己定義角色）。新房間先放「狼人＋平民」湊滿人數，主機再自己加神、調數量
 export function withSetup(room) {
   if (room.setup) return room;
-  const p = R.PRESETS.find(x => x.players === room.players) ?? R.PRESETS[0];
-  return { ...room, setup: { preset: p.id, counts: { ...p.counts }, rules: { ...R.DEFAULT_RULES } } };
+  const wolf = Math.max(1, Math.round(room.players / 4));
+  return { ...room, setup: { counts: { wolf, villager: room.players - wolf }, rules: { ...R.DEFAULT_RULES } } };
 }
 
 export function setSetup(room, input) {
   if (room.phase !== 'lobby') return { ok: false, error: '發牌後不能改板子，要先回到設定' };
   const cur = withSetup(room).setup;
-  // 板子名稱：點了預設板子就用它；手動改角色數量＝自訂；只改規則則維持原本的
-  const preset = R.PRESETS.some(p => p.id === input?.preset) ? input.preset : input?.counts ? null : cur.preset;
   const counts = input?.counts ? R.cleanCounts(input.counts) : cur.counts;
   const rules = input?.rules ? R.cleanRules({ ...cur.rules, ...input.rules }) : cur.rules;
-  return { ok: true, room: { ...room, setup: { preset, counts, rules } } };
+  return { ok: true, room: { ...room, setup: { counts, rules } } };
 }
 
 // 還不能發牌的理由（空陣列＝可以發）
@@ -42,6 +41,13 @@ export function startDeal(room, rand) {
 export function redeal(room, rand) {
   if (room.phase !== 'deal') return { ok: false, error: '現在不能重新發牌' };
   return { ok: true, room: { ...room, game: { roles: R.deal(room.setup.counts, room.players, rand), acked: {} } } };
+}
+
+// 直接重開（Leo 2026-10-11）：對局中、結束後、發牌中都可以；座位與板子不變，馬上重新發牌
+export function restart(room, rand) {
+  if (!['deal', 'night', 'day', 'ended'].includes(room.phase)) return { ok: false, error: '現在不能重開' };
+  const { game, ...rest } = room;
+  return startDeal({ ...rest, phase: 'lobby' }, rand);
 }
 
 export function backToSetup(room) {

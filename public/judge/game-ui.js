@@ -209,6 +209,7 @@ function renderHost() {
   box.hidden = !isHost;
   $('#voiceBar').hidden = !(isHost && phase !== 'ended' && !voice.unlocked);
   if (!isHost) return;
+  const done = h => setHTML(box, h + restartRow(phase)); // 每個畫面最下面都有「直接重開」
 
   const key = `${phase}|${g.dayNo}`;
   if (key !== ui.hostKey) { ui.hostKey = key; ui.hostPick = null; }
@@ -230,7 +231,7 @@ function renderHost() {
         <p class="hint">請上警的玩家依序發言，其他人投票選出警長（口頭進行）。選完後再公布昨晚的死訊。</p>
         <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>
         <button class="btn primary big" type="button" data-host="announce">警長選好了，公布昨晚死訊</button>`;
-      setHTML(box, html);
+      done(html);
       return;
     }
     if (g.nightCalled) {
@@ -239,13 +240,13 @@ function renderHost() {
         <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
         <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
         <div class="row-gap">${bgm}</div>`;
-      setHTML(box, html);
+      done(html);
       return;
     }
     if (g.idiotChoice) {
       html = `<h2>白天</h2>
         <p class="hint">等 ${g.idiotChoice} 號在自己的手機上選擇……</p>`;
-      setHTML(box, html);
+      done(html);
       return;
     }
     html = `<h2>白天</h2>
@@ -258,10 +259,19 @@ function renderHost() {
       <div class="row-gap"><button class="btn primary big" type="button" data-host="night">天黑請閉眼</button></div>
       <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a>${bgm}</div>`;
   } else if (phase === 'ended') {
-    html = `<button class="btn primary big" type="button" data-host="newGame">再來一局</button>
-      <p class="hint center">座位和板子會保留，回到設定後重新發牌。</p>`;
+    html = `<button class="btn primary big" type="button" data-host="restart">再來一局（直接重新發牌）</button>
+      <p class="hint center">座位和板子都不變，馬上發新的身分。</p>
+      <div class="row-gap"><button class="btn" type="button" data-host="newGame">回到設定（改板子、人數）</button></div>`;
   }
-  setHTML(box, html);
+  done(html);
+}
+
+// 直接重開（Leo 2026-10-11）：對局中隨時可以按；座位和板子不變，馬上重新發牌。結束畫面上面已經有大按鈕，這裡不重複
+function restartRow(phase) {
+  if (phase === 'ended') return '';
+  return `<div class="restart-row"><span class="hint small">要重來？</span>
+    <button class="btn small" type="button" data-host="restart">直接重開</button>
+    <button class="btn small" type="button" data-host="newGame">回到設定</button></div>`;
 }
 
 // 「跳過」防手機沒電卡死（Leo 2026-10-10）：每個角色一樣——睜眼就出現（灰的）、睜眼 30 秒後才能按，文字不提任何角色。
@@ -299,7 +309,12 @@ function onHost(e) {
     case 'night':
       if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
       send({ type: 'nextNight' }); break;
-    case 'newGame': send({ type: 'newGame' }); break;
+    case 'restart':
+      if (state.phase !== 'ended' && !confirm('直接重開？這局作廢，座位和板子不變，馬上重新發牌（每個人身分都會換）。')) return;
+      voice.stop(); voice.setNight(false); send({ type: 'restart' }); break;
+    case 'newGame':
+      if (state.phase !== 'ended' && !confirm('這局作廢，回到設定（可以改板子、人數）？')) return;
+      voice.stop(); voice.setNight(false); send({ type: 'newGame' }); break;
   }
 }
 
