@@ -2,9 +2,15 @@
   "voice": "Liu Junnan（ElevenLabs v4）",
   "source": [
     "ElevenLabs_2026-10-09T03_44_19_Liu Junnan _pvc_sp100_s33_sb75_v4.mp3",
-    "batch2.mp3"
+    "batch2.mp3",
+    "batch3.mp3.mp3",
+    "batch4.mp3"
   ],
   "files": {
+    "checkRole": {
+      "file": "checkRole.mp3",
+      "text": "請確認角色身分。"
+    },
     "nightStart": {
       "file": "nightStart.mp3",
       "text": "天黑請閉眼。"
@@ -29,6 +35,14 @@
       "file": "wolfClose.mp3",
       "text": "狼人請閉眼。"
     },
+    "beautyOpen": {
+      "file": "beautyOpen.mp3",
+      "text": "狼美人請睜眼。請選擇今晚要魅惑的玩家。"
+    },
+    "beautyClose": {
+      "file": "beautyClose.mp3",
+      "text": "狼美人請閉眼。"
+    },
     "witchSave": {
       "file": "witchSave.mp3",
       "text": "女巫請睜眼。今晚死亡的玩家是——請問你要使用解藥嗎？"
@@ -48,6 +62,22 @@
     "seerClose": {
       "file": "seerClose.mp3",
       "text": "預言家請閉眼。"
+    },
+    "gargoyleOpen": {
+      "file": "gargoyleOpen.mp3",
+      "text": "石像鬼請睜眼。請問你今晚要查驗的玩家是？"
+    },
+    "gargoyleClose": {
+      "file": "gargoyleClose.mp3",
+      "text": "石像鬼請閉眼。"
+    },
+    "graveOpen": {
+      "file": "graveOpen.mp3",
+      "text": "守墓人請睜眼。昨天被放逐的玩家，他的陣營是——"
+    },
+    "graveClose": {
+      "file": "graveClose.mp3",
+      "text": "守墓人請閉眼。"
     },
     "hunterOpen": {
       "file": "hunterOpen.mp3",
@@ -108,6 +138,18 @@
     "duelGood": {
       "file": "duelGood.mp3",
       "text": "是好人，騎士以死謝罪。"
+    },
+    "whiteBoom": {
+      "file": "whiteBoom.mp3",
+      "text": "白狼王自爆。"
+    },
+    "whiteBoomTook": {
+      "file": "whiteBoomTook.mp3",
+      "text": "白狼王自爆，帶走了"
+    },
+    "charmDied": {
+      "file": "charmDied.mp3",
+      "text": "殉情出局。"
     },
     "goodWin": {
       "file": "goodWin.mp3",
