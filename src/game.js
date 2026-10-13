@@ -4,6 +4,7 @@
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
 import * as E from './engine.js';
+import { lineText } from '../public/shared/voice-lines.js';
 
 // 沒有預設板子（Leo 2026-10-11：都是自己定義角色）。新房間先放「狼人＋平民」湊滿人數，主機再自己加神、調數量
 export function withSetup(room) {
@@ -30,17 +31,20 @@ export function dealBlockers(room) {
   return out;
 }
 
+// 發牌（含重新發牌）時主機唸「請確認角色身分。」；序號接著上一句，主機才知道是新的一句
+const checkRole = prev => ({ seq: (prev?.seq ?? 0) + 1, text: lineText(['checkRole']), clips: ['checkRole'] });
+
 export function startDeal(room, rand) {
   if (room.phase !== 'lobby') return { ok: false, error: '已經發過牌了' };
   const r = withSetup(room);
   const blockers = dealBlockers(r);
   if (blockers.length) return { ok: false, error: blockers[0] };
-  return { ok: true, room: { ...r, phase: 'deal', game: { roles: R.deal(r.setup.counts, r.players, rand), acked: {} } } };
+  return { ok: true, room: { ...r, phase: 'deal', game: { roles: R.deal(r.setup.counts, r.players, rand), acked: {}, narration: checkRole(null) } } };
 }
 
 export function redeal(room, rand) {
   if (room.phase !== 'deal') return { ok: false, error: '現在不能重新發牌' };
-  return { ok: true, room: { ...room, game: { roles: R.deal(room.setup.counts, room.players, rand), acked: {} } } };
+  return { ok: true, room: { ...room, game: { roles: R.deal(room.setup.counts, room.players, rand), acked: {}, narration: checkRole(room.game.narration) } } };
 }
 
 // 直接重開（Leo 2026-10-11）：對局中、結束後、發牌中都可以；座位與板子不變，馬上重新發牌
@@ -88,6 +92,7 @@ export function viewFor(room, online, clientId) {
     v.acked = Object.keys(r.game.acked).map(Number).sort((a, b) => a - b);
     const seat = v.you.seat;
     if (seat && r.game.roles[seat]) v.you.role = r.game.roles[seat];
+    if (r.phase === 'deal') v.narration = r.game.narration ?? null; // 發牌時主機要唸的那句
     v.game = E.publicGame(r);            // 對局開始後才有
     v.you.game = E.privateGame(r, seat); // 只有自己的
   }

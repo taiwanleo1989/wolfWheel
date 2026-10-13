@@ -141,3 +141,18 @@ test('本局板子：依陣營分組、寫出狼人陣營總數（狼王也算�
   ]);
   assert.deepEqual(R.boardByTeam({ wolf: 1, seer: 1, hunter: 1, idiot: 1 }).map(x => x.label), ['狼人陣營 1 隻', '神職']);
 });
+
+test('發牌時主機唸「請確認角色身分。」；重新發牌再唸一次（序號變大）；開局後天黑請閉眼接著往上數', async () => {
+  const E = await import('../src/engine.js');
+  const { LINES } = await import('../public/shared/voice-lines.js');
+  let r = G.startDeal(fullRoom(), rand).room;
+  assert.deepEqual(r.game.narration, { seq: 1, text: '請確認角色身分。', clips: ['checkRole'] });
+  assert.ok('checkRole' in LINES);
+  assert.equal(G.viewFor(r, new Set(['host']), 'host').narration.text, '請確認角色身分。', '主機在發牌畫面收得到這句');
+  r = G.redeal(r, rand).room;
+  assert.equal(r.game.narration.seq, 2);
+  r = E.startGame(r, 0, () => 0).room;
+  assert.equal(r.game.narration.text, '天黑請閉眼。');
+  assert.equal(r.game.narration.seq, 3);
+  assert.equal(G.viewFor(r, new Set(), 'host').narration, undefined, '開局後只用 game.narration');
+});

@@ -181,6 +181,7 @@ function render() {
       setHTML($('#hostSeats'), state.seats.map(s => seatHTML(s, seatTag(s))).join(''));
       renderSetup();
     } else {
+      voice.onNarration(state.narration); // 「請確認角色身分。」
       renderDealHost();
     }
     drawQR();
@@ -374,8 +375,9 @@ $('#roleRows').addEventListener('click', e => {
 for (const b of document.querySelectorAll('[data-wait]')) {
   b.onclick = () => { const k = b.dataset.wait; sendSetup({ rules: { [k]: state.setup.rules[k] + Number(b.dataset.d) } }); };
 }
-$('#dealBtn').onclick = () => send({ type: 'deal' });
-$('#redealBtn').onclick = () => { if (confirm('重新發牌？每個人的身分都會換掉，要重新看一次。')) send({ type: 'redeal' }); };
+// 發牌：這一下點擊同時解鎖語音，接下來那句「請確認角色身分。」一定要唸
+$('#dealBtn').onclick = () => { voice.unlock(); voice.expectFresh(); send({ type: 'deal' }); };
+$('#redealBtn').onclick = () => { const yes = confirm('重新發牌？每個人的身分都會換掉，要重新看一次。'); voice.unlock(); if (!yes) return; voice.stop(); voice.expectFresh(); send({ type: 'redeal' }); };
 $('#backBtn').onclick = () => { if (confirm('回到設定？已經發出的身分會作廢。')) send({ type: 'backToSetup' }); };
 // 開始：這一下點擊同時解鎖語音（瀏覽器規定要使用者點過才能出聲）
 $('#startBtn').onclick = () => {
