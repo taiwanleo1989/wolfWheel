@@ -98,6 +98,7 @@ export class Room extends DurableObject {
       case 'shoot': result = E.shoot(this.room, me.clientId, msg.target, now); break;
       case 'exile': result = E.exile(this.room, msg.target, now); break;
       case 'duel': result = E.duel(this.room, me.clientId, msg.target, now); break;
+      case 'boom': result = E.boom(this.room, me.clientId, msg.target, now); break;
       case 'idiot': result = E.idiotChoose(this.room, me.clientId, msg.flip, now); break;
       case 'nextNight': result = E.nextNight(this.room, now); break;
       case 'announce': result = E.announceDeaths(this.room, now); break;

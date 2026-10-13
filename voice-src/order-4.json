@@ -1,0 +1,70 @@
+[
+  {
+    "key": "beautyOpen",
+    "text": "狼美人請睜眼。請選擇今晚要魅惑的玩家。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "beautyClose",
+    "text": "狼美人請閉眼。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "gargoyleOpen",
+    "text": "石像鬼請睜眼。請問你今晚要查驗的玩家是？"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "gargoyleClose",
+    "text": "石像鬼請閉眼。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "graveOpen",
+    "text": "守墓人請睜眼。昨天被放逐的玩家，他的陣營是——"
+  },
+  {
+    "key": null,
+    "text": "。……。"
+  },
+  {
+    "key": "graveClose",
+    "text": "守墓人請閉眼。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "whiteBoom",
+    "text": "白狼王自爆。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "whiteBoomTook",
+    "text": "白狼王自爆，帶走了"
+  },
+  {
+    "key": null,
+    "text": "。……。"
+  },
+  {
+    "key": "charmDied",
+    "text": "殉情出局。"
+  }
+]

@@ -3,10 +3,10 @@ import { ROLES, TEAM_NAME, boardByTeam } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
 const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
-const STEP_NAME = { guard: '守衛', wolf: '狼人', witch: '女巫', seer: '預言家', hunter: '獵人', police: '上警' };
+const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
-const ui = { pick: null, pickKey: '', duelOpen: false, showMe: false, hostPick: null, hostKey: '' };
+const ui = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '' };
 
 export function renderGame(ctx) {
   c = ctx;
@@ -61,8 +61,8 @@ function renderAction() {
   if (!seat || !me) { box.hidden = true; return; }
 
   // 換了一個動作就清掉剛才選的座位
-  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}`;
-  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; ui.confirm = null; }
+  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}`;
+  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
   const pick = ui.pick;
   let html = '';
 
@@ -79,7 +79,7 @@ function renderAction() {
         ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="guard"${pick ? '' : ' disabled'}>守護 ${pick ?? '…'} 號</button>
         <button class="btn" type="button" data-do="guard0">今晚不守</button></div>`}`;
     } else if (a.kind === 'wolf') {
-      const wolves = me.wolves.filter(w => w.alive);
+      const wolves = me.wolves.filter(w => a.killers.includes(w.seat)); // 今晚一起殺人的（狼隊死光後是隱狼、石像鬼）
       const votesFor = n => wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat);
       const myVote = a.votes[seat];
       const king = me.wolves.find(w => w.king);
@@ -124,9 +124,31 @@ function renderAction() {
           ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
           ${confirmBox || `<button class="btn primary big" type="button" data-do="seer"${pick ? '' : ' disabled'}>查驗 ${pick ?? '…'} 號</button>`}`;
       }
+    } else if (a.kind === 'beauty') {
+      html = `<h2>請選擇今晚要魅惑的玩家</h2>
+        <p class="hint">你出局時，今晚魅惑的人會跟著殉情出局（不能發動技能）。</p>
+        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+        ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="beauty"${pick ? '' : ' disabled'}>魅惑 ${pick ?? '…'} 號</button>
+        <button class="btn" type="button" data-do="beauty0">今晚不魅惑</button></div>`}`;
+    } else if (a.kind === 'gargoyle') {
+      if (a.checked) {
+        html = `<h2>他的身分是……</h2>
+          <div class="seer-result ${ROLES[a.checked.role].team === 'wolf' ? 'wolf' : 'good'}"><span class="digits">${a.checked.target}</span> 號是 <b>${ROLES[a.checked.role].name}</b></div>
+          <button class="btn primary big" type="button" data-do="gargoyleDone">知道了</button>`;
+      } else {
+        html = `<h2>請問你今晚要查驗的玩家是？</h2>
+          <p class="hint">石像鬼看得到具體身分。</p>
+          ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+          ${confirmBox || `<button class="btn primary big" type="button" data-do="gargoyle"${pick ? '' : ' disabled'}>查驗 ${pick ?? '…'} 號</button>`}`;
+      }
+    } else if (a.kind === 'grave') {
+      html = `<h2>昨天被放逐的玩家，他的陣營是</h2>
+        ${a.info ? `<div class="seer-result ${a.info.wolf ? 'wolf' : 'good'}"><span class="digits">${a.info.seat}</span> 號是 <b>${a.info.wolf ? '👎 狼人' : '👍 好人'}</b></div>`
+          : '<p class="witch-info">昨天沒有人被投票放逐出局。</p>'}
+        <button class="btn primary big" type="button" data-do="graveSeen">知道了</button>`;
     } else if (a.kind === 'hunter') {
       html = `<h2>你今晚的帶槍手勢是</h2>
-        <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 被毒了，不能開槍'}</b></div>
+        <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 今晚不能開槍'}</b></div>
         <button class="btn primary big" type="button" data-do="hunterSeen">知道了</button>`;
     }
   } else if (phase === 'day' && me.idiotChoose) {
@@ -148,6 +170,15 @@ function renderAction() {
          <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
          <button class="btn" type="button" data-do="duelClose">取消</button></div>`
       : `<button class="btn big" type="button" data-do="duelOpen">⚔ 發起決鬥（騎士技能）</button>`;
+  } else if (phase === 'day' && me.canBoom) {
+    html = ui.boomOpen
+      ? `<h2>白狼王自爆</h2>
+         <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
+         ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+         <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
+         <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
+         <button class="btn" type="button" data-do="boomClose">取消</button></div>`
+      : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（白狼王技能）</button>`;
   } else if (phase !== 'ended' && !me.alive) {
     html = `<p class="out">你已出局。可以留遺言（如果還有的話），之後請靜靜看戲，不要透露訊息。</p>`;
   } else if (me.idiotRevealed) {
@@ -179,6 +210,9 @@ function onAction(e) {
     case 'guard0': ask('今晚不守護任何人', { target: 0 }); break;
     case 'poison': ask(`今晚要毒殺的玩家是 ${pick} 號`, { use: 'poison', target: pick }); break;
     case 'seer': ask(`今晚要查驗的玩家是 ${pick} 號`, { target: pick }); break;
+    case 'gargoyle': ask(`今晚要查驗的玩家是 ${pick} 號`, { target: pick }); break;
+    case 'beauty': ask(`今晚要魅惑的玩家是 ${pick} 號`, { target: pick }); break;
+    case 'beauty0': ask('今晚不魅惑任何人', { target: 0 }); break;
     case 'yes': act(ui.confirm.payload); ui.confirm = null; break;
     case 'no': ui.confirm = null; ui.pick = null; c.render(); break;
     // 狼人：全體一致後由任何一隻確認
@@ -190,12 +224,18 @@ function onAction(e) {
     case 'noSave': act({ use: 'skip' }); break;
     case 'none': act({ use: 'none' }); break;
     case 'seerDone': act({ done: true }); break;
+    case 'gargoyleDone': act({ done: true }); break;
+    case 'graveSeen': act({ seen: true }); break;
     case 'hunterSeen': act({ seen: true }); break;
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
     case 'duelClose': ui.duelOpen = false; ui.pick = null; c.render(); break;
     case 'duel': if (confirm(`確定和 ${pick} 號決鬥？猜錯的話你會出局。`)) c.send({ type: 'duel', target: pick }); break;
+    case 'boomOpen': ui.boomOpen = true; c.render(); break;
+    case 'boomClose': ui.boomOpen = false; ui.pick = null; c.render(); break;
+    case 'boom': if (confirm(`確定自爆、帶走 ${pick} 號？`)) c.send({ type: 'boom', target: pick }); break;
+    case 'boom0': if (confirm('確定自爆、不帶走任何人？')) c.send({ type: 'boom', target: 0 }); break;
     case 'idiotFlip': if (confirm('確定翻牌？翻牌後不會出局，但之後不能投票。')) c.send({ type: 'idiot', flip: true }); break;
     case 'idiotOut': if (confirm('確定不翻牌、直接出局？')) c.send({ type: 'idiot', flip: false }); break;
   }
@@ -235,8 +275,8 @@ function renderHost() {
       return;
     }
     if (g.nightCalled) {
-      // 騎士撞到狼：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
-      html = `<h2>騎士撞到狼人</h2>
+      // 騎士撞到狼、白狼王自爆：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
+      html = `<h2>${g.nightReason === 'boom' ? '白狼王自爆' : '騎士撞到狼人'}</h2>
         <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
         <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
         <div class="row-gap">${bgm}</div>`;
@@ -344,7 +384,11 @@ function renderMyInfo() {
   if (!ui.showMe) { setHTML(box, `<button class="btn big" type="button" data-me="show">看我的身分（先確定旁人看不到）</button>`); return; }
   const r = ROLES[role];
   const lines = [];
-  if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || '沒有'}`);
+  if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || (role === 'gargoyle' ? '不知道（石像鬼不跟狼隊友見面）' : '沒有')}`);
+  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼；他們全部出局後，你晚上開始殺人。');
+  if (me.gargoyleChecks) lines.push(me.gargoyleChecks.length ? '查驗紀錄：' + me.gargoyleChecks.map(x => `第 ${x.day} 夜 ${x.target} 號是${ROLES[x.role].name}`).join('；') : '查驗紀錄：還沒有');
+  if (me.graveChecks) lines.push(me.graveChecks.length ? '守墓紀錄：' + me.graveChecks.map(x => `第 ${x.day} 天放逐的 ${x.seat} 號是${x.wolf ? '狼人' : '好人'}`).join('；') : '守墓紀錄：還沒有');
+  if (role === 'beauty') lines.push(`目前魅惑：${me.charm ? me.charm + ' 號' : '沒有'}`);
   if (me.seerChecks) lines.push(me.seerChecks.length ? '查驗紀錄：' + me.seerChecks.map(x => `第 ${x.day} 夜 ${x.target} 號是${x.wolf ? '狼人' : '好人'}`).join('；') : '查驗紀錄：還沒有');
   if (me.potions) lines.push(`解藥：${me.potions.save ? '還有' : '用掉了'}；毒藥：${me.potions.poison ? '還有' : '用掉了'}`);
   if (role === 'guard') lines.push(`昨晚守護：${me.lastGuard ? me.lastGuard + ' 號' : '沒有'}（今晚不能再守同一人）`);

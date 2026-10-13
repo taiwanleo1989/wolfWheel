@@ -1,4 +1,5 @@
-// 角色美術（漫畫風 SVG）。轉盤的 6 個角色從 public/index.html 原樣搬來，加上守衛、白癡、平民。
+// 角色美術（漫畫風 SVG）。轉盤的 6 個角色從 public/index.html 原樣搬來，加上守衛、白癡、平民；
+// 2026-10-13 加白狼王、狼美人、隱狼（都用狼的底圖換色＋配件）、石像鬼、守墓人。
 // 用法：installArt() 一次 → 任何地方放 portrait('seer') 就有角色卡圖。
 const INK = '#0d0b12';
 const DEFS = `
@@ -59,12 +60,67 @@ function wolfArt(o){
   <circle cx="80" cy="58" r="3.5" fill="#2fb8ff" stroke-width="2.5"/><circle cx="100" cy="58" r="3.5" fill="#e0212f" stroke-width="2.5"/><circle cx="120" cy="58" r="3.5" fill="#2fb8ff" stroke-width="2.5"/>
   <path d="M138 76 L122 126" stroke="#ff9a9a" stroke-width="4"/>
   <path d="M128 88 L137 92 M125 100 L134 104 M121 112 L130 116" stroke="#ff9a9a" stroke-width="2.5"/>` : ''}
+  ${o.extra ?? ''}
 </g>`;
 }
 
-const ART = {
+// 石像鬼：石頭色的有角怪物，張開翅膀蹲在台座上
+const gargoyleArt = () => `
+<g ${S}>
+  <path d="M68 128 L8 60 L22 112 L4 106 L28 152 L12 154 L62 180 Z" fill="#6f7680"/>
+  <path d="M132 128 L192 60 L178 112 L196 106 L172 152 L188 154 L138 180 Z" fill="#6f7680"/>
+  <path d="M132 128 L192 60 L178 112 L196 106 L172 152 L188 154 L138 180 Z" fill="#4f555e" stroke="none" opacity=".55"/>
+  <path d="M48 214 C50 172 70 150 100 150 C130 150 150 172 152 214 Z" fill="#8a919b"/>
+  <path d="M120 154 C140 164 150 186 152 214 L128 214 C130 190 128 170 120 154 Z" fill="#6c737d" stroke="none"/>
+  <path d="M24 206 L176 206 L182 222 L18 222 Z" fill="#4b5058"/>
+  <path d="M60 206 C60 194 72 190 78 198 L80 206 M140 206 C140 194 128 190 122 198 L120 206" fill="#9aa1ab" stroke-width="3.5"/>
+  <path d="M70 78 L50 26 L88 64 Z" fill="#5b616b"/>
+  <path d="M130 78 L150 26 L112 64 Z" fill="#5b616b"/>
+  <path d="M62 112 C62 76 80 58 100 58 C120 58 138 76 138 112 C138 140 122 158 100 158 C78 158 62 140 62 112 Z" fill="#9aa1ab"/>
+  <path d="M116 62 C130 72 138 88 138 112 C138 140 122 158 100 158 C120 140 126 96 116 62 Z" fill="#7d848e" stroke="none"/>
+  <path d="M70 98 L96 106 M130 98 L104 106" stroke-width="7"/>
+  <g filter="url(#glow)">
+    <path d="M74 106 L94 112 L90 120 L76 116 Z" fill="#ff8a1c"/>
+    <path d="M126 106 L106 112 L110 120 L124 116 Z" fill="#ff8a1c"/>
+  </g>
+  <path d="M80 138 C90 128 110 128 120 138 L114 148 L108 140 L100 150 L92 140 L86 148 Z" fill="#2a2d33"/>
+  <path d="M120 72 L112 86 L118 94 M70 178 L80 192 L74 204" fill="none" stroke-width="2.5"/>
+</g>`;
+
+// 守墓人：披斗篷的守夜人，提燈、扛鏟子，旁邊一座墓碑
+const gravekeeperArt = () => `
+<circle cx="58" cy="182" r="40" fill="url(#torchGlow)"/>
+<g ${S}>
+  <path d="M146 222 L146 150 C146 126 190 126 190 150 L190 222 Z" fill="#7d8590"/>
+  <path d="M168 146 L168 176 M158 156 L178 156" fill="none" stroke-width="4"/>
+  <path d="M34 222 C34 160 58 96 100 66 C142 96 166 160 166 222 Z" fill="#3d3a52"/>
+  <path d="M100 66 C142 96 166 160 166 222 L140 222 C144 160 132 104 100 66 Z" fill="#2a2840" stroke="none"/>
+  <path d="M70 134 C64 98 80 76 100 74 C120 76 136 98 130 134 C124 150 112 158 100 158 C88 158 76 150 70 134 Z" fill="#1a1828"/>
+  <path d="M80 122 C80 100 90 90 100 90 C110 90 120 100 120 122 C120 140 112 152 100 154 C88 152 80 140 80 122 Z" fill="#e6c49e"/>
+  <path d="M108 92 C116 98 120 108 120 122 C120 140 112 152 100 154 C110 142 114 116 108 92 Z" fill="#c9a37c" stroke="none"/>
+  <path d="M88 120 Q92 124 96 120 M104 120 Q108 124 112 120" fill="none" stroke-width="3"/>
+  <path d="M92 140 Q100 144 108 140" fill="none" stroke-width="3"/>
+  <path d="M128 92 L150 214" fill="none" stroke="#6b4220" stroke-width="7"/>
+  <path d="M140 196 L162 192 L168 220 L146 222 Z" fill="#8a96a4"/>
+  <path d="M58 140 L58 160" fill="none" stroke-width="3.5"/>
+  <path d="M44 160 L72 160 L70 196 L46 196 Z" fill="#ffd36a"/>
+  <path d="M52 168 C52 176 64 176 64 168 C64 180 58 188 58 188 C58 188 52 180 52 168 Z" fill="#ff8a1c" stroke="none" filter="url(#glow)"/>
+  <path d="M40 158 L76 158 M42 198 L74 198" fill="none" stroke-width="5"/>
+</g>`;
+
+export const ART = {
 wolf: () => wolfArt({fur:'#7b8496', shade:'#4b5263', muzzle:'#d8d2c4', mshade:'#b3ab9a', ear:'#9b4a5a', eye:'#ffd23f'}),
 king: () => wolfArt({fur:'#3a3e4e', shade:'#1f222c', muzzle:'#8f93a3', mshade:'#6d7080', ear:'#6e2130', eye:'#ff4d3d', king:true}),
+whiteKing: () => wolfArt({fur:'#eef1f6', shade:'#aeb7c6', muzzle:'#ffffff', mshade:'#d3d9e2', ear:'#c06a7a', eye:'#5fdcff', king:true}),
+beauty: () => wolfArt({fur:'#c46a9a', shade:'#8a3d6a', muzzle:'#f6dbe8', mshade:'#dcaac2', ear:'#ff7fb0', eye:'#ff5fc8', extra:`
+  <path d="M52 90 L44 80 M60 93 L55 82 M148 90 L156 80 M140 93 L145 82" fill="none" stroke-width="2.5"/>
+  <path d="M160 190 L150 222" fill="none" stroke="#2a7a3a" stroke-width="4"/>
+  <path d="M146 176 C150 160 172 160 176 174 C180 188 164 196 154 192 C146 190 144 182 146 176 Z" fill="#e0213f"/>
+  <path d="M154 176 C158 170 166 170 168 178" fill="none" stroke-width="2.5"/>`}),
+hidden: () => wolfArt({fur:'#5a5f6e', shade:'#363a46', muzzle:'#a9a59a', mshade:'#86827a', ear:'#4a3a46', eye:'#ffd23f', extra:`
+  <path d="M40 92 C70 78 130 78 160 92 L154 120 C126 110 74 110 46 120 Z" fill="#f2ecdc"/>
+  <path d="M112 84 C134 86 150 90 160 92 L154 120 C140 115 126 112 114 111 C120 102 118 92 112 84 Z" fill="#d6cfbc" stroke="none"/>
+  <path d="M62 101 L86 105 L84 111 L64 109 Z M138 101 L114 105 L116 111 L136 109 Z" fill="${INK}" stroke="none"/>`}),
 seer: () => `
 <circle cx="100" cy="186" r="64" fill="url(#seerGlow)"/>
 <g ${S}>
@@ -284,6 +340,9 @@ villager: () => `
   <path d="M157 99 C150 90 153 80 158 72 C160 81 167 84 164 99 Z" fill="#ffe066" stroke="none"/>
   <path d="M124 198 C122 186 140 182 146 190 C150 198 142 212 132 210 Z" fill="#f0c9a4"/>
 </g>`
+,
+gargoyle: gargoyleArt,
+gravekeeper: gravekeeperArt,
 };
 
 // 每個角色卡的底色（深）與放射線（亮）
@@ -291,6 +350,8 @@ export const ART_BG = {
   wolf: ['#16224f', '#2c4596'], king: ['#4a0c12', '#a3202a'], seer: ['#26114f', '#6a3cbc'],
   witch: ['#0f3426', '#2a8f55'], hunter: ['#4d2c10', '#b5651c'], knight: ['#122444', '#4f74ae'],
   guard: ['#2e2410', '#9c7a2c'], idiot: ['#3b1f45', '#d4a017'], villager: ['#1f2e14', '#5f8a34'],
+  whiteKing: ['#1d2a3a', '#8fb3d9'], beauty: ['#3d0f2c', '#c2407f'], hidden: ['#15161c', '#4a4f5e'],
+  gargoyle: ['#1e2024', '#6b7280'], gravekeeper: ['#141a24', '#4d5e78'],
 };
 
 function sunburst(color) {

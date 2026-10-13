@@ -14,11 +14,18 @@ export const LINES = {
   wolfOpen: '狼人請睜眼。今晚要擊殺的目標是？',
   wolfOpenKing: '狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？',
   wolfClose: '狼人請閉眼。',
+  // 2026-10-13 新角色（狼美人、石像鬼、守墓人）：照手稿同一個句型「X 請睜眼。…」「X 請閉眼。」
+  beautyOpen: '狼美人請睜眼。請選擇今晚要魅惑的玩家。',
+  beautyClose: '狼美人請閉眼。',
   witchSave: '女巫請睜眼。今晚死亡的玩家是——請問你要使用解藥嗎？',
   witchPoison: '請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。',
   witchClose: '女巫請閉眼。',
   seerOpen: '預言家請睜眼。請問你今晚要查驗的玩家是？',
   seerClose: '預言家請閉眼。',
+  gargoyleOpen: '石像鬼請睜眼。請問你今晚要查驗的玩家是？',
+  gargoyleClose: '石像鬼請閉眼。',
+  graveOpen: '守墓人請睜眼。昨天被放逐的玩家，他的陣營是——',
+  graveClose: '守墓人請閉眼。',
   hunterOpen: '獵人請睜眼。獵人，你今晚的帶槍手勢是——',
   hunterClose: '獵人請閉眼。',
   police: '要上警的玩家請起立。',
@@ -35,6 +42,9 @@ export const LINES = {
   duelWith: '決鬥 ',
   duelWolf: '是狼人，出局！',
   duelGood: '是好人，騎士以死謝罪。',
+  whiteBoom: '白狼王自爆。', // 「5 號白狼王自爆。」（不帶人）
+  whiteBoomTook: '白狼王自爆，帶走了 ', // 「5 號白狼王自爆，帶走了 3 號。」
+  charmDied: '殉情出局。', // 狼美人白天出局：「8 號殉情出局。」
   goodWin: '遊戲結束，好人陣營獲勝！',
   wolfWin: '遊戲結束，狼人陣營獲勝！',
   // ── 標點（不錄音，只有文字；播放時 sep 會停頓一下） ──

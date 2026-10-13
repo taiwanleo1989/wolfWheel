@@ -3,15 +3,22 @@
 export const ROLES = {
   wolf:     { name: '狼人',  team: 'wolf',     unique: false, desc: '每晚和狼隊友一起選一個人殺掉。白天隱藏身分，混在好人裡。' },
   king:     { name: '狼王',  team: 'wolf',     unique: true,  desc: '狼人陣營。被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
+  whiteKing: { name: '白狼王', team: 'wolf',    unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。白天發言時（投票放逐之前）可以自爆，帶走一個人，今天直接天黑；不是自爆出局就不能帶人。' },
+  beauty:   { name: '狼美人', team: 'wolf',     unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。狼人殺完人後，再魅惑一個人；狼美人出局時（被殺、被毒、被放逐、被帶走都算），當晚魅惑的人跟著殉情出局，殉情的人不能發動技能。' },
+  hidden:   { name: '隱狼',  team: 'wolf',     unique: true,  desc: '狼人陣營。你知道狼隊友是誰，他們不知道你。晚上不跟狼人一起殺人；預言家查你、守墓人看你都是好人。其他狼人全部出局後，你才開始在晚上殺人。' },
+  gargoyle: { name: '石像鬼', team: 'wolf',     unique: true,  desc: '狼人陣營，不跟狼隊友見面（互相不知道）。每晚查驗一個人的具體身分。其他狼人全部出局後，你才開始在晚上殺人。' },
   seer:     { name: '預言家', team: 'god',      unique: true,  desc: '每晚查驗一個人，知道他是好人還是狼人。' },
   witch:    { name: '女巫',  team: 'god',      unique: true,  desc: '解藥可以救今晚被殺的人，毒藥可以毒死一個人。兩瓶各只能用一次。' },
   hunter:   { name: '獵人',  team: 'god',      unique: true,  desc: '被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
   guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
+  gravekeeper: { name: '守墓人', team: 'god',   unique: true,  desc: '從第二晚開始，每晚得知前一個白天被投票放逐出局的人是好人還是狼人（隱狼會顯示好人）。' },
   knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天可以翻牌和一個人決鬥：他是狼人就出局；不是狼人，騎士自己出局。' },
   idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '被投票放逐時翻牌免死，但之後不能再投票。' },
   villager: { name: '平民',  team: 'villager', unique: false, desc: '沒有技能。靠推理和投票找出狼人。' },
 };
-export const ROLE_ORDER = ['wolf', 'king', 'seer', 'witch', 'hunter', 'guard', 'knight', 'idiot', 'villager'];
+export const ROLE_ORDER = ['wolf', 'king', 'whiteKing', 'beauty', 'hidden', 'gargoyle', 'seer', 'witch', 'hunter', 'guard', 'gravekeeper', 'knight', 'idiot', 'villager'];
+// 狼隊（晚上睜眼一起殺人）以外的狼：隱狼、石像鬼。其他狼人全部出局後才開始殺人（2026-10-13 查主流規則）
+export const LONE_WOLVES = ['hidden', 'gargoyle'];
 export const TEAM_NAME = { wolf: '狼人陣營', god: '神職（好人）', villager: '平民（好人）' };
 
 // 對局畫面的「本局板子」：依陣營分組、寫出狼人陣營總數（Leo 2026-10-10：自訂板子會記錯有幾隻狼）。
@@ -63,7 +70,7 @@ export function problems(counts, players) {
   const out = [];
   const total = totalOf(counts);
   if (total !== players) out.push(`角色共 ${total} 個，座位有 ${players} 個，要一樣多`);
-  const wolves = (counts.wolf ?? 0) + (counts.king ?? 0);
+  const wolves = ROLE_ORDER.filter(id => ROLES[id].team === 'wolf').reduce((n, id) => n + (counts[id] ?? 0), 0);
   if (wolves < 1) out.push('至少要有 1 隻狼');
   if (total - wolves < 1) out.push('至少要有 1 個好人');
   if (wolves * 2 >= total && total > 0) out.push('狼人數量要少於一半，不然一開局就輸了');
