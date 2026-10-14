@@ -434,7 +434,7 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       const gw = r.game;
       if (r.phase === 'night' || (!gw.day.pendingDeaths && !gw.canShoot.length && !gw.day.idiotChoice)) {
         assert.equal(E.winnerOf(gw, r.setup.counts, r.setup.rules), null, `seed ${seed} 已經分出勝負卻沒結束`);
-        if (r.phase === 'day') assert.equal(E.houseRuleWin(gw), null, `seed ${seed} 提早獲勝沒判`);
+        if (r.phase === 'day') assert.equal(E.houseRuleWin(gw, r.setup.rules), null, `seed ${seed} 提早獲勝沒判`);
       }
       if (r.phase === 'night') {
         if (waiting(r) && rnd(10) === 0) { // 主機按跳過（睜眼 30 秒後）

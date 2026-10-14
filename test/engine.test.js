@@ -391,6 +391,20 @@ test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的
   assert.equal(E.houseRuleWin(mk(['wolf', 'guard', 'villager'], vote)), null, '守衛');
   assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], { ...vote, potions: { save: true, poison: false } })), null, '女巫有藥');
   assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], vote)), 'lastThree', '女巫沒藥');
+  // 屠邊：今晚狼隨便刀一個就贏，只有擋得住這一刀的（守衛、解藥）才算翻盤機會（Leo 2026-10-14 選 A）
+  const side = { win: 'side' }, all = { win: 'all' };
+  assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], { ...vote, potions: { save: false, poison: true } }), side), 'lastThree', '屠邊：只剩毒藥擋不住刀');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'hunter', 'villager'], vote), side), 'lastThree', '屠邊：刀平民就贏，獵人沒機會開槍');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'knight', 'villager'], vote), side), 'lastThree', '屠邊：天亮前就分出勝負');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'guard', 'villager'], vote), side), null, '屠邊：守衛擋得住');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], { ...vote, potions: { save: true, poison: false } }), side), null, '屠邊：解藥擋得住');
+  // 屠城：刀一個還剩一對一，獵人、騎士、毒藥都能翻盤
+  assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], { ...vote, potions: { save: false, poison: true } }), all), null, '屠城：毒藥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'hunter', 'villager'], vote), all), null, '屠城：獵人');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'knight', 'villager'], vote), all), null, '屠城：騎士');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'seer', 'villager'], vote), all), 'lastThree', '屠城：沒有翻盤技能');
+  // 綁票不受影響：四種都算
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager']), side), null, '綁票：獵人照算');
 });
 
 test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機不會出現按鈕', () => {

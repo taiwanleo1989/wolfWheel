@@ -542,11 +542,14 @@ export function winnerOf(g, counts, rules) {
 }
 
 // 好人還有翻盤的機會：女巫還有藥、守衛或獵人活著、騎士還沒決鬥 → 不提早判，照常打下去（Leo 2026-10-14 選 4B）
-function goodCanTurn(g, alive) {
+// knifeOnly：只算「擋得住今晚這一刀」的（守衛、解藥）——屠邊的一狼一神一民，狼隨便刀一個就贏，
+// 毒藥（同時達成算狼勝）、獵人、騎士都來不及（Leo 2026-10-14 選 A）
+function goodCanTurn(g, alive, { knifeOnly = false } = {}) {
   return alive.some(s => {
     const role = g.roles[s];
-    return role === 'guard' || role === 'hunter' || (role === 'knight' && !g.knightUsed)
-      || (role === 'witch' && (g.potions.save || g.potions.poison));
+    if (role === 'guard') return true;
+    if (role === 'witch') return knifeOnly ? g.potions.save : g.potions.save || g.potions.poison;
+    return !knifeOnly && (role === 'hunter' || (role === 'knight' && !g.knightUsed));
   });
 }
 
@@ -554,15 +557,15 @@ function goodCanTurn(g, alive) {
 //   綁票：天亮睜眼（死訊公布）時，活著的狼人陣營 ≥ 好人的票數（翻過牌的白癡沒有票，Leo 2026-10-14 選 2A）→ 好人投不出狼
 //   一狼一神一民：白天投完票（含平票）剩這三個人 → 今晚狼刀一個就一對一
 // 好人還有翻盤機會時兩條都不判（見 goodCanTurn）
-export function houseRuleWin(g) {
+export function houseRuleWin(g, rules = R.DEFAULT_RULES) {
   if (!g.day || g.day.pendingDeaths || g.day.idiotChoice || g.canShoot.length) return null;
   const team = s => R.ROLES[g.roles[s]].team;
   const alive = seatsList(g).filter(s => g.alive[s]);
-  if (goodCanTurn(g, alive)) return null;
   const n = t => alive.filter(s => team(s) === t).length;
   const wolves = n('wolf'), votes = n('god') + n('villager') - alive.filter(s => g.idiotRevealed.includes(s)).length;
-  if (g.day.bindCheck && wolves > 0 && wolves >= votes) return 'bind';
-  if (g.day.exileDone && alive.length === 3 && wolves === 1 && n('god') === 1 && n('villager') === 1) return 'lastThree';
+  if (g.day.bindCheck && wolves > 0 && wolves >= votes && !goodCanTurn(g, alive)) return 'bind';
+  if (g.day.exileDone && alive.length === 3 && wolves === 1 && n('god') === 1 && n('villager') === 1
+    && !goodCanTurn(g, alive, { knifeOnly: rules.win === 'side' })) return 'lastThree';
   return null;
 }
 const HOUSE_RULE_TEXT = {
@@ -575,7 +578,7 @@ const HOUSE_RULE_TEXT = {
 function checkWin(room, seq0) {
   const g = room.game;
   let w = winnerOf(g, room.setup.counts, room.setup.rules);
-  const house = w ? null : houseRuleWin(g);
+  const house = w ? null : houseRuleWin(g, room.setup.rules);
   if (g.day && !g.canShoot.length) g.day.bindCheck = false; // 綁票只在天亮那一刻看（槍都開完之後）
   if (house) w = 'wolf';
   if (!w) return room;
