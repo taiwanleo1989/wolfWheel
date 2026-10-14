@@ -458,7 +458,10 @@ export function duel(room, clientId, target, now = 0) {
   const g0 = room.game;
   if (!seat || g0.roles[seat] !== 'knight' || !g0.alive[seat]) return fail('你不能決鬥');
   if (g0.knightUsed) return fail('決鬥只能用一次');
-  if (g0.day.nightCalled) return fail('今天已經要天黑了'); // 白狼王自爆後（2026-10-14 盤查）
+  // 跟白狼王自爆同一套：死訊公布後、投票放逐前、沒人在等開槍（Leo 2026-10-14 選 1A）
+  if (g0.day.nightCalled) return fail('今天已經要天黑了');
+  if (g0.day.exileDone) return fail('投票放逐之後不能決鬥');
+  if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target);
   if (!g0.alive[target] || target === seat) return fail('請選一個活著的其他玩家');
   const g = structuredClone(g0);
@@ -526,32 +529,44 @@ export function winnerOf(g, counts, rules) {
   const alive = seatsList(g).filter(s => g.alive[s]);
   const team = s => R.ROLES[g.roles[s]].team;
   const wolves = alive.filter(s => team(s) === 'wolf').length;
-  if (wolves === 0) return 'good';
   const gods = alive.filter(s => team(s) === 'god').length;
   const villagers = alive.filter(s => team(s) === 'villager').length;
   const hasGods = R.ROLE_ORDER.some(id => R.ROLES[id].team === 'god' && (counts[id] ?? 0) > 0);
   const hasVillagers = (counts.villager ?? 0) > 0;
-  if (rules.win === 'side') {
-    if ((hasGods && gods === 0) || (hasVillagers && villagers === 0)) return 'wolf';
-  } else if (gods + villagers === 0) return 'wolf';
+  // 每個動作之後都會判，所以兩邊同時成立＝同一個動作造成的（例如同一晚刀死最後一個神、毒死最後一隻狼）：
+  // 狼人勝（Leo 2026-10-14 選 3B），所以先看狼人的條件
+  const wolfWins = rules.win === 'side' ? (hasGods && gods === 0) || (hasVillagers && villagers === 0) : gods + villagers === 0;
+  if (wolfWins) return 'wolf';
+  if (wolves === 0) return 'good';
   return null;
 }
 
+// 好人還有翻盤的機會：女巫還有藥、守衛或獵人活著、騎士還沒決鬥 → 不提早判，照常打下去（Leo 2026-10-14 選 4B）
+function goodCanTurn(g, alive) {
+  return alive.some(s => {
+    const role = g.roles[s];
+    return role === 'guard' || role === 'hunter' || (role === 'knight' && !g.knightUsed)
+      || (role === 'witch' && (g.potions.save || g.potions.poison));
+  });
+}
+
 // Leo 2026-10-11 加的兩條狼人提早獲勝（屠邊、屠城都適用）。有人還能開槍時先等他開完（槍可能帶走狼）：
-//   綁票：天亮睜眼（死訊公布）時，活著的狼人陣營 ≥ 好人 → 好人投不出狼
+//   綁票：天亮睜眼（死訊公布）時，活著的狼人陣營 ≥ 好人的票數（翻過牌的白癡沒有票，Leo 2026-10-14 選 2A）→ 好人投不出狼
 //   一狼一神一民：白天投完票（含平票）剩這三個人 → 今晚狼刀一個就一對一
+// 好人還有翻盤機會時兩條都不判（見 goodCanTurn）
 export function houseRuleWin(g) {
   if (!g.day || g.day.pendingDeaths || g.day.idiotChoice || g.canShoot.length) return null;
   const team = s => R.ROLES[g.roles[s]].team;
   const alive = seatsList(g).filter(s => g.alive[s]);
+  if (goodCanTurn(g, alive)) return null;
   const n = t => alive.filter(s => team(s) === t).length;
-  const wolves = n('wolf'), good = n('god') + n('villager');
-  if (g.day.bindCheck && wolves > 0 && wolves >= good) return 'bind';
+  const wolves = n('wolf'), votes = n('god') + n('villager') - alive.filter(s => g.idiotRevealed.includes(s)).length;
+  if (g.day.bindCheck && wolves > 0 && wolves >= votes) return 'bind';
   if (g.day.exileDone && alive.length === 3 && wolves === 1 && n('god') === 1 && n('villager') === 1) return 'lastThree';
   return null;
 }
 const HOUSE_RULE_TEXT = {
-  bind: '狼人和好人一樣多，形成綁票，狼人陣營直接獲勝。',
+  bind: '狼人不少於好人的票數，形成綁票，狼人陣營直接獲勝。',
   lastThree: '投票後只剩一狼、一神、一民，狼人陣營直接獲勝。',
 };
 
@@ -624,7 +639,7 @@ export function privateGame(room, seat) {
   if (room.phase === 'day' && !g.day?.pendingDeaths) {
     if (g.canShoot.includes(seat)) me.canShoot = true; // 不限時
     if (g.day?.idiotChoice === seat) me.idiotChoose = true;
-    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice && !g.day?.nightCalled) me.canDuel = true;
+    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice && !g.day?.nightCalled && !g.day?.exileDone && !g.canShoot.length) me.canDuel = true;
     if (role === 'whiteKing' && g.alive[seat] && !g.day?.idiotChoice && !g.day?.exileDone && !g.day?.nightCalled && !g.canShoot.length) me.canBoom = true;
   }
   const n = g.night;

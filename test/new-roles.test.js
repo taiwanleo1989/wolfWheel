@@ -480,6 +480,11 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '天黑請閉眼後決鬥');
       }
       if (g.day.exileDone && wk0) rejected(E.boom(r, id(wk0), 0), '投票後自爆');
+      if (g.day.exileDone && kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '投票後決鬥');
+      if (g.canShoot.length) {
+        if (wk0) rejected(E.boom(r, id(wk0), 0), '等開槍時自爆');
+        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '等開槍時決鬥');
+      }
       if (g.day.pendingDeaths) { r = E.announceDeaths(r).room; continue; }
       if (g.day.idiotChoice) { r = E.idiotChoose(r, id(g.day.idiotChoice), rnd(2) === 0).room; continue; }
       if (g.canShoot.length && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了
@@ -489,7 +494,7 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         const t = pickAlive(); const res = E.boom(r, id(wk), t === wk ? 0 : t); assert.ok(res.ok, `seed ${seed} 自爆：${res.error}`); r = res.room; continue;
       }
       const kn = aliveList().find(s => g.roles[s] === 'knight');
-      if (kn && !g.knightUsed && !g.day.nightCalled && rnd(4) === 0) {
+      if (kn && !g.knightUsed && !g.day.nightCalled && !g.day.exileDone && rnd(4) === 0) {
         const t = pickAlive(); if (t !== kn) { const res = E.duel(r, id(kn), t); assert.ok(res.ok, res.error); r = res.room; continue; }
       }
       if (!g.day.exileDone && !g.day.nightCalled) { const res = E.exile(r, rnd(4) ? pickAlive() : 0); assert.ok(res.ok, res.error); r = res.room; continue; }

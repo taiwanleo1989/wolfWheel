@@ -311,6 +311,21 @@ test('騎士撞到狼王：狼王先開槍，開完（或不開）才唸天黑�
   assert.equal(early.game.narration.text, '天黑請閉眼。');
 });
 
+test('騎士只能在投票放逐之前、沒人等開槍時決鬥（Leo 2026-10-14 選 1A，跟白狼王自爆同一套）', () => {
+  // 1–3 狼、4 狼王、5 預、6 女、7 獵、8 騎士、9–12 民
+  const r = night(newGame('lang-wang-qi-shi'));
+  const ex = E.exile(r, 9).room;
+  assert.equal(E.duel(ex, id(8), 2).ok, false, '投票放逐後');
+  assert.equal(E.privateGame(ex, 8).canDuel, undefined);
+  const tie = E.exile(r, 0).room;
+  assert.equal(E.duel(tie, id(8), 2).ok, false, '平票也算投完票');
+  const h = night(newGame('lang-wang-qi-shi'), { wolf: 7 }); // 刀獵人
+  assert.deepEqual(h.game.canShoot, [7]);
+  assert.equal(E.duel(h, id(8), 2).ok, false, '獵人還沒開槍');
+  assert.equal(E.privateGame(h, 8).canDuel, undefined);
+  assert.equal(E.privateGame(E.shoot(h, id(7), 0).room, 8).canDuel, true, '槍開完就可以');
+});
+
 test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在一起唸（不會被蓋掉）', () => {
   let r = night(newGame());
   for (const wolf of [1, 2, 3]) r = night(E.nextNight(E.exile(r, wolf).room, 1e6).room);
@@ -331,6 +346,51 @@ test('勝負（屠邊／屠城）', () => {
   assert.equal(E.winnerOf(g, counts, side), null);
   assert.equal(E.winnerOf(dead([5, 6, 7, 8]), counts, all), null);
   assert.equal(E.winnerOf(dead([5, 6, 7, 8, 9, 10, 11, 12]), counts, all), 'wolf');
+  // 同一個動作兩邊同時達成（例如同一晚刀死最後一個神、毒死最後一隻狼）→ 狼人勝（Leo 2026-10-14 選 3B）
+  assert.equal(E.winnerOf(dead([1, 2, 3, 4, 5, 6, 7, 8]), counts, side), 'wolf');
+  assert.equal(E.winnerOf(dead([1, 2, 3, 4, 9, 10, 11, 12]), counts, side), 'wolf');
+  assert.equal(E.winnerOf(dead([1, 2, 3, 4, 5, 6, 7, 8]), counts, all), 'good', '屠城：好人還有平民，狼死光＝好人勝');
+});
+
+test('同一晚刀死最後一個神、毒死最後一隻狼（屠邊）：狼人勝（Leo 2026-10-14 選 3B）', () => {
+  // 1 狼、2 預、3 女、4–5 民；預言家先死，剩女巫一個神
+  let r = night(newGame({ wolf: 1, seer: 1, witch: 1, villager: 2 }, { police: false }), { wolf: 2 });
+  assert.equal(r.phase, 'day');
+  r = E.exile(r, 4).room; // 剩 1 狼、3 女、5 民：女巫還有藥，不提早判
+  assert.equal(r.phase, 'day');
+  r = night(E.nextNight(r, 1e6).room, { wolf: 3, poison: 1 });
+  assert.equal(r.phase, 'ended');
+  assert.equal(r.game.winner, 'wolf');
+  assert.equal(r.game.narration.text, '天亮請睜眼。昨晚死亡的是 1 號、3 號。遊戲結束，狼人陣營獲勝！');
+});
+
+test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的白癡沒有票；女巫還有藥、守衛、獵人活著、騎士還沒決鬥 → 不提早判', () => {
+  const mk = (roles, extra = {}) => ({
+    roles: Object.fromEntries(roles.map((r, i) => [i + 1, r])),
+    alive: Object.fromEntries(roles.map((_, i) => [i + 1, true])),
+    idiotRevealed: [], potions: { save: false, poison: false }, knightUsed: false, canShoot: [],
+    day: { bindCheck: true, exileDone: false }, ...extra,
+  });
+  // 綁票
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'seer', 'villager'])), 'bind');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'idiot', 'villager', 'villager'])), null, '2 狼對 3 票');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'idiot', 'villager', 'villager'], { idiotRevealed: [3] })), 'bind', '白癡翻過牌沒有票：2 對 2');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: true, poison: false } })), null, '女巫還有解藥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: false, poison: true } })), null, '女巫還有毒藥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'])), 'bind', '女巫兩瓶都用完');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'villager'])), null, '守衛活著');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager'])), null, '獵人活著');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'])), null, '騎士還沒決鬥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'], { knightUsed: true })), 'bind', '騎士用過了');
+  const deadGuard = mk(['wolf', 'wolf', 'guard', 'villager', 'villager']);
+  deadGuard.alive[3] = false;
+  assert.equal(E.houseRuleWin(deadGuard), 'bind', '守衛死了不算');
+  // 一狼一神一民
+  const vote = { day: { bindCheck: false, exileDone: true } };
+  assert.equal(E.houseRuleWin(mk(['wolf', 'seer', 'villager'], vote)), 'lastThree');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'guard', 'villager'], vote)), null, '守衛');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], { ...vote, potions: { save: true, poison: false } })), null, '女巫有藥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'witch', 'villager'], vote)), 'lastThree', '女巫沒藥');
 });
 
 test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機不會出現按鈕', () => {
@@ -503,8 +563,8 @@ test('夜裡活著的角色沒操作：15 秒後主機再唸一次同一句，�
 });
 
 test('綁票（Leo 2026-10-11）：天亮睜眼時狼人跟好人一樣多，狼人陣營直接獲勝；白天中途一樣多不算', () => {
-  // 1–2 狼、3 預、4 女、5–6 民；屠城（排除屠邊的影響）
-  const board = { wolf: 2, seer: 1, witch: 1, villager: 2 };
+  // 1–2 狼、3 預、4 白癡、5–6 民；屠城（排除屠邊的影響）；沒有女巫守衛獵人（有翻盤機會就不綁票，見下面）
+  const board = { wolf: 2, seer: 1, idiot: 1, villager: 2 };
   let r = night(newGame(board, { win: 'all', police: false }), { wolf: 5 });
   assert.equal(r.phase, 'day', '2 狼對 3 好人');
   r = E.exile(r, 6).room;
