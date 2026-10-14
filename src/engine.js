@@ -458,6 +458,7 @@ export function duel(room, clientId, target, now = 0) {
   const g0 = room.game;
   if (!seat || g0.roles[seat] !== 'knight' || !g0.alive[seat]) return fail('你不能決鬥');
   if (g0.knightUsed) return fail('決鬥只能用一次');
+  if (g0.day.nightCalled) return fail('今天已經要天黑了'); // 白狼王自爆後（2026-10-14 盤查）
   target = Number(target);
   if (!g0.alive[target] || target === seat) return fail('請選一個活著的其他玩家');
   const g = structuredClone(g0);
@@ -507,6 +508,13 @@ export function nextNight(room, now) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
   const g = structuredClone(room.game);
+  // 獵人／狼王還沒開槍主機就按了：這槍當作不開（Leo 2026-10-10 接受），
+  // 但「有槍先等」的提早獲勝（綁票、一狼一神一民）照樣要判，不然遊戲該結束卻進了黑夜（2026-10-14 盤查）
+  if (g.canShoot.length) {
+    g.canShoot = [];
+    const done = checkWin({ ...room, game: g }, room.game.narration?.seq);
+    if (done.phase === 'ended') return ok(done);
+  }
   // 「天黑請閉眼」剛唸過就不重唸；狼王還沒開槍主機就按了，那就照常唸
   const silent = Boolean(g.day?.nightCalled) && g.narration?.clips.at(-1) === 'nightStart';
   g.dayNo++;
@@ -616,7 +624,7 @@ export function privateGame(room, seat) {
   if (room.phase === 'day' && !g.day?.pendingDeaths) {
     if (g.canShoot.includes(seat)) me.canShoot = true; // 不限時
     if (g.day?.idiotChoice === seat) me.idiotChoose = true;
-    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice) me.canDuel = true;
+    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice && !g.day?.nightCalled) me.canDuel = true;
     if (role === 'whiteKing' && g.alive[seat] && !g.day?.idiotChoice && !g.day?.exileDone && !g.day?.nightCalled && !g.canShoot.length) me.canBoom = true;
   }
   const n = g.night;

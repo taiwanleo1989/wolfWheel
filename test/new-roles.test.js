@@ -329,6 +329,16 @@ test('白狼王什麼時候不能爆：公布死訊前、投票放逐後、有�
   assert.equal(E.boom(wait, id(2), 3).ok, false, '等白癡選');
 });
 
+test('白狼王自爆後已經唸「天黑請閉眼」：騎士不能再決鬥（2026-10-14 盤查）', () => {
+  // 1 狼人、2 白狼王、3 預言家、4 騎士、5–7 平民
+  const r = night(newGame({ wolf: 1, whiteKing: 1, seer: 1, knight: 1, villager: 3 }));
+  assert.equal(E.privateGame(r, 4).canDuel, true);
+  const b = E.boom(r, id(2), 0).room;
+  assert.equal(E.publicGame(b).nightCalled, true);
+  assert.equal(E.duel(b, id(4), 1).ok, false, '自爆後不能決鬥');
+  assert.equal(E.privateGame(b, 4).canDuel, undefined, '騎士手機不出現決鬥鈕');
+});
+
 test('白狼王自爆直接分出勝負：最後一隻狼爆了→好人勝；帶走最後一個神（屠邊）→狼人勝', () => {
   let r = night(newGame({ whiteKing: 1, seer: 1, villager: 2 }));
   r = E.boom(r, id(1), 0).room;
@@ -403,6 +413,14 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
     };
     const aliveList = () => Object.keys(r.game.alive).map(Number).filter(s => r.game.alive[s]);
     const pickAlive = () => { const a = aliveList(); return a[rnd(a.length)]; };
+    // 主機（沒坐下）在任何時候都拿不到任何人的身分（結束翻牌除外）
+    const hostSeesNothing = () => {
+      const v = G.viewFor(r, everyone(r), 'host');
+      assert.equal(v.you.role, undefined, `seed ${seed} 主機拿到身分`);
+      assert.equal(v.you.game, null, `seed ${seed} 主機拿到私人資料`);
+      if (r.phase !== 'ended') assert.equal(v.game.allRoles, undefined, `seed ${seed} 沒結束就翻牌`);
+    };
+    const rejected = (res, why) => assert.equal(res.ok, false, `seed ${seed} 應該擋下：${why}`);
     while (r.phase !== 'ended') {
       assert.ok(++steps < 5000, `seed ${seed} 卡住了`);
       const n = r.game.narration;
@@ -411,7 +429,19 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       const dead = new Set(Object.keys(r.game.alive).map(Number).filter(s => !r.game.alive[s]));
       for (const s of deadBefore) assert.ok(dead.has(s), `seed ${seed} ${s} 號復活了`);
       deadBefore = dead;
+      hostSeesNothing();
+      // 該結束卻沒結束：沒人在等（死訊、開槍、白癡）時，勝負與提早獲勝都必須已經判掉
+      const gw = r.game;
+      if (r.phase === 'night' || (!gw.day.pendingDeaths && !gw.canShoot.length && !gw.day.idiotChoice)) {
+        assert.equal(E.winnerOf(gw, r.setup.counts, r.setup.rules), null, `seed ${seed} 已經分出勝負卻沒結束`);
+        if (r.phase === 'day') assert.equal(E.houseRuleWin(gw), null, `seed ${seed} 提早獲勝沒判`);
+      }
       if (r.phase === 'night') {
+        if (waiting(r) && rnd(10) === 0) { // 主機按跳過（睜眼 30 秒後）
+          now = Math.max(now, r.game.night.openedAt + E.SKIP_MS);
+          const res = E.skipStep(r, now, rnd); assert.ok(res.ok, `seed ${seed} 跳過：${res.error}`); r = res.room;
+          continue;
+        }
         if (waiting(r)) {
           const step = curStep(r), who = E.actors(r.game, step);
           for (const s of who) assert.ok(r.game.alive[s], `seed ${seed} 死人在動作`);
@@ -435,8 +465,24 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       }
       // 白天
       const g = r.game;
+      const wk0 = aliveList().find(s => g.roles[s] === 'whiteKing'), kn0 = aliveList().find(s => g.roles[s] === 'knight');
+      const anyone = aliveList()[0];
+      // 該擋的動作要擋：死訊公布前什麼都不能做；唸了天黑請閉眼之後不能放逐、自爆、決鬥；投票後不能自爆
+      if (g.day.pendingDeaths || g.day.idiotChoice) {
+        rejected(E.exile(r, anyone), '等死訊／白癡時放逐');
+        rejected(E.nextNight(r, now), '等死訊／白癡時天黑');
+        if (wk0) rejected(E.boom(r, id(wk0), 0), '等死訊／白癡時自爆');
+        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '等死訊／白癡時決鬥');
+      }
+      if (g.day.nightCalled) {
+        rejected(E.exile(r, anyone), '天黑請閉眼後放逐');
+        if (wk0) rejected(E.boom(r, id(wk0), 0), '天黑請閉眼後自爆');
+        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '天黑請閉眼後決鬥');
+      }
+      if (g.day.exileDone && wk0) rejected(E.boom(r, id(wk0), 0), '投票後自爆');
       if (g.day.pendingDeaths) { r = E.announceDeaths(r).room; continue; }
       if (g.day.idiotChoice) { r = E.idiotChoose(r, id(g.day.idiotChoice), rnd(2) === 0).room; continue; }
+      if (g.canShoot.length && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了
       if (g.canShoot.length) { const s = g.canShoot[0]; const t = rnd(2) ? pickAlive() : 0; const res = E.shoot(r, id(s), t === s ? 0 : t); assert.ok(res.ok, res.error); r = res.room; continue; }
       const wk = aliveList().find(s => g.roles[s] === 'whiteKing');
       if (wk && !g.day.exileDone && !g.day.nightCalled && rnd(4) === 0) {

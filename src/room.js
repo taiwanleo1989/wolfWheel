@@ -121,7 +121,7 @@ export class Room extends DurableObject {
     await this.schedule();
   }
 
-  // 鬧鐘只有一個：有計時（夜裡假等、停頓；白天被動技能 30 秒）就先處理計時；沒有的話用來清掉閒置房間
+  // 鬧鐘只有一個：有計時（夜裡假等、停頓、重唸；白天沒有計時）就先處理計時；沒有的話用來清掉閒置房間
   async schedule() {
     const t = this.room?.game?.timer?.at;
     await this.ctx.storage.setAlarm(t ?? Date.now() + IDLE_MS);

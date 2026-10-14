@@ -571,6 +571,25 @@ test('一狼一神一民（Leo 2026-10-11）：投完票剩這三個人，狼人
   assert.equal(v.phase, 'day', '一狼兩民：不適用');
 });
 
+test('主機在獵人開槍前就按「進入黑夜」：這槍當作不開，但綁票、一狼一神一民照樣要判（2026-10-14 盤查）', () => {
+  // 一狼一神一民：1 狼、2 預、3 獵、4–5 民；放逐獵人後主機沒等就按天黑
+  let h = night(newGame({ wolf: 1, seer: 1, hunter: 1, villager: 2 }, { police: false }), { wolf: 5 });
+  h = E.nextNight(E.exile(h, 3).room, 1e6).room;
+  assert.equal(h.phase, 'ended', '不開槍＝剩一狼一神一民');
+  assert.equal(h.game.winner, 'wolf');
+  assert.equal(h.game.narration.text, '遊戲結束，狼人陣營獲勝！');
+  // 綁票：1–2 狼、3 獵、4–5 民；刀獵人，天亮 2 對 2，獵人還沒開主機就按天黑
+  let b = night(newGame({ wolf: 2, hunter: 1, villager: 2 }, { win: 'all', police: false }), { wolf: 3 });
+  assert.equal(b.phase, 'day', '先等獵人');
+  b = E.nextNight(b, 1e6).room;
+  assert.equal(b.game.winner, 'wolf', '不開槍＝綁票');
+  // 沒有提早獲勝的情況：照舊進黑夜，這槍沒了
+  let n = night(newGame({ wolf: 1, seer: 1, hunter: 1, villager: 3 }, { police: false }), { wolf: 3 });
+  n = E.nextNight(n, 1e6).room;
+  assert.equal(n.phase, 'night');
+  assert.deepEqual(n.game.canShoot, []);
+});
+
 test('重唸的鬧鐘：主機離線時房間會先停掉（不讓沒人的房間一直醒來），主機回來再接著算', () => {
   let r = play(newGame(), {}, atAct('wolf'));
   assert.equal(E.waitingForPeople(r), true);
