@@ -403,6 +403,11 @@ test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的
   assert.equal(E.houseRuleWin(mk(['wolf', 'hunter', 'villager'], vote), all), null, '屠城：獵人');
   assert.equal(E.houseRuleWin(mk(['wolf', 'knight', 'villager'], vote), all), null, '屠城：騎士');
   assert.equal(E.houseRuleWin(mk(['wolf', 'seer', 'villager'], vote), all), 'lastThree', '屠城：沒有翻盤技能');
+  // 走完整流程（checkWin 有把房間的屠邊／屠城帶進來）：1 狼、2 預、3 獵、4–5 民；刀預言家、放逐 4 號 → 剩狼、獵人、平民
+  for (const [win, phase] of [['side', 'ended'], ['all', 'day']]) {
+    const e2e = E.exile(night(newGame({ wolf: 1, seer: 1, hunter: 1, villager: 2 }, { win, police: false }), { wolf: 2 }), 4).room;
+    assert.equal(e2e.phase, phase, `${win}：剩一狼、獵人、平民`);
+  }
   // 綁票不受影響：四種都算
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager']), side), null, '綁票：獵人照算');
 });
