@@ -375,16 +375,19 @@ test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'seer', 'villager'])), 'bind');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'idiot', 'villager', 'villager'])), null, '2 狼對 3 票');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'idiot', 'villager', 'villager'], { idiotRevealed: [3] })), 'bind', '白癡翻過牌沒有票：2 對 2');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: true, poison: false } })), null, '女巫還有解藥');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: false, poison: true } })), null, '女巫還有毒藥');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'])), 'bind', '女巫兩瓶都用完');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'villager'])), null, '守衛活著');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager'])), null, '獵人活著');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'])), null, '騎士還沒決鬥');
+  // 綁票只等「打得破」的（Leo 2026-10-14 綁票選 A）：好人白天投不贏、晚上每刀少一個，
+  // 狼剛好等於好人票數時，騎士還沒決鬥、或守衛活著＋女巫還有毒藥，才可能讓狼變少而好人不變
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'])), null, '騎士還沒決鬥（2 對 2）');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'], { knightUsed: true })), 'bind', '騎士用過了');
-  const deadGuard = mk(['wolf', 'wolf', 'guard', 'villager', 'villager']);
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'wolf', 'knight', 'villager'])), 'bind', '3 對 2：撞死一隻還是綁票');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'witch'], { potions: { save: false, poison: true } })), null, '守衛＋毒藥');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'witch'], { potions: { save: true, poison: false } })), 'bind', '守衛＋只有解藥：只能拖延');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: true, poison: true } })), 'bind', '只有女巫：毒一隻、刀一個，比例不變');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'villager'])), 'bind', '只有守衛：只能拖延');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager'])), 'bind', '獵人：帶走一隻＝一換一');
+  const deadGuard = mk(['wolf', 'wolf', 'guard', 'witch', 'villager'], { potions: { save: false, poison: true } });
   deadGuard.alive[3] = false;
-  assert.equal(E.houseRuleWin(deadGuard), 'bind', '守衛死了不算');
+  assert.equal(E.houseRuleWin(deadGuard), 'bind', '守衛死了，只剩毒藥');
   // 一狼一神一民
   const vote = { day: { bindCheck: false, exileDone: true } };
   assert.equal(E.houseRuleWin(mk(['wolf', 'seer', 'villager'], vote)), 'lastThree');
@@ -408,8 +411,8 @@ test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的
     const e2e = E.exile(night(newGame({ wolf: 1, seer: 1, hunter: 1, villager: 2 }, { win, police: false }), { wolf: 2 }), 4).room;
     assert.equal(e2e.phase, phase, `${win}：剩一狼、獵人、平民`);
   }
-  // 綁票不受影響：四種都算
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager']), side), null, '綁票：獵人照算');
+  // 綁票屠邊屠城一樣
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'hunter', 'villager']), all), 'bind', '屠城綁票：獵人一換一');
 });
 
 test('死掉的角色照樣唸、隨機假等（在設定範圍內），手機不會出現按鈕', () => {

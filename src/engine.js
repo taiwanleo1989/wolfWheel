@@ -541,7 +541,7 @@ export function winnerOf(g, counts, rules) {
   return null;
 }
 
-// 好人還有翻盤的機會：女巫還有藥、守衛或獵人活著、騎士還沒決鬥 → 不提早判，照常打下去（Leo 2026-10-14 選 4B）
+// 一狼一神一民：好人還有翻盤的機會（女巫還有藥、守衛或獵人活著、騎士還沒決鬥）→ 不提早判，照常打下去（Leo 2026-10-14 選 4B）
 // knifeOnly：只算「擋得住今晚這一刀」的（守衛、解藥）——屠邊的一狼一神一民，狼隨便刀一個就贏，
 // 毒藥（同時達成算狼勝）、獵人、騎士都來不及（Leo 2026-10-14 選 A）
 function goodCanTurn(g, alive, { knifeOnly = false } = {}) {
@@ -556,14 +556,23 @@ function goodCanTurn(g, alive, { knifeOnly = false } = {}) {
 // Leo 2026-10-11 加的兩條狼人提早獲勝（屠邊、屠城都適用）。有人還能開槍時先等他開完（槍可能帶走狼）：
 //   綁票：天亮睜眼（死訊公布）時，活著的狼人陣營 ≥ 好人的票數（翻過牌的白癡沒有票，Leo 2026-10-14 選 2A）→ 好人投不出狼
 //   一狼一神一民：白天投完票（含平票）剩這三個人 → 今晚狼刀一個就一對一
-// 好人還有翻盤機會時兩條都不判（見 goodCanTurn）
+// 好人還有翻盤機會時不判（綁票見 bindCanBreak、一狼一神一民見 goodCanTurn）
+// 綁票：好人白天投不贏、晚上每刀少一個，獵人帶走一隻＝一換一、單靠守衛或解藥只能拖延、單靠毒藥是毒一隻刀一個。
+// 只有讓狼變少而好人不變的才打得破，而且狼要剛好等於好人票數：騎士還沒決鬥（白天撞死一隻狼），
+// 或守衛活著＋女巫還有毒藥（同一晚毒一隻狼、守住刀）（Leo 2026-10-14 綁票選 A）
+function bindCanBreak(g, alive, wolves, votes) {
+  if (wolves !== votes) return false;
+  const has = role => alive.some(s => g.roles[s] === role);
+  return (has('knight') && !g.knightUsed) || (has('guard') && has('witch') && g.potions.poison);
+}
+
 export function houseRuleWin(g, rules = R.DEFAULT_RULES) {
   if (!g.day || g.day.pendingDeaths || g.day.idiotChoice || g.canShoot.length) return null;
   const team = s => R.ROLES[g.roles[s]].team;
   const alive = seatsList(g).filter(s => g.alive[s]);
   const n = t => alive.filter(s => team(s) === t).length;
   const wolves = n('wolf'), votes = n('god') + n('villager') - alive.filter(s => g.idiotRevealed.includes(s)).length;
-  if (g.day.bindCheck && wolves > 0 && wolves >= votes && !goodCanTurn(g, alive)) return 'bind';
+  if (g.day.bindCheck && wolves > 0 && wolves >= votes && !bindCanBreak(g, alive, wolves, votes)) return 'bind';
   if (g.day.exileDone && alive.length === 3 && wolves === 1 && n('god') === 1 && n('villager') === 1
     && !goodCanTurn(g, alive, { knifeOnly: rules.win === 'side' })) return 'lastThree';
   return null;
