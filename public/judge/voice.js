@@ -6,6 +6,8 @@
 // 瀏覽器規定「使用者點過之後」才能出聲，所以要先 unlock()（開始按鈕、或「開啟主持語音」按鈕）。
 
 const BGM_VOL = 0.18, BGM_DUCK = 0.05;
+// 主持人講話的音量（錄音與手機內建語音都用這個）：Leo 2026-10-17 實玩嫌太大聲，1 → 0.6（約 -4.4 dB）；背景音樂不變
+const VOICE_VOL = 0.6;
 const GAP = { sep: 0.28, colon: 0.22, end: 0 }; // 標點片段：只停頓、不出聲
 // 個別片段放大（倍數）。「天黑請閉眼」是大家還在聊天時唸的第一句，Leo 2026-10-11 實玩嫌太小聲：放大 2 倍（約 +6 dB），
 // 後面接限幅器，放大後也不會破音。錄音本身跟其他句一樣大聲（-21.5 LUFS），所以重錄後這裡照樣有效
@@ -66,7 +68,7 @@ export const voice = {
       const limiter = actx.createDynamicsCompressor();
       limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.15;
       limiter.connect(actx.destination);
-      voiceGain = actx.createGain(); voiceGain.gain.value = 1; voiceGain.connect(limiter);
+      voiceGain = actx.createGain(); voiceGain.gain.value = VOICE_VOL; voiceGain.connect(limiter);
       keepAlive();
       actx.onstatechange = () => { if (actx.state === 'running') ranOnce = true; onChange?.(); };
       loadRecorded();
@@ -122,6 +124,7 @@ export const voice = {
     u.lang = 'zh-TW';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.92;
+    u.volume = VOICE_VOL;
     u.onstart = () => { speaking++; duck(); };
     u.onend = u.onerror = () => { speaking = Math.max(0, speaking - 1); duck(); };
     synth.speak(u);
