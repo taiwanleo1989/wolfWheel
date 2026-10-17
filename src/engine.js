@@ -47,18 +47,17 @@ export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機
 export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
 
-// 夜裡活著的角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒）。
-// 不能早於「死掉的角色假等」最長的秒數：假等最晚在那一刻結束、直接往下走，死掉的角色永遠等不到重唸，
-// 所以重唸不會比「這一步拖多久」多洩漏。假等最長設超過 30 秒時，重唸跟著延到那個秒數
+// 夜裡角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒）。
+// 死掉的角色也一樣（Leo 2026-10-17「角色死亡也是要講 30 秒」）：假等抽到超過 30 秒，就在 30 秒重唸、等到假等結束，
+// 跟「活人慢慢按」長得一模一樣，聽重唸猜不出誰死了
 export const REPEAT_MS = 30000;
-export const repeatMs = rules => Math.max(REPEAT_MS, (rules?.fakeWaitMax ?? 15) * 1000);
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
 export const waitingForPeople = room => room.phase === 'night' && room.game?.night?.stage === 'acting' && room.game.night.wait === 'people';
 export function pauseRepeat(room) { return { ...room, game: { ...room.game, timer: null } }; }
 export function resumeRepeat(room, now) {
   if (!waitingForPeople(room) || room.game.timer) return room;
-  return { ...room, game: { ...room.game, timer: { at: now + repeatMs(room.setup.rules) } } };
+  return { ...room, game: { ...room.game, timer: { at: now + REPEAT_MS } } };
 }
 
 const ok = room => ({ ok: true, room });
@@ -145,8 +144,11 @@ function openBeat(room, g, now, rand) {
   n.openedAt = now;
   say(g, beat.say);
   if (beat.act === null) { n.wait = 'police'; g.timer = { at: now + POLICE_MS }; }
-  else if (actors(g, curStep(n)).length === 0) { n.wait = 'fake'; g.timer = { at: now + 1000 * between(rand, [room.setup.rules.fakeWaitMin, room.setup.rules.fakeWaitMax]) }; }
-  else { n.wait = 'people'; g.timer = { at: now + repeatMs(room.setup.rules) }; }
+  else if (actors(g, curStep(n)).length === 0) {
+    n.wait = 'fake';
+    n.fakeEnd = now + 1000 * between(rand, [room.setup.rules.fakeWaitMin, room.setup.rules.fakeWaitMax]);
+    g.timer = { at: Math.min(n.fakeEnd, now + REPEAT_MS) };
+  } else { n.wait = 'people'; g.timer = { at: now + REPEAT_MS }; }
 }
 
 // 這句台詞的動作完成（或假等結束）：隨機停一下，再唸下一句或閉眼
@@ -174,9 +176,10 @@ export function advance(room, now, rand) {
   const n = g.night;
   g.timer = null;
   if (n.stage === 'intro' || n.stage === 'closed') return ok(nextStep(room, g, now, rand));
-  if (n.stage === 'acting' && n.wait === 'people') { // 活著的角色太久沒操作：再唸一次這句台詞，繼續等
+  // 太久沒操作（活著的角色；或死掉的角色假等還沒結束）：再唸一次這句台詞，繼續等
+  if (n.stage === 'acting' && (n.wait === 'people' || (n.wait === 'fake' && now < n.fakeEnd))) {
     say(g, curBeat(room, n).say);
-    g.timer = { at: now + repeatMs(room.setup.rules) };
+    g.timer = { at: n.wait === 'fake' ? Math.min(n.fakeEnd, now + REPEAT_MS) : now + REPEAT_MS };
     return ok({ ...room, game: g });
   }
   if (n.stage === 'acting') { endBeat(room, g, now, rand); return ok({ ...room, game: g }); } // 假等或上警時間到
@@ -281,14 +284,13 @@ export function nightAction(room, clientId, payload, online, now, rand) {
     endBeat(room, g, now, rand);
   } else return fail('現在不用動作');
   // 有操作但這句還沒做完（狼人投票中、預言家看結果）：重唸的倒數從這次操作重新算
-  if (night.stage === 'acting') g.timer = { at: now + repeatMs(room.setup.rules) };
+  if (night.stage === 'acting') g.timer = { at: now + REPEAT_MS };
   return ok({ ...room, game: g });
 }
 
 // 主機：上警時「大家都起立好了，天亮」；角色的步驟要等這句台詞唸出（角色睜眼）SKIP_MS 之後才能跳過＝當作沒有動作。
 // Leo 2026-10-10：防手機沒電卡死。每個角色、活的死的都同一套：按鈕一律睜眼就出現（灰的）、30 秒才能按；
-// 死掉的角色假等預設最多 15 秒，按鈕亮不起來，所以不會比「這一步拖多久」多洩漏任何東西；
-// 假等設成超過 30 秒時，死的角色也一樣 30 秒後能跳過——活的死的仍是同一套，照樣看不出差別
+// 死掉的角色假等超過 30 秒時也一樣 30 秒後能跳過（2026-10-17 假等預設改 8～45 秒）——活的死的同一套，看不出差別
 export function skipStep(room, now, rand) {
   if (room.phase !== 'night' || room.game.night.stage !== 'acting') return fail('現在沒有可以跳過的步驟');
   const n = room.game.night;

@@ -34,7 +34,7 @@ export function boardByTeam(counts) {
   ].filter(x => x.text);
 }
 
-export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 15 };
+export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 45 }; // 假等：Leo 2026-10-17 從 15 改 45（死掉的角色也會在 30 秒重唸）
 const WITCH_OPTS = ['never', 'first', 'always']; // 預設不能自救（Leo 手稿，2026-10-08）
 const WIN_OPTS = ['side', 'all'];
 
