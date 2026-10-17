@@ -3,6 +3,7 @@
 //
 // 黑夜照 Leo 的手稿（2026-10-08）：守衛 → 狼人 → 女巫（解藥、毒藥兩段）→ 預言家 → 獵人 →（第一晚）上警 → 天亮。
 // 2026-10-13 加五個角色，插進手稿的順序：狼人之後狼美人、預言家之後石像鬼、守墓人（第二晚起）；白狼王、隱狼沒有自己的一步。
+// 2026-10-17 獵人之後加狼王的帶槍手勢（Leo：跟獵人同一套；女巫用完毒才知道今晚能不能開槍）。
 // 每個角色＝一段「劇本」：幾句台詞（beat），每句台詞配一個要等的動作，最後一句閉眼。
 // 主機只唸台詞，絕不唸號碼——手稿裡「上帝手比號碼」的部分只出現在當事人的手機上。
 //
@@ -18,7 +19,7 @@ import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
 import { lineText, seatKey } from '../public/shared/voice-lines.js';
 
-export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter'];
+export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter', 'king'];
 
 // 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間
 export function scriptFor(step, counts) {
@@ -34,6 +35,7 @@ export function scriptFor(step, counts) {
     case 'gargoyle': return { beats: [{ say: ['gargoyleOpen'], act: 'gargoyle' }], close: ['gargoyleClose'] };
     case 'gravekeeper': return { beats: [{ say: ['graveOpen'], act: 'grave' }], close: ['graveClose'] };
     case 'hunter': return { beats: [{ say: ['hunterOpen'], act: 'hunter' }], close: ['hunterClose'] };
+    case 'king': return { beats: [{ say: ['kingOpen'], act: 'king' }], close: ['kingClose'] };
     case 'police': return { beats: [{ say: ['police'], act: null }], close: null };
   }
 }
@@ -45,10 +47,10 @@ export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機
 export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
 
-// 夜裡活著的角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒）。
+// 夜裡活著的角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒）。
 // 不能早於「死掉的角色假等」最長的秒數：假等最晚在那一刻結束、直接往下走，死掉的角色永遠等不到重唸，
-// 所以重唸不會比「這一步拖多久」多洩漏。假等最長設超過 15 秒時，重唸跟著延到那個秒數
-export const REPEAT_MS = 15000;
+// 所以重唸不會比「這一步拖多久」多洩漏。假等最長設超過 30 秒時，重唸跟著延到那個秒數
+export const REPEAT_MS = 30000;
 export const repeatMs = rules => Math.max(REPEAT_MS, (rules?.fakeWaitMax ?? 15) * 1000);
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
@@ -193,7 +195,7 @@ export function advance(room, now, rand) {
 //   guard { target }（0＝空守）
 //   wolf  { target }（0＝空刀；全體一致後出現確認）｜{ confirm:true }｜{ reset:true }
 //   witchSave { use:'save' | 'skip' }        witchPoison { use:'poison', target } | { use:'none' }
-//   seer  { target } 或 { done:true }          hunter { seen:true }
+//   seer  { target } 或 { done:true }          hunter { seen:true }      king { seen:true }
 //   beauty { target }（0＝今晚不魅惑）          gargoyle { target } 或 { done:true }      grave { seen:true }
 export function nightAction(room, clientId, payload, online, now, rand) {
   if (room.phase !== 'night') return fail('現在不是晚上');
@@ -275,7 +277,7 @@ export function nightAction(room, clientId, payload, online, now, rand) {
     const info = graveFor(g);
     if (info) g.graveChecks.push(info);
     endBeat(room, g, now, rand);
-  } else if (act === 'hunter') {
+  } else if (act === 'hunter' || act === 'king') {
     endBeat(room, g, now, rand);
   } else return fail('現在不用動作');
   // 有操作但這句還沒做完（狼人投票中、預言家看結果）：重唸的倒數從這次操作重新算
@@ -671,8 +673,8 @@ export function privateGame(room, seat) {
     if (act === 'beauty') me.action = { kind: 'beauty' };
     if (act === 'gargoyle') me.action = { kind: 'gargoyle', checked: n.gargoyleTarget ? g.gargoyleChecks.at(-1) : null };
     if (act === 'grave') me.action = { kind: 'grave', info: graveFor(g) };
-    // 帶槍手勢：被毒、或今晚會殉情（狼美人今晚死、魅惑的是你）都不能開槍
-    if (act === 'hunter') me.action = { kind: 'hunter', canShoot: !nightDeaths(g, n).noSkill.has(seat) };
+    // 帶槍手勢（獵人、狼王同一套）：被毒、或今晚會殉情（狼美人今晚死、魅惑的是你）都不能開槍
+    if (act === 'hunter' || act === 'king') me.action = { kind: act, canShoot: !nightDeaths(g, n).noSkill.has(seat) };
   }
   return me;
 }

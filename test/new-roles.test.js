@@ -63,7 +63,7 @@ function play(r, plan = {}, stop = x => x.phase !== 'night') {
       if (!r.game.night[a + 'Target']) r = act(r, who[0], { target: t }); // 測試裡可能已經先手動查過
       r = act(r, who[0], { done: true });
     }
-    if (a === 'grave' || a === 'hunter') r = act(r, who[0], { seen: true });
+    if (a === 'grave' || a === 'hunter' || a === 'king') r = act(r, who[0], { seen: true });
   }
   return r;
 }

@@ -67,6 +67,7 @@ export const voice = {
       limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.15;
       limiter.connect(actx.destination);
       voiceGain = actx.createGain(); voiceGain.gain.value = 1; voiceGain.connect(limiter);
+      keepAlive();
       actx.onstatechange = () => { if (actx.state === 'running') ranOnce = true; onChange?.(); };
       loadRecorded();
     }
@@ -101,6 +102,13 @@ export const voice = {
   // 唸一句：有錄好的就播錄音，沒有就用手機內建語音
   async speak(narration) {
     if (!unlocked || !narration) return;
+    // 聲音系統被暫停了（白天開槍、決鬥這種「別支手機按的」台詞，主機沒點螢幕）：先試著恢復；
+    // 恢復不了就改用手機內建語音唸這句，至少有聲音；畫面同時會出現「點這裡開啟主持語音」（Leo 2026-10-17 實玩白天開槍沒聲音）
+    if (actx && actx.state !== 'running') {
+      actx.resume().catch(() => {});
+      await new Promise(ok => setTimeout(ok, 400));
+      if (actx.state !== 'running') { this.say(narration.text); return; }
+    }
     if (source === 'recorded' && actx) {
       await loadRecorded();
       if (recordedReady(narration.clips)) { playClips(narration.clips); return; }
@@ -141,6 +149,18 @@ export const voice = {
   // 剛按下「開始」：接下來收到的第一句（天黑請閉眼）一定要唸
   expectFresh() { lastSeq = 0; },
 };
+
+// 一直播一段聽不到的極小聲音（約 -80 dB）：白天背景音樂停了、沒在唸台詞時，iPhone 會把沒聲音的網頁聲音系統暫停，
+// 之後別支手機觸發的台詞（開槍、決鬥、自爆、白癡翻牌）就唸不出來（Leo 2026-10-17 實玩：白天開槍沒聲音）
+function keepAlive() {
+  const buf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 1e-4;
+  const src = actx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  src.connect(actx.destination);
+  src.start();
+}
 
 // 把片段一個接一個排好播；上一句還沒唸完就接在後面（不會搶話）
 function playClips(clips) {

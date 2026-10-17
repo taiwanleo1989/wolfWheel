@@ -10,7 +10,7 @@ export const ROLES = {
   seer:     { name: '預言家', team: 'god',      unique: true,  desc: '每晚查驗一個人，知道他是好人還是狼人。' },
   witch:    { name: '女巫',  team: 'god',      unique: true,  desc: '解藥可以救今晚被殺的人，毒藥可以毒死一個人。兩瓶各只能用一次。' },
   hunter:   { name: '獵人',  team: 'god',      unique: true,  desc: '被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
-  guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
+  guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺（守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
   gravekeeper: { name: '守墓人', team: 'god',   unique: true,  desc: '從第二晚開始，每晚得知前一個白天被投票放逐出局的人是好人還是狼人（隱狼會顯示好人）。' },
   knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天投票放逐之前可以翻牌和一個人決鬥：他是狼人就出局；不是狼人，騎士自己出局。' },
   idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '被投票放逐時翻牌免死，但之後不能再投票。' },

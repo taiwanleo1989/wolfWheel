@@ -28,6 +28,9 @@ export const LINES = {
   graveClose: '守墓人請閉眼。',
   hunterOpen: '獵人請睜眼。獵人，你今晚的帶槍手勢是——',
   hunterClose: '獵人請閉眼。',
+  // 2026-10-17 狼王的帶槍手勢：照獵人那句的句型
+  kingOpen: '狼王請睜眼。狼王，你今晚的帶槍手勢是——',
+  kingClose: '狼王請閉眼。',
   police: '要上警的玩家請起立。',
   // ── 天亮與白天 ──
   dawn: '天亮請睜眼。',

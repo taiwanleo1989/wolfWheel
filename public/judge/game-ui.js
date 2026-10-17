@@ -3,7 +3,7 @@ import { ROLES, TEAM_NAME, boardByTeam } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
 const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
-const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', police: '上警' };
+const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
 const ui = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '' };
@@ -146,7 +146,7 @@ function renderAction() {
         ${a.info ? `<div class="seer-result ${a.info.wolf ? 'wolf' : 'good'}"><span class="digits">${a.info.seat}</span> 號是 <b>${a.info.wolf ? '👎 狼人' : '👍 好人'}</b></div>`
           : '<p class="witch-info">昨天沒有人被投票放逐出局。</p>'}
         <button class="btn primary big" type="button" data-do="graveSeen">知道了</button>`;
-    } else if (a.kind === 'hunter') {
+    } else if (a.kind === 'hunter' || a.kind === 'king') {
       html = `<h2>你今晚的帶槍手勢是</h2>
         <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 今晚不能開槍'}</b></div>
         <button class="btn primary big" type="button" data-do="hunterSeen">知道了</button>`;
