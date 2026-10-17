@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LINES, SILENT, spokenText } from '../public/shared/voice-lines.js';
+import { LINES, SILENT, spokenText, sayAs } from '../public/shared/voice-lines.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = join(root, 'voice-src'), outDir = join(root, 'public', 'voice');
@@ -95,7 +95,8 @@ const loaded = [];
 for (const b of batches) loaded.push(await loadBatch(b));
 
 // 片段表裡需要的每個片段：從「最後一批有它的」錄音拿（同 key 同文字；或某段錄音的開頭幾個字）
-const plain = t => t.replace(/[。！？，、…]+$/u, '');
+// 比對時把破音字的兩種寫法當成一樣（舊錄音的「角色」、新錄音的「腳色」都認得）
+const plain = t => sayAs(t).replace(/[。！？，、…]+$/u, '');
 const plan = [], missing = [];
 for (const key of Object.keys(LINES)) {
   if (SILENT.has(key)) continue;

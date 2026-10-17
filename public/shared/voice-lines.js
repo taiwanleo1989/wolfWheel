@@ -71,4 +71,8 @@ export function zhNumber(n) {
   if (n < 20) return '十' + (n % 10 ? DIGITS[n % 10] : '');
   return DIGITS[Math.floor(n / 10)] + '十' + (n % 10 ? DIGITS[n % 10] : '');
 }
-export const spokenText = key => LINES[key].replace(/(\d+) 號/g, (_, d) => zhNumber(Number(d)) + '號').trim();
+// 破音字：AI 語音唸錯的字，錄音時換成同音字（畫面上照樣顯示原字）。
+// 「角色」會被唸成 ㄐㄩㄝˊ 色，Leo 要 ㄐㄧㄠˇ 色 → 錄音寫「腳色」（2026-10-17）
+const SAY_AS = [['角色', '腳色']];
+export const sayAs = t => SAY_AS.reduce((s, [a, b]) => s.replaceAll(a, b), t);
+export const spokenText = key => sayAs(LINES[key].replace(/(\d+) 號/g, (_, d) => zhNumber(Number(d)) + '號').trim());
