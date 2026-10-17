@@ -3,7 +3,8 @@
 //      所有手機聽起來都一樣（iPhone 也是），不用網路語音。錄音：npm run voice。
 //   2. 手機內建語音：錄音檔載入失敗、或主持人自己切換時才用。
 // 夜裡放背景音樂、唸台詞時自動降低音量。
-// 瀏覽器規定「使用者點過之後」才能出聲，所以要先 unlock()（開始按鈕、或「開啟主持語音」按鈕）。
+// 瀏覽器規定「使用者點過之後」才能出聲，所以要先 unlock()：主機點螢幕任何地方都會呼叫 tapped()（見 app.js）。
+// Leo 2026-10-17：拿掉「點這裡開啟主持語音」那條，該講話就直接講；聲音被暫停時漏掉的那句，主機下次點螢幕就補唸。
 
 const BGM_VOL = 0.18, BGM_DUCK = 0.05;
 // 主持人講話的音量（錄音與手機內建語音都用這個）：Leo 2026-10-17 實玩嫌太大聲，1 → 0.6（約 -4.4 dB）；背景音樂不變
@@ -14,6 +15,7 @@ const GAP = { sep: 0.28, colon: 0.22, end: 0 }; // 標點片段：只停頓、�
 export const CLIP_GAIN = { nightStart: 2 };
 const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
 let zhVoice = null, unlocked = false, lastSeq = null, ranOnce = false, onChange = null;
+let missed = null; // 聲音出不來時收到的台詞：主機下次點螢幕補唸
 let actx = null, gain = null, voiceGain = null, bgm = null, bgmOn = true, speaking = 0;
 let source = 'recorded';              // 'recorded' | 'device'
 let manifest = null, buffers = {}, loading = null, playingUntil = 0, playing = [];
@@ -84,7 +86,7 @@ export const voice = {
     if (synth) synth.cancel();
   },
 
-  // 切回網頁時呼叫：先試著自己恢復（有些手機不用點就能恢復）；恢復不了，畫面會重新出現「點這裡開啟主持語音」
+  // 切回網頁時呼叫：先試著自己恢復（有些手機不用點就能恢復）；恢復不了，等主機下次點螢幕（tapped）
   wake() {
     if (actx && actx.state !== 'running') actx.resume().catch(() => {});
   },
@@ -103,14 +105,16 @@ export const voice = {
 
   // 唸一句：有錄好的就播錄音，沒有就用手機內建語音
   async speak(narration) {
-    if (!unlocked || !narration) return;
+    if (!narration) return;
+    if (!unlocked) { missed = narration; return; } // 重新整理後主機還沒點過螢幕
     // 聲音系統被暫停了（白天開槍、決鬥這種「別支手機按的」台詞，主機沒點螢幕）：先試著恢復；
-    // 恢復不了就改用手機內建語音唸這句，至少有聲音；畫面同時會出現「點這裡開啟主持語音」（Leo 2026-10-17 實玩白天開槍沒聲音）
+    // 恢復不了就改用手機內建語音唸這句，並記下來，主機下次點螢幕再用錄音補唸（Leo 2026-10-17 實玩白天開槍沒聲音）
     if (actx && actx.state !== 'running') {
       actx.resume().catch(() => {});
       await new Promise(ok => setTimeout(ok, 400));
-      if (actx.state !== 'running') { this.say(narration.text); return; }
+      if (actx.state !== 'running') { missed = narration; this.say(narration.text); return; }
     }
+    missed = null;
     if (source === 'recorded' && actx) {
       await loadRecorded();
       if (recordedReady(narration.clips)) { playClips(narration.clips); return; }
@@ -147,6 +151,17 @@ export const voice = {
     bgmOn = !bgmOn;
     try { localStorage.setItem('ww-judge-bgm', bgmOn ? '1' : '0'); } catch {}
     return bgmOn;
+  },
+
+  // 主機點了螢幕任何地方（必須在點擊事件裡呼叫）：恢復聲音；剛才有漏唸的就補唸
+  tapped() {
+    // 聲音正常就不用 unlock（unlock 會停掉手機內建語音正在唸的那句）
+    if (!unlocked || (actx && actx.state !== 'running')) this.unlock();
+    if (!missed) return;
+    const n = missed;
+    missed = null;
+    this.stop();
+    this.speak(n);
   },
 
   // 剛按下「開始」：接下來收到的第一句（天黑請閉眼）一定要唸

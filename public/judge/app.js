@@ -387,8 +387,9 @@ $('#startBtn').onclick = () => {
   voice.expectFresh();
   send({ type: 'start' });
 };
-$('#voiceOn').onclick = () => { voice.unlock(); voice.stop(); voice.onNarration(state?.game?.narration, { replay: true }); render(); };
-voice.onStateChange(() => render()); // 聲音被暫停 → 重新出現「點這裡開啟主持語音」；恢復 → 收起來
+// 主機點螢幕任何地方：恢復被暫停的聲音、補唸漏掉的那句（Leo 2026-10-17 拿掉「點這裡開啟主持語音」）。
+// iPhone 只認 touchend／click 這種「點完」的事件當作使用者點過；capture＝在按鈕自己的動作之前先恢復
+for (const ev of ['touchend', 'click']) document.addEventListener(ev, () => { if (state?.you?.isHost) voice.tapped(); }, true);
 bindGame($);
 
 /* ───────── 啟動 ───────── */

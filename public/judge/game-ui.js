@@ -252,7 +252,6 @@ function renderHost() {
   const box = $('#hostCtl');
   const isHost = state.you.isHost, g = state.game, phase = state.phase;
   box.hidden = !isHost;
-  $('#voiceBar').hidden = !(isHost && phase !== 'ended' && !voice.unlocked);
   if (!isHost) return;
   const done = h => setHTML(box, h + restartRow(phase)); // 每個畫面最下面都有「直接重開」
 
