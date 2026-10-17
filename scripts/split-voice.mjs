@@ -14,6 +14,7 @@
 //
 // 下刀：在兩段之間「最安靜的那一刻」切（每 5 毫秒算一次音量）。下刀點還有說話聲（> -55 dB）的段落會標 ⚠️＝要重錄。
 // 台詞改過、但新台詞是某段錄音的開頭幾個字（例：「發動技能，帶走了」→「發動技能」）：只取那幾個字，不用重錄。
+// 中間或結尾的幾個字也可以（例：「今晚要擊殺的目標是？」取自 wolfOpen 的最後一句，2026-10-17）；切點一樣要落在安靜處，不然標 ⚠️。
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
@@ -107,11 +108,19 @@ for (const key of Object.keys(LINES)) {
   if (!found) {
     const p = plain(want);
     for (const B of [...loaded].reverse()) {
-      const k = B.segs.findIndex(s => p && s.text.startsWith(p));
+      // 先找開頭是這幾個字的段落，再找中間／結尾有的
+      let k = B.segs.findIndex(s => p && s.text.startsWith(p));
+      if (k < 0) k = B.segs.findIndex(s => p && s.text.includes(p));
       if (k < 0) continue;
-      const s = B.segs[k], n = [...p].length;
-      const last = s.cs.slice(0, n).filter(isSpoken).at(-1), next = s.cs.slice(n).find(isSpoken);
-      found = { B, from: B.cuts[k].from, to: next ? B.cutBetween(last.end, next.start) : B.cuts[k].to, note: `取自「${s.text}」的前 ${n} 字` };
+      const s = B.segs[k], n = [...p].length, i = [...s.text.slice(0, s.text.indexOf(p))].length;
+      const first = s.cs.slice(i, i + n).find(isSpoken), last = s.cs.slice(i, i + n).filter(isSpoken).at(-1);
+      const prev = s.cs.slice(0, i).filter(isSpoken).at(-1), next = s.cs.slice(i + n).find(isSpoken);
+      found = {
+        B,
+        from: prev ? B.cutBetween(prev.end, first.start) : B.cuts[k].from,
+        to: next ? B.cutBetween(last.end, next.start) : B.cuts[k].to,
+        note: i ? `取自「${s.text}」第 ${i + 1} 字起的 ${n} 字` : `取自「${s.text}」的前 ${n} 字`,
+      };
       break;
     }
   }

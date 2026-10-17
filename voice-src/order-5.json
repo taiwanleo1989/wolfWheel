@@ -5,10 +5,18 @@
   },
   {
     "key": null,
-    "text": "……。"
+    "text": "。……。"
   },
   {
     "key": "kingClose",
     "text": "狼王請閉眼。"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "skillOn",
+    "text": "請啟動角色技能。"
   }
 ]

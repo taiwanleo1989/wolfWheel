@@ -13,6 +13,7 @@ export const LINES = {
   guardClose: '守衛請閉眼。',
   wolfOpen: '狼人請睜眼。今晚要擊殺的目標是？',
   wolfOpenKing: '狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？',
+  wolfAsk: '今晚要擊殺的目標是？', // 狼人太久沒操作時只重唸這句（2026-10-17；取自 wolfOpen 錄音的最後一句）
   wolfClose: '狼人請閉眼。',
   // 2026-10-13 新角色（狼美人、石像鬼、守墓人）：照手稿同一個句型「X 請睜眼。…」「X 請閉眼。」
   beautyOpen: '狼美人請睜眼。請選擇今晚要魅惑的玩家。',
@@ -37,7 +38,8 @@ export const LINES = {
   deathsAre: '昨晚死亡的是 ',
   peace: '昨晚是平安夜。',
   shootSkill: '發動技能。', // 10-09 版：只唸到「發動技能」（保留片段，現在不用）
-  shootTook: '發動技能，帶走了 ', // Leo 2026-10-10 實玩：開槍後要聽到誰死 →「7 號發動技能，帶走了 4 號。」
+  shootTook: '發動技能，帶走了 ',
+  skillOn: '請啟動角色技能。', // 獵人／狼王出局可以開槍時：「9 號，請啟動角色技能。」（Leo 2026-10-17） // Leo 2026-10-10 實玩：開槍後要聽到誰死 →「7 號發動技能，帶走了 4 號。」
   tie: '平票，今天沒有人出局。',
   idiotFlip: '翻牌，是白癡，免於出局，但之後不能投票。',
   exiled: '被放逐出局。',
@@ -54,12 +56,13 @@ export const LINES = {
   end: '。',
   sep: '、',
   colon: '：',
+  comma: '，',
 };
 // 號碼：n1 ～ n20 →「1 號」～「20 號」
 for (let i = 1; i <= 20; i++) LINES['n' + i] = `${i} 號`;
 
 export const seatKey = n => 'n' + n;
-export const SILENT = new Set(['end', 'sep', 'colon']);
+export const SILENT = new Set(['end', 'sep', 'colon', 'comma']);
 export const lineText = keys => keys.map(k => LINES[k] ?? '').join('');
 // 錄音用的文字：號碼一律寫成國字（「9 號」→「九號」），AI 語音才不會把數字唸成英文
 const DIGITS = '零一二三四五六七八九';

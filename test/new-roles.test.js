@@ -302,7 +302,7 @@ test('白狼王：不帶人也能自爆；帶走獵人 → 獵人先開槍，開
   let r = night(newGame(FULL));
   assert.equal(said(E.boom(r, id(3), 0).room), '3 號白狼王自爆。天黑請閉眼。');
   r = E.boom(r, id(3), 9).room;
-  assert.equal(said(r), '3 號白狼王自爆，帶走了 9 號。');
+  assert.equal(said(r), '3 號白狼王自爆，帶走了 9 號。9 號，請啟動角色技能。');
   assert.deepEqual(r.game.canShoot, [9]);
   r = E.shoot(r, id(9), 1).room;
   assert.equal(said(r), '9 號發動技能，帶走了 1 號。天黑請閉眼。');

@@ -211,6 +211,26 @@ test('狼王夜裡的帶槍手勢（Leo 2026-10-17）：被毒 👎、沒被毒 
   assert.equal(E.privateGame(d, 4).action, undefined);
 });
 
+test('獵人／狼王出局可以開槍時喊「N 號，請啟動角色技能。」：放逐也喊、只喊一次、不能開槍不喊（Leo 2026-10-17）', () => {
+  let r = night(newGame(), { wolf: 9 });
+  r = E.exile(r, 7).room;
+  assert.equal(r.game.narration.text, '7 號被放逐出局。7 號，請啟動角色技能。');
+  const seq = r.game.narration.seq;
+  r = E.shoot(r, id(7), 0).room; // 不開槍
+  assert.equal(r.game.narration.seq, seq, '不開槍不出聲、也不再喊一次');
+  // 被毒的狼王：不喊
+  const p = night(newGame(), { poison: 4 });
+  assert.equal(p.game.alive[4], false);
+  assert.ok(!p.game.log.some(e => e.text.includes('啟動角色技能')));
+  // 遊戲因為這次出局直接結束：不喊（喊了也沒得開）
+  let w = newGame('yu-nv-lie-bai'); // 1–4 狼人、5 預言家、6 女巫、7 獵人、8 白癡、9–12 平民
+  w = night(w, { wolf: 9, poison: 10 });
+  w = E.nextNight(E.exile(w, 11).room, 1e6).room;
+  w = night(w, { wolf: 12 }); // 平民死光 → 屠邊狼勝
+  assert.equal(w.phase, 'ended');
+  assert.ok(!w.game.narration.text.includes('啟動角色技能'));
+});
+
 test('上警：沒人要動作，計時到（或主機按繼續）就天亮', () => {
   let r = play(newGame(), {}, x => x.phase === 'night' && E.scriptFor(x.game.night.steps[x.game.night.idx], x.setup.counts)?.beats[x.game.night.beat]?.act === null && x.game.night.stage === 'acting');
   assert.equal(r.game.narration.text, '要上警的玩家請起立。');
@@ -252,14 +272,17 @@ test('第一天：警長選完才公布死訊；公布前座位表不顯示誰�
 test('獵人被刀可以開槍，被毒不能；被槍帶走的狼王還能再開槍', () => {
   let r = night(newGame(), { wolf: 7 });
   assert.equal(E.privateGame(r, 7).canShoot, true);
+  assert.equal(r.game.narration.text, '昨晚死亡的是 7 號。7 號，請啟動角色技能。', '能開槍的人出局：喊啟動角色技能（Leo 2026-10-17）');
   r = E.shoot(r, id(7), 4).room;
   assert.equal(r.game.alive[4], false);
-  assert.equal(r.game.narration.text, '7 號發動技能，帶走了 4 號。', '主機唸出帶走誰（Leo 2026-10-10 實玩）');
-  assert.equal(r.game.log.at(-1).text, '7 號發動技能，帶走了 4 號。');
+  assert.equal(r.game.narration.text, '7 號發動技能，帶走了 4 號。4 號，請啟動角色技能。', '主機唸出帶走誰（Leo 2026-10-10 實玩）；被帶走的狼王也喊');
+  assert.equal(r.game.log.at(-2).text, '7 號發動技能，帶走了 4 號。');
+  assert.equal(r.game.log.at(-1).text, '4 號，請啟動角色技能。');
   assert.equal(E.privateGame(r, 4).canShoot, true, '狼王被槍帶走也能開槍');
   const poisoned = night(newGame(), { poison: 7 });
   assert.equal(poisoned.game.alive[7], false);
   assert.equal(E.privateGame(poisoned, 7).canShoot, undefined);
+  assert.ok(!poisoned.game.narration.text.includes('啟動角色技能'), '被毒不能開槍＝不喊');
 });
 
 test('白癡被放逐：自己選翻牌（免死）或不翻（出局）；選之前不能天黑；翻過再被放逐直接出局', () => {
@@ -297,7 +320,7 @@ test('白天技能不限時（Leo 2026-10-10 拿掉 30 秒、10-11 拆掉計時�
   assert.equal(E.privateGame(E.advance(h, 1e12, minRand).room, 7).canShoot, true, '過再久獵人都還能開槍');
   let k = E.duel(night(newGame('lang-wang-qi-shi')), id(8), 4, 5000).room;
   assert.equal(k.game.timer, null);
-  assert.equal(k.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！', '狼王還沒決定，不唸天黑');
+  assert.equal(k.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！4 號，請啟動角色技能。', '狼王還沒決定，不唸天黑');
   assert.equal(JSON.stringify(E.publicGame(k)).includes('"due"'), false);
 });
 
@@ -326,7 +349,7 @@ test('騎士決鬥：對狼 → 狼出局、唸天黑請閉眼、不能放逐，
 test('騎士撞到狼王：狼王先開槍，開完（或不開）才唸天黑請閉眼；按進入黑夜不重唸', () => {
   const r = night(newGame('lang-wang-qi-shi')); // 4 號狼王、8 號騎士
   let d = E.duel(r, id(8), 4).room;
-  assert.equal(d.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！', '狼王還要開槍，先不唸天黑');
+  assert.equal(d.game.narration.text, '騎士 8 號決鬥 4 號：4 號是狼人，出局！4 號，請啟動角色技能。', '狼王還要開槍，先不唸天黑');
   assert.equal(E.privateGame(d, 4).canShoot, true);
   const shot = E.shoot(d, id(4), 9).room;
   assert.equal(shot.game.narration.text, '4 號發動技能，帶走了 9 號。天黑請閉眼。');
@@ -567,8 +590,8 @@ test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 3
   assert.equal(r.game.timer.at - opened, E.REPEAT_MS);
   r = E.advance(r, r.game.timer.at, minRand).room;
   assert.equal(r.game.narration.seq, first.seq + 1, '序號變大，主機才會再唸');
-  assert.equal(r.game.narration.text, first.text, '唸同一句');
-  assert.deepEqual(r.game.narration.clips, first.clips);
+  assert.equal(r.game.narration.text, '今晚要擊殺的目標是？', '狼人溝通比較久，只重唸這句（Leo 2026-10-17）');
+  assert.ok(first.text.endsWith(r.game.narration.text));
   assert.equal(r.game.night.stage, 'acting', '還在等狼人');
   assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 30 秒');
   assert.equal(r.game.log.filter(e => e.text === first.text).length, 0, '重唸不進紀錄');

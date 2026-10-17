@@ -21,11 +21,13 @@ import { lineText, seatKey } from '../public/shared/voice-lines.js';
 
 export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter', 'king'];
 
-// 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間
+// 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間；
+// again＝太久沒操作時重唸的句子（沒寫＝整句重唸）
 export function scriptFor(step, counts) {
   switch (step) {
     case 'guard': return { beats: [{ say: ['guardOpen'], act: 'guard' }], close: ['guardClose'] };
-    case 'wolf': return { beats: [{ say: [(counts.king ?? 0) > 0 ? 'wolfOpenKing' : 'wolfOpen'], act: 'wolf' }], close: ['wolfClose'] };
+    // 狼人溝通比較久，重唸只問「今晚要擊殺的目標是？」（Leo 2026-10-17）
+    case 'wolf': return { beats: [{ say: [(counts.king ?? 0) > 0 ? 'wolfOpenKing' : 'wolfOpen'], act: 'wolf', again: ['wolfAsk'] }], close: ['wolfClose'] };
     case 'witch': return {
       beats: [{ say: ['witchSave'], act: 'witchSave' }, { say: ['witchPoison'], act: 'witchPoison' }],
       close: ['witchClose'],
@@ -42,7 +44,7 @@ export function scriptFor(step, counts) {
 
 export const INTRO_MS = 5000;   // 「天黑請閉眼」之後，等大家閉好眼
 export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色睜眼
-export const POLICE_MS = 12000; // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）
+export const POLICE_MS = 6000;  // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）；Leo 2026-10-17 嫌長，12 → 6 秒
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
 export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
@@ -178,7 +180,8 @@ export function advance(room, now, rand) {
   if (n.stage === 'intro' || n.stage === 'closed') return ok(nextStep(room, g, now, rand));
   // 太久沒操作（活著的角色；或死掉的角色假等還沒結束）：再唸一次這句台詞，繼續等
   if (n.stage === 'acting' && (n.wait === 'people' || (n.wait === 'fake' && now < n.fakeEnd))) {
-    say(g, curBeat(room, n).say);
+    const beat = curBeat(room, n);
+    say(g, beat.again ?? beat.say);
     g.timer = { at: n.wait === 'fake' ? Math.min(n.fakeEnd, now + REPEAT_MS) : now + REPEAT_MS };
     return ok({ ...room, game: g });
   }
@@ -594,7 +597,7 @@ function checkWin(room, seq0) {
   const house = w ? null : houseRuleWin(g, room.setup.rules);
   if (g.day && !g.canShoot.length) g.day.bindCheck = false; // 綁票只在天亮那一刻看（槍都開完之後）
   if (house) w = 'wolf';
-  if (!w) return room;
+  if (!w) { askSkill(g, seq0); return room; }
   g.winner = w;
   g.timer = null;
   g.canShoot = [];
@@ -604,6 +607,20 @@ function checkWin(room, seq0) {
   g.log.push({ day: g.dayNo, text: lineText([win]) });
   say(g, [...before, win]);
   return { ...room, phase: 'ended' };
+}
+
+// 獵人／狼王出局、可以開槍（被毒、殉情的不算）：接在這個動作的台詞後面喊「9 號，請啟動角色技能。」。
+// Leo 2026-10-17 選「只有能開槍才喊」，知道這等於公開他是獵人或狼王。遊戲已經結束就不喊（checkWin 只在沒分勝負時呼叫）
+function askSkill(g, seq0) {
+  if (!g.day) return;
+  const asked = g.day.skillAsked ?? [];
+  const fresh = g.canShoot.filter(s => !asked.includes(s));
+  if (!fresh.length) return;
+  g.day.skillAsked = [...asked, ...fresh];
+  const clips = fresh.flatMap(s => [seatKey(s), 'comma', 'skillOn']);
+  g.log.push({ day: g.dayNo, text: lineText(clips) });
+  const before = g.narration && seq0 !== undefined && g.narration.seq > seq0 ? g.narration.clips : [];
+  say(g, [...before, ...clips]);
 }
 
 // 再來一局：座位、板子都留著，回到大廳

@@ -31,6 +31,10 @@
       "file": "wolfOpenKing.mp3",
       "text": "狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？"
     },
+    "wolfAsk": {
+      "file": "wolfAsk.mp3",
+      "text": "今晚要擊殺的目標是？"
+    },
     "wolfClose": {
       "file": "wolfClose.mp3",
       "text": "狼人請閉眼。"
