@@ -151,6 +151,10 @@ function renderAction() {
         <div class="seer-result ${a.canShoot ? 'good' : 'wolf'}"><b>${a.canShoot ? '👍 可以開槍' : '👎 今晚不能開槍'}</b></div>
         <button class="btn primary big" type="button" data-do="hunterSeen">知道了</button>`;
     }
+    // 伺服器更新了、這支手機還開著舊網頁：輪到它不認得的步驟會一片空白、卡住整晚（Leo 2026-10-17 狼王沒有按鈕）
+    if (!html) html = `<h2>輪到你了，但這支手機的網頁是舊版</h2>
+      <p class="hint">請按下面重新整理（座位和身分都會保留）。</p>
+      <button class="btn primary big" type="button" data-do="reload">重新整理</button>`;
   } else if (phase === 'day' && me.idiotChoose) {
     html = `<h2>你被投票放逐了</h2>
       <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
@@ -227,6 +231,7 @@ function onAction(e) {
     case 'gargoyleDone': act({ done: true }); break;
     case 'graveSeen': act({ seen: true }); break;
     case 'hunterSeen': act({ seen: true }); break;
+    case 'reload': location.reload(); break;
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;

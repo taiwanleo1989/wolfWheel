@@ -117,3 +117,29 @@ test('看自己的身分：隱狼看得到狼隊、石像鬼不認得隊友、�
   assert.match(show(id(3)), /白狼王/);
   assert.match(show(id(1)), /狼隊友：2 號、3 號、4 號/, '狼人看不到隱狼、石像鬼');
 });
+
+test('夜裡：狼王的帶槍手勢畫面有「知道了」按鈕，按了往下走（Leo 2026-10-17 實玩：沒有按鈕）', () => {
+  // 1–2 狼人、3 狼王、4 預言家、5 女巫、6 獵人、7–12 平民
+  const KING = { wolf: 2, king: 1, seer: 1, witch: 1, hunter: 1, villager: 6 };
+  let r = L.newRoom('1234', 12, 'host', 0);
+  for (let n = 1; n <= 12; n++) r = L.claimSeat(r, id(n), n, new Set()).room;
+  r = G.setSetup(r, { counts: KING }).room;
+  r = G.startDeal(r, n => n - 1).room;
+  r = toStep(E.startGame(r, 0, minRand).room, 'king');
+  const m = mount(r, id(3));
+  assert.match(m.html('#actionBox'), /你今晚的帶槍手勢是[\s\S]*👍 可以開槍[\s\S]*data-do="hunterSeen"[\s\S]*知道了/);
+  assert.equal(mount(r, id(1)).html('#actionBox'), '', '其他狼人沒有');
+  assert.equal(mount(r, id(6)).html('#actionBox'), '', '獵人沒有');
+  assert.match(mount(r, 'host').html('#hostCtl'), /現在輪到：<b>狼王<\/b>/);
+  const next = E.nightAction(r, id(3), { seen: true }, everyone(r), 0, minRand);
+  assert.ok(next.ok, next.error);
+  assert.equal(next.room.game.night.stage, 'pause');
+  // 舊網頁不認得的步驟：不能一片空白，要叫他重新整理
+  const v = G.viewFor(r, everyone(r), id(3));
+  v.you.game.action = { kind: 'somethingNew' };
+  const els = {};
+  const $ = s => (els[s] ??= { hidden: false, innerHTML: '', textContent: '', className: '', addEventListener() {} });
+  renderGame({ state: v, $, esc: s => String(s), send() {}, toast() {}, render() {}, setHTML: (el, h) => { el.innerHTML = h; }, voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {} } });
+  assert.match($('#actionBox').innerHTML, /網頁是舊版[\s\S]*data-do="reload"/);
+  assert.equal($('#actionBox').hidden, false);
+});
