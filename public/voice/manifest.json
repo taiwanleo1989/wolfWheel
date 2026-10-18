@@ -4,7 +4,9 @@
     "ElevenLabs_2026-10-09T03_44_19_Liu Junnan _pvc_sp100_s33_sb75_v4.mp3",
     "batch2.mp3",
     "batch3.mp3.mp3",
-    "batch4.mp3"
+    "batch4.mp3",
+    "batch5.mp3",
+    "batch6.mp3"
   ],
   "files": {
     "checkRole": {
@@ -33,7 +35,7 @@
     },
     "wolfAsk": {
       "file": "wolfAsk.mp3",
-      "text": "今晚要擊殺的目標是？"
+      "text": "狼人今晚要擊殺的目標是？"
     },
     "wolfClose": {
       "file": "wolfClose.mp3",
@@ -91,6 +93,14 @@
       "file": "hunterClose.mp3",
       "text": "獵人請閉眼。"
     },
+    "kingOpen": {
+      "file": "kingOpen.mp3",
+      "text": "狼王請睜眼。狼王，你今晚的帶槍手勢是——"
+    },
+    "kingClose": {
+      "file": "kingClose.mp3",
+      "text": "狼王請閉眼。"
+    },
     "police": {
       "file": "police.mp3",
       "text": "要上警的玩家請起立。"
@@ -114,6 +124,10 @@
     "shootTook": {
       "file": "shootTook.mp3",
       "text": "發動技能，帶走了"
+    },
+    "skillOn": {
+      "file": "skillOn.mp3",
+      "text": "請啟動腳色技能。"
     },
     "tie": {
       "file": "tie.mp3",

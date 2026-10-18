@@ -14,5 +14,13 @@
   {
     "order": "order-4.json",
     "audio": "batch4.mp3"
+  },
+  {
+    "order": "order-5.json",
+    "audio": "batch5.mp3"
+  },
+  {
+    "order": "order-6.json",
+    "audio": "batch6.mp3"
   }
 ]

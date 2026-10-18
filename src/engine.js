@@ -26,7 +26,7 @@ export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyl
 export function scriptFor(step, counts) {
   switch (step) {
     case 'guard': return { beats: [{ say: ['guardOpen'], act: 'guard' }], close: ['guardClose'] };
-    // 狼人溝通比較久，重唸只問「今晚要擊殺的目標是？」（Leo 2026-10-17）
+    // 狼人溝通比較久，重唸只問「狼人今晚要擊殺的目標是？」（Leo 2026-10-17）
     case 'wolf': return { beats: [{ say: [(counts.king ?? 0) > 0 ? 'wolfOpenKing' : 'wolfOpen'], act: 'wolf', again: ['wolfAsk'] }], close: ['wolfClose'] };
     case 'witch': return {
       beats: [{ say: ['witchSave'], act: 'witchSave' }, { say: ['witchPoison'], act: 'witchPoison' }],

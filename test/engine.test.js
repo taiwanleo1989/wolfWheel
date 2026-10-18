@@ -590,8 +590,7 @@ test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 3
   assert.equal(r.game.timer.at - opened, E.REPEAT_MS);
   r = E.advance(r, r.game.timer.at, minRand).room;
   assert.equal(r.game.narration.seq, first.seq + 1, '序號變大，主機才會再唸');
-  assert.equal(r.game.narration.text, '今晚要擊殺的目標是？', '狼人溝通比較久，只重唸這句（Leo 2026-10-17）');
-  assert.ok(first.text.endsWith(r.game.narration.text));
+  assert.equal(r.game.narration.text, '狼人今晚要擊殺的目標是？', '狼人溝通比較久，只重唸這句（Leo 2026-10-17）');
   assert.equal(r.game.night.stage, 'acting', '還在等狼人');
   assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 30 秒');
   assert.equal(r.game.log.filter(e => e.text === first.text).length, 0, '重唸不進紀錄');
