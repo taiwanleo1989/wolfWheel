@@ -800,3 +800,20 @@ test('主機離線時死掉的角色也不重唸、只留假等結束那一下�
   assert.equal(E.resumeRepeat(paused, t0 + 35000).game.timer.at, t0 + 40000, '假等先到就先結束');
   assert.equal(E.resumeRepeat(dead, t0 + 5000), dead, '沒停過就不動');
 });
+
+test('死掉的女巫：兩句台詞的假等加起來只抽一次（8～45 秒），不會等兩倍（Leo 2026-10-22 實玩像卡住，選方案 1）', () => {
+  for (const rand of [minRand, n => n - 1, n => Math.floor(n / 2)]) {
+    // 1–4 狼、5 預、6 女巫、7 獵、8 白癡、9–12 民；第一晚刀女巫
+    let r = night(newGame('yu-nv-lie-bai'), { wolf: 6 });
+    assert.equal(r.game.alive[6], false);
+    r = E.nextNight(r, 1e6).room;
+    let total = 0;
+    for (let i = 0; i < 80 && r.phase === 'night'; i++) {
+      const n = r.game.night;
+      if (n.stage === 'acting' && n.wait === 'fake' && n.steps[n.idx] === 'witch' && n.openedAt === r.game.timer.at - Math.min(n.fakeEnd - n.openedAt, E.REPEAT_MS)) total += n.fakeEnd - n.openedAt;
+      if (waitingForPeople(r)) r = play(r, {}, x => x.game?.night?.steps?.[x.game.night.idx] === 'witch');
+      else r = E.advance(r, r.game.timer.at, rand).room;
+    }
+    assert.ok(total >= 8000 && total <= 45000, `兩句合計 ${total} 毫秒`);
+  }
+});

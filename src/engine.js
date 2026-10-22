@@ -161,7 +161,13 @@ function openBeat(room, g, now, rand) {
   if (beat.act === null) { n.wait = 'police'; g.timer = { at: now + POLICE_MS }; }
   else if (actors(g, curStep(n)).length === 0) {
     n.wait = 'fake';
-    n.fakeEnd = now + 1000 * between(rand, [room.setup.rules.fakeWaitMin, room.setup.rules.fakeWaitMax]);
+    // 假等一個角色只抽一次（8～45 秒），有好幾句台詞的（女巫：解藥、毒藥）分給每一句——不然死掉的女巫等兩次、
+    // 最長快 100 秒，比別的角色長一倍（Leo 2026-10-22 實玩：一直重唸「女巫請睜眼」像卡住，選方案 1）
+    const left = scriptFor(curStep(n), room.setup.counts).beats.length - n.beat; // 含這一句還剩幾句
+    if (n.beat === 0 || n.fakeLeft == null) n.fakeLeft = between(rand, [room.setup.rules.fakeWaitMin, room.setup.rules.fakeWaitMax]);
+    const sec = left > 1 ? between(rand, [1, n.fakeLeft - (left - 1)]) : n.fakeLeft;
+    n.fakeLeft -= sec;
+    n.fakeEnd = now + 1000 * sec;
     g.timer = { at: Math.min(n.fakeEnd, now + REPEAT_MS) };
   } else { n.wait = 'people'; g.timer = { at: now + REPEAT_MS }; }
 }
