@@ -5,13 +5,16 @@ import { portrait } from '../shared/art.js';
 const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
-let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render }
-const ui = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '' };
+let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null };
+const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
   c = ctx;
   const { state, $, setHTML, esc } = c;
   const g = state.game, me = state.you.game, seat = state.you.seat, phase = state.phase;
+  // 新的一局（重開、再來一局、重新發牌）：上一局打開的身分、沒按完的確認框、選好的號碼全部清掉（2026-10-22 驗測：新身分直接攤在螢幕上）
+  if (state.dealNo !== ui.dealNo) Object.assign(ui, FRESH, { dealNo: state.dealNo });
 
   $('#phaseTag').textContent = phase === 'night' ? `第 ${g.dayNo} 夜` : phase === 'day' ? `第 ${g.dayNo} 天` : '遊戲結束';
   $('#gameCode').textContent = state.code;
@@ -36,6 +39,7 @@ export function renderGame(ctx) {
 
   renderAction();
   renderHost();
+  renderTakeover();
   renderBoard();
   renderMyInfo();
 
@@ -166,23 +170,6 @@ function renderAction() {
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;
-  } else if (phase === 'day' && me.canDuel) {
-    html = ui.duelOpen
-      ? `<h2>騎士決鬥</h2>
-         <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續投票。只能用一次。</p>
-         ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
-         <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
-         <button class="btn" type="button" data-do="duelClose">取消</button></div>`
-      : `<button class="btn big" type="button" data-do="duelOpen">⚔ 發起決鬥（騎士技能）</button>`;
-  } else if (phase === 'day' && me.canBoom) {
-    html = ui.boomOpen
-      ? `<h2>白狼王自爆</h2>
-         <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
-         ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
-         <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
-         <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
-         <button class="btn" type="button" data-do="boomClose">取消</button></div>`
-      : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（白狼王技能）</button>`;
   } else if (phase !== 'ended' && !me.alive) {
     html = `<p class="out">你已出局。可以留遺言（如果還有的話），之後請靜靜看戲，不要透露訊息。</p>`;
   } else if (me.idiotRevealed) {
@@ -254,7 +241,7 @@ function renderHost() {
   const isHost = state.you.isHost, g = state.game, phase = state.phase;
   box.hidden = !isHost;
   if (!isHost) return;
-  const done = h => setHTML(box, h + restartRow(phase)); // 每個畫面最下面都有「直接重開」
+  const done = h => setHTML(box, seatRequestsHTML(state.seatRequests) + h + restartRow(phase)); // 最上面是換手機的申請；每個畫面最下面都有「直接重開」
 
   const key = `${phase}|${g.dayNo}`;
   if (key !== ui.hostKey) { ui.hostKey = key; ui.hostPick = null; }
@@ -335,6 +322,7 @@ function skipBox(night) {
 function onHost(e) {
   const hp = e.target.closest('[data-host-pick]');
   if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = ui.hostPick === n ? null : n; c.render(); return; }
+  if (approveFromClick(e, msg => { c.voice.unlock(); c.send(msg); })) return;
   const b = e.target.closest('[data-host]');
   if (!b) return;
   const { voice, state } = c;
@@ -356,8 +344,9 @@ function onHost(e) {
       send({ type: 'nextNight' }); break;
     case 'restart':
       if (state.phase !== 'ended' && !confirm('直接重開？這局作廢，座位和板子不變，馬上重新發牌（每個人身分都會換）。')) return;
-      // 重開後台詞序號從頭算：先歸零，不然「請確認角色身分。」會被當成舊台詞不唸（2026-10-22 驗測）
-      voice.stop(); voice.setNight(false); voice.expectFresh(); send({ type: 'restart' }); break;
+      // 重開後台詞序號接著舊局往上算（伺服器 G.restart），這裡不能歸零：確認視窗那幾秒收到的舊台詞會被當新的唸、
+      // 再把序號拉回去，「請確認角色身分。」反而不唸（2026-10-22 瀏覽器實測）
+      voice.stop(); voice.setNight(false); voice.holdUntil('checkRole'); send({ type: 'restart' }); break;
     case 'newGame':
       if (state.phase !== 'ended' && !confirm('這局作廢，回到設定（可以改板子、人數）？')) return;
       voice.stop(); voice.setNight(false); send({ type: 'newGame' }); break;
@@ -402,14 +391,82 @@ function renderMyInfo() {
       <div><div class="role-name sm team-${r.team}">${esc(r.name)}</div><div class="hint">${esc(TEAM_NAME[r.team])}${me.alive ? '' : '・已出局'}</div></div></div>
     <p class="role-desc">${esc(r.desc)}</p>
     ${lines.map(l => `<p class="me-line">${esc(l)}</p>`).join('')}
+    ${daySkill(me)}
     <button class="btn" type="button" data-me="hide">蓋起來</button>`);
+}
+
+// 騎士決鬥、白狼王自爆：放在「看我的身分」裡面，白天大家的畫面才會一樣（Leo 2026-10-22 B1：本來只有這兩個角色有大按鈕，瞄一眼就知道）
+function daySkill(me) {
+  const seat = c.state.you.seat, pick = ui.pick;
+  if (c.state.phase !== 'day') return '';
+  if (me.canDuel) return ui.duelOpen
+    ? `<div class="skill"><h2>騎士決鬥</h2>
+       <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續投票。只能用一次。</p>
+       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+       <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
+       <button class="btn" type="button" data-do="duelClose">取消</button></div></div>`
+    : `<button class="btn big" type="button" data-do="duelOpen">⚔ 發起決鬥（騎士技能）</button>`;
+  if (me.canBoom) return ui.boomOpen
+    ? `<div class="skill"><h2>白狼王自爆</h2>
+       <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
+       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+       <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
+       <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
+       <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`
+    : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（白狼王技能）</button>`;
+  return '';
+}
+
+/* ───────── 換手機：接手主機、接手座位（對局中也要能用；Leo 2026-10-22 A1） ───────── */
+function renderTakeover() {
+  const { state, $, setHTML } = c;
+  const box = $('#takeover');
+  let html = '';
+  if (!state.hostOnline && !state.you.isHost) {
+    html += `<p><b>主機離線了。</b>主機斷線 1 分鐘後，可以由一支手機接手主持（主機看不到任何人的身分）。</p>
+      <button class="btn" type="button" data-take="host">由我接手當主機</button>`;
+  }
+  if (!state.you.seat && !state.you.isHost && state.phase !== 'ended') {
+    const off = state.seats.filter(s => s.taken && !s.online).map(s => s.n);
+    if (state.you.requestedSeat) html += `<p>已申請接手 <b>${state.you.requestedSeat}</b> 號，請主機按同意。</p>`;
+    else if (off.length) html += `<p><b>換手機接手座位</b>：點你原本的號碼，主機按同意後就接回來。</p>
+      ${picker(off.map(n => ({ n })), null, 'data-take-seat')}`;
+  }
+  box.hidden = !html;
+  setHTML(box, html);
+}
+
+function onTakeover(e) {
+  if (e.target.closest('[data-take="host"]')) { c.takeHost(); return; }
+  const s = e.target.closest('[data-take-seat]');
+  if (s) c.send({ type: 'claimSeat', seat: Number(s.dataset.takeSeat) });
+}
+
+// 主機：換手機接手座位的申請（只看得到號碼）。對局畫面和發牌畫面共用
+export function seatRequestsHTML(list) {
+  if (!list?.length) return '';
+  return `<div class="requests"><h3>換手機接手座位</h3>
+    <p class="hint">先口頭確認是本人換了手機，再按同意。</p>
+    ${list.map(n => `<div class="row-gap"><b class="digits">${n} 號</b>
+      <button class="btn primary small" type="button" data-approve="${n}" data-yes="1">同意</button>
+      <button class="btn small" type="button" data-approve="${n}" data-yes="0">拒絕</button></div>`).join('')}</div>`;
+}
+export function approveFromClick(e, send) {
+  const b = e.target.closest('[data-approve]');
+  if (!b) return false;
+  const n = Number(b.dataset.approve), yes = b.dataset.yes === '1';
+  if (yes && !window.confirm(`請先口頭確認是 ${n} 號本人換了手機。同意新手機接手 ${n} 號？`)) return true;
+  send({ type: 'approveSeat', seat: n, yes });
+  return true;
 }
 
 export function bindGame($) {
   $('#actionBox').addEventListener('click', onAction);
   $('#hostCtl').addEventListener('click', onHost);
+  $('#takeover').addEventListener('click', onTakeover);
   $('#myInfo').addEventListener('click', e => {
     const b = e.target.closest('[data-me]');
     if (b) { ui.showMe = b.dataset.me === 'show'; c.render(); }
+    else onAction(e); // 騎士決鬥、白狼王自爆的按鈕在這裡面
   });
 }

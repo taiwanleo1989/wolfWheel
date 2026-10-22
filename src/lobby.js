@@ -46,11 +46,17 @@ export function leaveSeat(room, clientId) {
   return { ...room, seats };
 }
 
-// 接手當主機：原主機離線才可以（主機看不到任何人的身分，所以誰接手都不會洩密）
-export function claimHost(room, clientId, online) {
+// 對局中原主機要斷線這麼久，別的手機才能接手（Leo 2026-10-22 A1：防有人趁主機螢幕關掉的幾秒搶主機、重開整局）
+export const HOST_TAKEOVER_MS = 60000;
+
+// 接手當主機：原主機離線才可以（主機看不到任何人的身分，所以誰接手都不會洩密）；
+// 對局中（發牌後）還要等原主機斷線滿 1 分鐘。hostLeftAt＝原主機斷線的時間（房間在斷線時記下）
+export function claimHost(room, clientId, online, now = 0) {
   if (room.hostClientId === clientId) return { ok: true, room };
   if (room.hostClientId && online.has(room.hostClientId)) return { ok: false, error: '主機還在線上' };
-  return { ok: true, room: { ...room, hostClientId: clientId } };
+  const wait = room.phase !== 'lobby' && room.hostLeftAt != null ? HOST_TAKEOVER_MS - (now - room.hostLeftAt) : 0;
+  if (wait > 0) return { ok: false, error: `主機斷線 1 分鐘後才能接手（還要 ${Math.ceil(wait / 1000)} 秒）` };
+  return { ok: true, room: { ...room, hostClientId: clientId, hostLeftAt: null } };
 }
 
 // 每支手機只拿到它該看的：大廳階段沒有秘密，但先把格式定好

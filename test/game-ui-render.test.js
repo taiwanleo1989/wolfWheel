@@ -52,7 +52,7 @@ function mount(room, clientId) {
   const ctx = {
     state: G.viewFor(room, everyone(room), clientId), $, esc: s => String(s), send: m => sent.push(m), toast() {},
     render: () => renderGame(ctx), setHTML: (el, h) => { el.innerHTML = h; },
-    voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {}, stop() {}, setNight() {}, expectFresh: () => voiceCalls.push('expectFresh') },
+    voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {}, stop() {}, setNight() {}, expectFresh: () => voiceCalls.push('expectFresh'), holdUntil: clip => voiceCalls.push('holdUntil:' + clip) },
   };
   renderGame(ctx);
   bindGame($);
@@ -88,13 +88,24 @@ test('狼人那步：隊友只列狼隊；隱狼、石像鬼看閉眼畫面', ()
   assert.equal(mount(r, id(6)).html('#actionBox'), '');
 });
 
-test('白天：白狼王的自爆按鈕、打開後選人；別人沒有；自爆後主機畫面', () => {
+test('白天：白狼王的自爆按鈕收在「看我的身分」裡，所有活人的畫面一樣（Leo 2026-10-22 B1）；自爆後主機畫面', () => {
   let r = E.announceDeaths(toStep(newGame(), 'none')).room;
+  for (let s = 1; s <= 14; s++) {
+    const v = mount(r, id(s));
+    if (r.game.alive[s]) assert.equal(v.html('#actionBox'), '', `${s} 號白天的動作區要是空的`);
+    assert.match(v.html('#myInfo'), /看我的身分/);
+  }
   const m = mount(r, id(3));
-  assert.match(m.html('#actionBox'), /自爆（白狼王技能）/);
-  m.click('#actionBox', 'do', 'boomOpen');
-  assert.match(m.html('#actionBox'), /<h2>白狼王自爆<\/h2>[\s\S]*自爆，不帶人/);
-  assert.ok(!mount(r, id(1)).html('#actionBox').includes('自爆'));
+  assert.ok(!m.html('#myInfo').includes('自爆'), '身分蓋著時看不到');
+  m.click('#myInfo', 'me', 'show');
+  assert.match(m.html('#myInfo'), /自爆（白狼王技能）/);
+  m.click('#myInfo', 'do', 'boomOpen');
+  assert.match(m.html('#myInfo'), /<h2>白狼王自爆<\/h2>[\s\S]*自爆，不帶人/);
+  m.click('#myInfo', 'pick', '7');
+  assert.match(m.html('#myInfo'), /自爆，帶走 7 號/);
+  const other = mount(r, id(1));
+  other.click('#myInfo', 'me', 'show');
+  assert.ok(!other.html('#myInfo').includes('自爆'));
   const b = E.boom(r, id(3), 7).room;
   assert.match(mount(b, 'host').html('#hostCtl'), /<h2>白狼王自爆<\/h2>[\s\S]*進入黑夜/);
   assert.ok(!mount(b, 'host').html('#hostCtl').includes('被放逐的是'), '主機不出現放逐');
@@ -170,13 +181,60 @@ test('女巫：救、不救、毒藥不使用都先問「是否正確」；沒�
   assert.deepEqual(q.sent.map(s => s.payload.use), ['skip']);
 });
 
-test('直接重開、再來一局：主機先把台詞序號歸零，「請確認角色身分。」才會唸（2026-10-22 驗測）', () => {
+test('直接重開：主機不把台詞序號歸零（序號由伺服器接著往上算，見 game.test；2026-10-22 瀏覽器實測）', () => {
   const r = toStep(newGame(), 'guard');
   globalThis.window = { confirm: () => true };
   try {
     const m = mount(r, 'host');
     m.click('#hostCtl', 'host', 'restart');
-    assert.deepEqual(m.voiceCalls, ['expectFresh']);
+    assert.deepEqual(m.voiceCalls, ['holdUntil:checkRole'], '不歸零（舊台詞會被當新的唸）；先擋住舊局台詞，等到「請確認角色身分」');
     assert.deepEqual(m.sent, [{ type: 'restart' }]);
   } finally { delete globalThis.window; }
+});
+
+test('新的一局：上一局打開的身分、沒按完的確認框全部清掉（2026-10-22 驗測：新身分直接攤在螢幕上）', () => {
+  // 第 1 夜守衛：選 1 號 → 出現確認框；打開身分
+  let r = toStep(newGame(), 'guard');
+  const m = mount(r, id(10));
+  m.click('#actionBox', 'pick', '1');
+  m.click('#actionBox', 'do', 'guard');
+  m.click('#myInfo', 'me', 'show');
+  assert.match(m.html('#actionBox'), /今晚要守護的玩家是 1 號，是否正確/);
+  assert.match(m.html('#myInfo'), /蓋起來/);
+  // 直接重開（同一支手機、同一個畫面模組）→ 新局第 1 夜又輪到守衛
+  let again = G.restart(r, n => n - 1).room;
+  for (let s = 1; s <= 14; s++) again = G.ack(again, id(s)).room;
+  again = toStep(E.startGame(again, 0, minRand).room, 'guard');
+  const m2 = mount(again, id(10));
+  assert.ok(!m2.html('#actionBox').includes('是否正確'), '舊的確認框不能留著');
+  assert.match(m2.html('#myInfo'), /看我的身分/, '身分要重新蓋起來');
+  assert.ok(!m2.html('#myInfo').includes('蓋起來'));
+});
+
+test('換手機：對局中沒坐下的手機看得到「接手座位」（離線的號碼），主機看得到申請、按同意送出（Leo 2026-10-22 A1）', () => {
+  const r = toStep(newGame(), 'guard');
+  const online = new Set(Object.values(r.seats).filter(c => c !== id(5)).concat(['host', 'newPhone']));
+  const v = G.viewFor(r, online, 'newPhone');
+  const els = {}, sent = [];
+  const $ = s => (els[s] ??= { hidden: false, textContent: '', innerHTML: '', className: '', addEventListener(_, fn) { this.fn = fn; } });
+  const ctx = { state: v, $, esc: s => String(s), send: m => sent.push(m), toast() {}, render: () => renderGame(ctx), setHTML: (el, h) => { el.innerHTML = h; }, voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {} } };
+  renderGame(ctx); bindGame($);
+  assert.equal($('#takeover').hidden, false);
+  assert.match($('#takeover').innerHTML, /換手機接手座位[\s\S]*data-take-seat="5"/);
+  assert.ok(!$('#takeover').innerHTML.includes('data-take-seat="4"'), '在線上的座位不能點');
+  $('#takeover').fn({ target: { closest: q => (q === '[data-take-seat]' ? { dataset: { takeSeat: '5' } } : null) } });
+  assert.deepEqual(sent, [{ type: 'claimSeat', seat: 5 }]);
+  // 主機看到申請
+  const req = G.claimSeat(r, 'newPhone', 5, online).room;
+  const hv = G.viewFor(req, online, 'host');
+  const hels = {}, hsent = [];
+  const h$ = s => (hels[s] ??= { hidden: false, textContent: '', innerHTML: '', className: '', addEventListener(_, fn) { this.fn = fn; } });
+  const hctx = { state: hv, $: h$, esc: s => String(s), send: m => hsent.push(m), toast() {}, render: () => renderGame(hctx), setHTML: (el, h) => { el.innerHTML = h; }, voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {} } };
+  renderGame(hctx); bindGame(h$);
+  assert.match(h$('#hostCtl').innerHTML, /換手機接手座位[\s\S]*5 號[\s\S]*data-approve="5" data-yes="1"/);
+  globalThis.window = { confirm: () => true };
+  try {
+    h$('#hostCtl').fn({ target: { closest: q => (q === '[data-approve]' ? { dataset: { approve: '5', yes: '1' } } : null) } });
+  } finally { delete globalThis.window; }
+  assert.deepEqual(hsent, [{ type: 'approveSeat', seat: 5, yes: true }]);
 });

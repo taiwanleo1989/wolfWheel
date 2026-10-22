@@ -121,6 +121,8 @@
         <div class="seats" id="ackSeats"></div>
       </div>
       <div class="panel" id="hostMyRole" hidden></div>
+      <!-- 換手機接手座位的申請（主機按同意） -->
+      <div class="panel" id="dealRequests" hidden></div>
       <div class="panel">
         <button class="btn primary big" type="button" id="startBtn">天黑請閉眼（開始）</button>
         <p class="hint center">按下後這支手機會開始用語音主持，請把音量調大、放在桌子中間。</p>
@@ -145,6 +147,7 @@
     <div class="panel" id="pickSeat">
       <h2>選你的座位</h2>
       <p class="hint">照你們實際坐的位置，從 1 號開始順著繞一圈。</p>
+      <p class="hint" id="seatReqNote" hidden></p>
       <div class="seats" id="playerSeats"></div>
     </div>
 
@@ -164,7 +167,7 @@
     </div>
 
     <div class="panel" id="hostGone" hidden>
-      <p><b>主機離線了。</b>可以換一支手機接手當主機——主機看不到身分，誰接手都可以。</p>
+      <p><b>主機離線了。</b>可以換一支手機接手當主機（主機看不到身分，誰接手都可以；發牌後要等主機斷線滿 1 分鐘）。</p>
       <button class="btn" type="button" id="takeHost">由我接手當主機</button>
     </div>
     <p class="foot"><button class="link" type="button" data-leave>離開房間</button></p>
@@ -194,6 +197,9 @@
 
     <!-- 主機控制 -->
     <div class="panel host-ctl" id="hostCtl" hidden></div>
+
+    <!-- 換手機：接手主機、接手座位（對局中也要能用） -->
+    <div class="panel" id="takeover" hidden></div>
 
     <!-- 公開：存活座位與紀錄 -->
     <div class="panel">

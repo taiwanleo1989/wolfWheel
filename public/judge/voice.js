@@ -14,7 +14,7 @@ const GAP = { sep: 0.28, colon: 0.22, comma: 0.2, end: 0 }; // 標點片段：�
 // 後面接限幅器，放大後也不會破音。錄音本身跟其他句一樣大聲（-21.5 LUFS），所以重錄後這裡照樣有效
 export const CLIP_GAIN = { nightStart: 2 };
 const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
-let zhVoice = null, unlocked = false, lastSeq = null, ranOnce = false, onChange = null;
+let zhVoice = null, unlocked = false, lastSeq = null, ranOnce = false, onChange = null, waitFor = null;
 let missed = null; // 聲音出不來時收到的台詞：主機下次點螢幕補唸
 let actx = null, gain = null, voiceGain = null, bgm = null, bgmOn = true, speaking = 0;
 let source = 'recorded';              // 'recorded' | 'device'
@@ -97,6 +97,11 @@ export const voice = {
   // 每次收到新狀態呼叫：台詞編號變大就唸
   onNarration(narration, { replay = false } = {}) {
     if (!narration) return;
+    // 按了直接重開：確認視窗那幾秒還在路上的舊局台詞不唸，等到新局那句（最多等 8 秒，重開失敗也不會一直沒聲音）
+    if (waitFor && !replay) {
+      if (Date.now() < waitFor.until && !narration.clips?.includes(waitFor.clip)) return;
+      waitFor = null;
+    }
     if (lastSeq === null && !replay) { lastSeq = narration.seq; return; } // 剛連上：不重唸舊的
     if (!replay && narration.seq <= lastSeq) return;
     lastSeq = narration.seq;
@@ -166,6 +171,10 @@ export const voice = {
 
   // 剛按下「開始」：接下來收到的第一句（天黑請閉眼）一定要唸
   expectFresh() { lastSeq = 0; },
+  // 剛變成主機（接手、或拿回主機）：當作剛連上，從下一句開始唸——手機記的序號可能停在別局（2026-10-22 驗測）
+  resync() { lastSeq = null; },
+  // 直接重開：舊局的台詞先不唸，等到這個片段（請確認角色身分）（2026-10-22 瀏覽器實測：會先唸一句舊局的「要上警的玩家請起立。」）
+  holdUntil(clip) { waitFor = { clip, until: Date.now() + 8000 }; },
 };
 
 // 一直播一段聽不到的極小聲音（約 -80 dB）：白天背景音樂停了、沒在唸台詞時，iPhone 會把沒聲音的網頁聲音系統暫停，

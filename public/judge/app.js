@@ -1,7 +1,7 @@
 // 法官工具：M1 開房／加入／座位／重連，M2 設定板子／發牌／看身分
 import { ROLES, ROLE_ORDER, TEAM_NAME, totalOf } from '../shared/roles.js';
 import { installArt, portrait } from '../shared/art.js';
-import { renderGame, bindGame } from './game-ui.js';
+import { renderGame, bindGame, seatRequestsHTML, approveFromClick } from './game-ui.js';
 import { voice } from './voice.js';
 
 installArt();
@@ -23,7 +23,7 @@ const clientId = store.get('ww-cid') || (() => {
 let session = null;   // { code, asHost }
 try { session = JSON.parse(store.get('ww-judge') || 'null'); } catch {}
 let ws = null, state = null, retry = 0, leaving = false, pingTimer = 0, pongTimer = 0, retryTimer = 0;
-const ui = { warned: false, picking: false, revealed: false, lastRole: null };
+const ui = { warned: false, picking: false, revealed: false, lastRole: null, wasHost: false };
 
 /* ───────── 小工具 ───────── */
 // 內容沒變就不重畫：大家同時按按鈕時，畫面一直被換掉會吃掉別人的點擊
@@ -148,6 +148,9 @@ function renderDealHost() {
   const box = $('#hostMyRole');
   box.hidden = !state.you.role;
   if (state.you.role) renderRoleCard(box);
+  const req = $('#dealRequests');
+  req.hidden = !state.seatRequests?.length;
+  setHTML(req, seatRequestsHTML(state.seatRequests));
 }
 
 /* ───────── 畫面總指揮 ───────── */
@@ -155,6 +158,8 @@ function render() {
   if (!state) return;
   if (session.asHost && !state.you.isHost && !ui.warned) { ui.warned = true; toast('這個房間已經有主機了，你以玩家身分加入'); }
   if (state.you.role !== ui.lastRole) { ui.lastRole = state.you.role; ui.revealed = false; } // 重新發牌就重新蓋牌
+  if (state.you.isHost && !ui.wasHost) voice.resync(); // 剛接手（或拿回）主機：從下一句開始唸
+  ui.wasHost = state.you.isHost;
   const lobby = state.phase === 'lobby';
 
   // 對局中（黑夜／白天／結束）：大家共用對局畫面；主機負責出聲
@@ -164,7 +169,7 @@ function render() {
       voice.onNarration(state.game.narration);
       voice.setNight(state.phase === 'night');
     } else voice.setNight(false); // 原本是主機、被別支手機接手後變成玩家：背景音樂要停（2026-10-22 驗測）
-    renderGame({ state, $, setHTML, esc, send, toast, voice, render });
+    renderGame({ state, $, setHTML, esc, send, toast, voice, render, takeHost });
     return;
   }
   document.body.classList.remove('is-night');
@@ -196,6 +201,11 @@ function render() {
   $('#mySeat').hidden = picking;
   $('#changeSeat').hidden = !lobby;
   if (mine) $('#myNum').textContent = mine;
+  // 發牌後換手機：點原本（離線）的號碼＝申請接手，主機按同意才接回（Leo 2026-10-22 A1）
+  const note = $('#seatReqNote');
+  note.hidden = lobby || Boolean(mine);
+  note.textContent = state.you.requestedSeat ? `已申請接手 ${state.you.requestedSeat} 號，請主機按同意。`
+    : '已經發牌了：換手機的話，點你原本的號碼（顯示「離線」的），主機按同意後就接回來。';
   $('#hostGone').hidden = state.hostOnline;
   setHTML($('#playerSeats'), state.seats.map(s => seatHTML(s, seatTag(s))).join(''));
   const acked = (state.acked || []).includes(mine);
@@ -342,7 +352,9 @@ $('#resumeBtn').onclick = () => session && enter(session.code, session.asHost);
 $('#minus').onclick = () => state && send({ type: 'setPlayers', players: state.players - 1 });
 $('#plus').onclick = () => state && send({ type: 'setPlayers', players: state.players + 1 });
 $('#changeSeat').onclick = () => { ui.picking = true; render(); };
-$('#takeHost').onclick = () => { session.asHost = true; store.set('ww-judge', JSON.stringify(session)); send({ type: 'claimHost' }); };
+function takeHost() { session.asHost = true; store.set('ww-judge', JSON.stringify(session)); send({ type: 'claimHost' }); }
+$('#takeHost').onclick = takeHost;
+$('#dealRequests').addEventListener('click', e => approveFromClick(e, msg => { voice.unlock(); send(msg); }));
 for (const b of document.querySelectorAll('[data-leave]')) b.onclick = () => { if (confirm('確定離開這個房間？')) leave(); };
 
 // 主機的座位：點空位坐下、點自己站起來

@@ -63,11 +63,11 @@ export class Room extends DurableObject {
         if (other !== ws && other.deserializeAttachment()?.clientId === clientId) other.close(4001, '這支手機在別的分頁開了房間');
       }
       if (msg.asHost) {
-        const r = L.claimHost(this.room, clientId, this.onlineIds(ws));
+        const r = G.takeHost(this.room, clientId, this.onlineIds(ws), Date.now());
         if (r.ok) this.room = r.room; else this.send(ws, { type: 'error', error: r.error });
       }
-      // 主機回來了：夜裡還在等角色的話，接著每 30 秒重唸
-      if (this.room.hostClientId === clientId) this.room = E.resumeRepeat(this.room, Date.now());
+      // 主機回來了：不再算斷線時間；夜裡還在等角色的話，接著每 30 秒重唸
+      if (this.room.hostClientId === clientId) this.room = E.resumeRepeat({ ...this.room, hostLeftAt: null }, Date.now());
       await this.touch();
       return;
     }
@@ -75,14 +75,15 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce'];
+    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce', 'approveSeat'];
     const now = Date.now();
     if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
     let result;
     switch (msg.type) {
       case 'claimSeat': result = G.claimSeat(this.room, me.clientId, msg.seat, online); break;
       case 'leaveSeat': result = G.leaveSeat(this.room, me.clientId); break;
-      case 'claimHost': result = L.claimHost(this.room, me.clientId, online); if (result.ok) result.room = E.resumeRepeat(result.room, now); break;
+      case 'claimHost': result = G.takeHost(this.room, me.clientId, online, now); if (result.ok) result.room = E.resumeRepeat(result.room, now); break;
+      case 'approveSeat': result = G.approveSeat(this.room, msg.seat, msg.yes, online); break;
       case 'setPlayers':
         if (this.room.phase !== 'lobby') return this.send(ws, { type: 'error', error: '發牌後不能改人數' });
         result = { ok: true, room: L.setPlayers(this.room, msg.players) }; break;
@@ -106,7 +107,11 @@ export class Room extends DurableObject {
       case 'restart': result = G.restart(this.room, rand); break;
       default: return;
     }
-    if (!result.ok) return this.send(ws, { type: 'error', error: result.error });
+    if (!result.ok) {
+      this.send(ws, { type: 'error', error: result.error });
+      if (result.room) { this.room = result.room; await this.touch(); } // 失敗但有東西要清（例如過期的接手申請）
+      return;
+    }
     this.room = result.room;
     await this.touch();
   }
@@ -117,6 +122,11 @@ export class Room extends DurableObject {
   async onLeave(ws) {
     try { ws.close(1000); } catch {}
     if (!this.room) return;
+    // 主機斷線：記下時間，對局中別的手機要等滿 1 分鐘才能接手（見 L.claimHost）
+    if (this.room.hostLeftAt == null && !this.onlineIds(ws).has(this.room.hostClientId)) {
+      this.room = { ...this.room, hostLeftAt: Date.now() };
+      await this.save();
+    }
     this.broadcast(ws);
     await this.schedule();
   }

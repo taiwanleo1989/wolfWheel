@@ -86,15 +86,59 @@ test('確認看過身分、重新發牌會清掉確認', () => {
   assert.deepEqual(G.viewFor(r, new Set(), 'host').acked, []);
 });
 
-test('發牌後不能換座位、不能改板子；但可以接手離線的座位', () => {
+test('發牌後不能換座位、不能改板子；接手離線的座位要主機按同意（Leo 2026-10-22 A1）', () => {
   const r = G.startDeal(fullRoom(), rand).room;
+  const on = new Set(['newPhone', 'host']);
   assert.equal(G.claimSeat(r, 'p1', 2, new Set(['p1'])).ok, false);
   assert.equal(G.setSetup(r, { counts: { wolf: 1 } }).ok, false);
   assert.equal(G.leaveSeat(r, 'p1').ok, false);
-  const take = G.claimSeat(r, 'newPhone', 4, new Set(['newPhone']));
-  assert.equal(take.ok, true);
-  assert.equal(G.viewFor(take.room, new Set(['newPhone']), 'newPhone').you.role, r.game.roles[4], '身分跟著座位走');
   assert.equal(G.claimSeat(r, 'newPhone', 4, new Set(['p4', 'newPhone'])).ok, false, '原主人還在線上就不行');
+  // 申請：還沒接回、看不到身分；主機只看到號碼
+  const req = G.claimSeat(r, 'newPhone', 4, on).room;
+  assert.equal(G.viewFor(req, on, 'newPhone').you.role, undefined, '主機同意前看不到身分');
+  assert.equal(G.viewFor(req, on, 'newPhone').you.requestedSeat, 4);
+  assert.deepEqual(G.viewFor(req, on, 'host').seatRequests, [4]);
+  assert.equal(G.viewFor(req, on, 'host').you.role, undefined, '主機看不到 4 號的角色');
+  assert.equal(G.viewFor(req, on, 'p1').seatRequests, undefined, '別人看不到申請');
+  // 拒絕：申請消失
+  assert.deepEqual(G.viewFor(G.approveSeat(req, 4, false, on).room, on, 'host').seatRequests, []);
+  // 同意：接回座位，身分跟著座位走
+  const ok = G.approveSeat(req, 4, true, on);
+  assert.equal(ok.ok, true);
+  assert.equal(G.viewFor(ok.room, on, 'newPhone').you.role, r.game.roles[4], '身分跟著座位走');
+  // 同意前原主人回來了：不接、申請清掉
+  const back = G.approveSeat(req, 4, true, new Set([...on, 'p4']));
+  assert.equal(back.ok, false);
+  assert.deepEqual(back.room.seatRequests, {});
+  // 主機自己不能接手座位（不然點一下離線座位就看到他的身分）
+  assert.equal(G.claimSeat(r, 'host', 4, on).error, '對局中主機不能接手座位');
+});
+
+test('對局中接手主機：原主機斷線滿 1 分鐘才行，接手後紀錄寫一行（Leo 2026-10-22 A1）', async () => {
+  const E = await import('../src/engine.js');
+  const r = E.startGame(G.startDeal(fullRoom(), rand).room, 0, rand).room;
+  const gone = { ...r, hostLeftAt: 1000 };
+  const early = G.takeHost(gone, 'x', new Set(), 1000 + 30000);
+  assert.equal(early.ok, false);
+  assert.match(early.error, /還要 30 秒/);
+  assert.equal(G.takeHost({ ...r, hostLeftAt: 1000 }, 'x', new Set(['host']), 1e9).error, '主機還在線上');
+  const ok = G.takeHost(gone, 'x', new Set(), 1000 + 60000);
+  assert.equal(ok.ok, true);
+  assert.equal(ok.room.hostClientId, 'x');
+  assert.equal(ok.room.hostLeftAt, null);
+  assert.equal(ok.room.game.log.at(-1).text, '主機換成另一支手機了。');
+  assert.equal(L.claimHost({ ...fullRoom(), hostLeftAt: 1000 }, 'x', new Set(), 1001).ok, true, '大廳不用等');
+});
+
+test('直接重開：「請確認角色身分。」的序號接著上一局往上算，dealNo 加一（2026-10-22 瀏覽器實測：歸零會被舊台詞蓋掉）', async () => {
+  const E = await import('../src/engine.js');
+  const g = E.startGame(G.startDeal(fullRoom(), rand).room, 0, rand).room;
+  const seq = g.game.narration.seq;
+  const again = G.restart(g, rand).room;
+  assert.equal(again.game.narration.seq, seq + 1);
+  assert.equal(again.game.narration.text, '請確認角色身分。');
+  assert.equal(again.dealNo, g.dealNo + 1);
+  assert.equal(G.viewFor(again, new Set(), 'p1').dealNo, again.dealNo);
 });
 
 test('改板子：只改規則不動角色；改角色不動規則；送來的 preset 一律不理', () => {
