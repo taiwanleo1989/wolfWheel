@@ -163,12 +163,12 @@ function render() {
     if (state.you.isHost) {
       voice.onNarration(state.game.narration);
       voice.setNight(state.phase === 'night');
-    }
+    } else voice.setNight(false); // 原本是主機、被別支手機接手後變成玩家：背景音樂要停（2026-10-22 驗測）
     renderGame({ state, $, setHTML, esc, send, toast, voice, render });
     return;
   }
   document.body.classList.remove('is-night');
-  if (state.you.isHost) voice.setNight(false); // 夜裡直接重開回到這裡：背景音樂要停
+  voice.setNight(false); // 夜裡直接重開回到這裡：背景音樂要停（不是主機的手機沒在播，呼叫也沒事）
 
   if (state.you.isHost) {
     show('host');

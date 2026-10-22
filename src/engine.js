@@ -56,10 +56,22 @@ export const REPEAT_MS = 30000;
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
 export const waitingForPeople = room => room.phase === 'night' && room.game?.night?.stage === 'acting' && room.game.night.wait === 'people';
-export function pauseRepeat(room) { return { ...room, game: { ...room.game, timer: null } }; }
+// 這一下鬧鐘是不是「重唸」：等活著的角色；或死掉的角色假等還沒結束（到 fakeEnd 那一下是假等結束，不是重唸）
+export const repeatDue = (room, now) => waitingForPeople(room)
+  || (room.phase === 'night' && room.game?.night?.stage === 'acting' && room.game.night.wait === 'fake' && now < room.game.night.fakeEnd);
+// 主機不在線上就不重唸——活的、死的同一套（2026-10-22 驗測：本來死掉的角色照樣重唸，主機重連時馬上補唸＝洩漏他死了）。
+// 死掉的角色只拿掉重唸，假等照樣在 fakeEnd 結束（跟活人在主機離線時按完一樣）
+export function pauseRepeat(room) {
+  const n = room.game.night;
+  return { ...room, game: { ...room.game, timer: n?.wait === 'fake' ? { at: n.fakeEnd } : null, night: n && { ...n, repeatPaused: true } } };
+}
 export function resumeRepeat(room, now) {
-  if (!waitingForPeople(room) || room.game.timer) return room;
-  return { ...room, game: { ...room.game, timer: { at: now + REPEAT_MS } } };
+  const n = room.game?.night;
+  if (waitingForPeople(room) && !room.game.timer) return { ...room, game: { ...room.game, timer: { at: now + REPEAT_MS } } };
+  if (room.phase === 'night' && n?.stage === 'acting' && n.wait === 'fake' && n.repeatPaused && now < n.fakeEnd) {
+    return { ...room, game: { ...room.game, timer: { at: Math.min(n.fakeEnd, now + REPEAT_MS) }, night: { ...n, repeatPaused: false } } };
+  }
+  return room;
 }
 
 const ok = room => ({ ok: true, room });
@@ -144,6 +156,7 @@ function openBeat(room, g, now, rand) {
   const beat = curBeat(room, n);
   n.stage = 'acting';
   n.openedAt = now;
+  n.repeatPaused = false;
   say(g, beat.say);
   if (beat.act === null) { n.wait = 'police'; g.timer = { at: now + POLICE_MS }; }
   else if (actors(g, curStep(n)).length === 0) {
@@ -397,6 +410,7 @@ export function shoot(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('現在不能開槍');
   const seat = L.seatOf(room, clientId);
   if (!seat || !room.game.canShoot.includes(seat)) return fail('你現在不能開槍');
+  if (room.game.day?.idiotChoice) return fail('請等被放逐的玩家選擇'); // 有槍時不能放逐（見 exile），照理到不了這裡
   const g = structuredClone(room.game);
   g.canShoot = g.canShoot.filter(s => s !== seat);
   target = Number(target ?? 0);
@@ -416,6 +430,9 @@ export function exile(room, target, now = 0) {
   const blocked = pendingBlock(room); if (blocked) return blocked;
   if (room.game.day.nightCalled) return fail('今天直接天黑，不放逐');
   if (room.game.day.exileDone) return fail('今天已經放逐過了');
+  // 槍開完才能放逐（Leo 2026-10-22 ⑥A）：不然白癡選翻不翻時被槍帶走，死人還能翻牌免死。
+  // 能開槍的人出局時已經喊過「N 號，請啟動角色技能」，擋住不會多洩漏；主機按天黑照樣作廢沒開的槍
+  if (room.game.canShoot.length) return fail('請等開槍的玩家先選');
   const g = structuredClone(room.game);
   target = Number(target ?? 0);
   g.day.exileDone = true;
@@ -594,6 +611,9 @@ const HOUSE_RULE_TEXT = {
 function checkWin(room, seq0) {
   const g = room.game;
   let w = winnerOf(g, room.setup.counts, room.setup.rules);
+  // 狼死光了、但狼王還能開槍：先等他開（帶走最後一個神或民＝兩邊同時達成＝狼勝；Leo 2026-10-22 ⑤A）。
+  // 狼人已經贏的局面不用等：再開槍只會讓好人更少
+  if (w === 'good' && g.canShoot.some(s => isWolfRole(g.roles[s]))) w = null;
   const house = w ? null : houseRuleWin(g, room.setup.rules);
   if (g.day && !g.canShoot.length) g.day.bindCheck = false; // 綁票只在天亮那一刻看（槍都開完之後）
   if (house) w = 'wolf';

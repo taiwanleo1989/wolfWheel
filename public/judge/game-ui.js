@@ -101,10 +101,10 @@ function renderAction() {
         <p class="witch-info">${info}</p>
         ${a.selfBlocked ? '<p class="hint">依照規則，女巫不能救自己。</p>' : ''}
         <p class="hint">一晚只能用一瓶藥：用了解藥，今晚就不能再用毒藥。</p>
-        <div class="row-gap">
+        ${confirmBox || `<div class="row-gap">
           ${a.canSave ? `<button class="btn primary" type="button" data-do="save">👍 救 ${a.victim} 號</button>` : ''}
           <button class="btn${a.canSave ? '' : ' primary'}" type="button" data-do="noSave">${a.canSave ? '👎 不救' : '繼續'}</button>
-        </div>`;
+        </div>`}`;
     } else if (a.kind === 'witchPoison') {
       html = `<h2>請問你要使用毒藥嗎？</h2>
         ${a.savedTonight ? '<p class="hint">今晚已經用過解藥，不能再用毒藥。</p>'
@@ -223,10 +223,11 @@ function onAction(e) {
     case 'wolf0': act({ target: 0 }); break;
     case 'wolfYes': act({ confirm: true }); break;
     case 'wolfNo': act({ reset: true }); break;
-    // 女巫解藥（👍／👎）、毒藥不用、預言家看完、獵人看完
-    case 'save': act({ use: 'save' }); break;
-    case 'noSave': act({ use: 'skip' }); break;
-    case 'none': act({ use: 'none' }); break;
+    // 女巫解藥（👍／👎）、毒藥不用：有得選才問「是否正確」（Leo 2026-10-22 ⑦A）；沒得選的「繼續」直接送
+    case 'save': ask(`今晚要用解藥救 ${c.state.you.game.action.victim} 號`, { use: 'save' }); break;
+    case 'noSave': if (c.state.you.game.action.canSave) ask('今晚不使用解藥', { use: 'skip' }); else act({ use: 'skip' }); break;
+    case 'none': if (c.state.you.game.action.canPoison) ask('今晚不使用毒藥', { use: 'none' }); else act({ use: 'none' }); break;
+    // 預言家看完、獵人看完
     case 'seerDone': act({ done: true }); break;
     case 'gargoyleDone': act({ done: true }); break;
     case 'graveSeen': act({ seen: true }); break;
@@ -355,7 +356,8 @@ function onHost(e) {
       send({ type: 'nextNight' }); break;
     case 'restart':
       if (state.phase !== 'ended' && !confirm('直接重開？這局作廢，座位和板子不變，馬上重新發牌（每個人身分都會換）。')) return;
-      voice.stop(); voice.setNight(false); send({ type: 'restart' }); break;
+      // 重開後台詞序號從頭算：先歸零，不然「請確認角色身分。」會被當成舊台詞不唸（2026-10-22 驗測）
+      voice.stop(); voice.setNight(false); voice.expectFresh(); send({ type: 'restart' }); break;
     case 'newGame':
       if (state.phase !== 'ended' && !confirm('這局作廢，回到設定（可以改板子、人數）？')) return;
       voice.stop(); voice.setNight(false); send({ type: 'newGame' }); break;

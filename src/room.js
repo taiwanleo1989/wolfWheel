@@ -130,8 +130,9 @@ export class Room extends DurableObject {
   async alarm() {
     if (!this.room) return;
     const t = this.room.game?.timer?.at;
-    if (t && E.waitingForPeople(this.room) && !this.onlineIds().has(this.room.hostClientId)) {
+    if (t && E.repeatDue(this.room, Math.max(Date.now(), t)) && !this.onlineIds().has(this.room.hostClientId)) {
       // 該重唸了，但主機不在線上（沒人出聲）：不重唸、不更新最後活動時間，讓沒人的房間 2 小時後照樣清掉
+      // 死掉的角色也一樣不重唸、只留假等結束那一下（見 E.pauseRepeat）
       this.room = E.pauseRepeat(this.room);
       await this.save();
       await this.schedule();

@@ -379,11 +379,12 @@ test('騎士只能在投票放逐之前、沒人等開槍時決鬥（Leo 2026-10
 test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在一起唸（不會被蓋掉）', () => {
   let r = night(newGame());
   for (const wolf of [1, 2, 3]) r = night(E.nextNight(E.exile(r, wolf).room, 1e6).room);
-  r = E.exile(r, 4).room;
+  r = E.exile(r, 4).room; // 最後一隻是狼王：先等他開槍（Leo 2026-10-22 ⑤A）
+  r = E.shoot(r, id(4), 9).room;
   assert.equal(r.phase, 'ended');
-  assert.equal(r.game.narration.text, '4 號被放逐出局。遊戲結束，好人陣營獲勝！');
+  assert.equal(r.game.narration.text, '4 號發動技能，帶走了 9 號。遊戲結束，好人陣營獲勝！');
   assert.equal(r.game.log.at(-1).text, '遊戲結束，好人陣營獲勝！');
-  assert.equal(r.game.log.at(-2).text, '4 號被放逐出局。');
+  assert.equal(r.game.log.at(-2).text, '4 號發動技能，帶走了 9 號。');
 });
 
 test('勝負（屠邊／屠城）', () => {
@@ -525,6 +526,8 @@ test('結束後翻開所有人身分，可以再來一局（座位與板子保�
     r = night(E.nextNight(r, 1e6).room);
   }
   r = E.exile(r, 4).room;
+  assert.equal(r.phase, 'day', '狼王還能開槍（Leo 2026-10-22 ⑤A）');
+  r = E.shoot(r, id(4), 0).room;
   assert.equal(r.phase, 'ended');
   assert.equal(r.game.winner, 'good');
   assert.ok(E.publicGame(r).allRoles);
@@ -749,4 +752,51 @@ test('重唸的鬧鐘：主機離線時房間會先停掉（不讓沒人的房�
   const day = night(newGame());
   assert.equal(E.resumeRepeat(day, 5000), day, '白天不會有重唸');
   assert.equal(E.waitingForPeople(day), false);
+});
+
+test('狼死光但狼王還能開槍：先等他開；帶走最後一個神＝同時達成＝狼勝（Leo 2026-10-22 ⑤A）', () => {
+  // 1 狼王、2 預言家、3–5 平民；屠邊
+  const board = { king: 1, seer: 1, villager: 3 };
+  let r = night(newGame(board), { wolf: 3 });
+  r = E.exile(r, 1).room;
+  assert.equal(r.phase, 'day', '狼王還能開槍，先不判');
+  assert.deepEqual(r.game.canShoot, [1]);
+  assert.equal(r.game.narration.text, '1 號被放逐出局。1 號，請啟動角色技能。');
+  const shot = E.shoot(r, id(1), 2).room;
+  assert.equal(shot.phase, 'ended');
+  assert.equal(shot.game.winner, 'wolf');
+  assert.equal(shot.game.narration.text, '1 號發動技能，帶走了 2 號。遊戲結束，狼人陣營獲勝！');
+  assert.equal(E.shoot(r, id(1), 0).room.game.winner, 'good', '不開槍：好人勝');
+  assert.equal(E.nextNight(r, 1e6).room.game.winner, 'good', '主機按天黑作廢這槍：好人勝');
+  // 狼人已經贏了：獵人的槍不用等
+  const h = night(newGame({ wolf: 1, hunter: 1, villager: 2 }), { wolf: 2 }); // 1 狼、2 獵人、3–4 民
+  assert.equal(h.phase, 'ended');
+  assert.equal(h.game.winner, 'wolf');
+});
+
+test('槍開完才能放逐：白癡選翻不翻時不會被槍帶走（Leo 2026-10-22 ⑥A；驗測抓到死人還能翻牌免死）', () => {
+  // 1–4 狼、5 預、6 女、7 獵、8 白癡、9–12 民
+  const r = night(newGame('yu-nv-lie-bai'), { wolf: 7 });
+  assert.deepEqual(r.game.canShoot, [7]);
+  const blocked = E.exile(r, 8);
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error, '請等開槍的玩家先選');
+  const ex = E.exile(E.shoot(r, id(7), 0).room, 8).room;
+  assert.equal(ex.game.day.idiotChoice, 8);
+  assert.equal(E.shoot(ex, id(7), 8).ok, false, '槍已經開過');
+  assert.equal(E.nextNight(r, 1e6).room.phase, 'night', '主機按天黑照樣作廢沒開的槍');
+});
+
+test('主機離線時死掉的角色也不重唸、只留假等結束那一下；主機回來跟活人一樣接著算（2026-10-22 驗測：重連會洩漏誰死了）', () => {
+  const r = play(newGame(), {}, atAct('wolf'));
+  const t0 = r.game.night.openedAt;
+  const dead = { ...r, game: { ...r.game, timer: { at: t0 + E.REPEAT_MS }, night: { ...r.game.night, wait: 'fake', fakeEnd: t0 + 40000 } } };
+  assert.equal(E.repeatDue(dead, t0 + E.REPEAT_MS), true);
+  const paused = E.pauseRepeat(dead);
+  assert.equal(paused.game.timer.at, t0 + 40000, '假等結束那一下留著，重唸拿掉');
+  assert.equal(E.repeatDue(paused, t0 + 40000), false, '到 fakeEnd 是假等結束，不是重唸');
+  assert.equal(E.advance(paused, t0 + 40000, minRand).room.game.night.stage, 'pause');
+  assert.equal(E.resumeRepeat(paused, t0 + 5000).game.timer.at, t0 + 5000 + E.REPEAT_MS, '主機回來：跟活人一樣 30 秒後重唸');
+  assert.equal(E.resumeRepeat(paused, t0 + 35000).game.timer.at, t0 + 40000, '假等先到就先結束');
+  assert.equal(E.resumeRepeat(dead, t0 + 5000), dead, '沒停過就不動');
 });

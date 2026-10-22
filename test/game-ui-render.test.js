@@ -47,17 +47,17 @@ function toStep(r, name) {
 
 // 跟 app.js 一樣的介面：畫一次；click(區塊, 屬性, 值) 模擬點按鈕後重畫
 function mount(room, clientId) {
-  const els = {};
+  const els = {}, sent = [], voiceCalls = [];
   const $ = s => (els[s] ??= { hidden: false, textContent: '', innerHTML: '', className: '', addEventListener(_, fn) { this.fn = fn; } });
   const ctx = {
-    state: G.viewFor(room, everyone(room), clientId), $, esc: s => String(s), send() {}, toast() {},
+    state: G.viewFor(room, everyone(room), clientId), $, esc: s => String(s), send: m => sent.push(m), toast() {},
     render: () => renderGame(ctx), setHTML: (el, h) => { el.innerHTML = h; },
-    voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {} },
+    voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {}, stop() {}, setNight() {}, expectFresh: () => voiceCalls.push('expectFresh') },
   };
   renderGame(ctx);
   bindGame($);
   const click = (box, attr, value) => $(box).fn({ target: { closest: q => (q === `[data-${attr}]` ? { dataset: { [attr]: value } } : null) } });
-  return { $, click, html: box => $(box).innerHTML };
+  return { $, click, html: box => $(box).innerHTML, sent, voiceCalls };
 }
 
 test('夜裡：狼美人、石像鬼、守墓人的手機畫面', () => {
@@ -142,4 +142,41 @@ test('夜裡：狼王的帶槍手勢畫面有「知道了」按鈕，按了往�
   renderGame({ state: v, $, esc: s => String(s), send() {}, toast() {}, render() {}, setHTML: (el, h) => { el.innerHTML = h; }, voice: { unlocked: true, bgmOn: false, voiceName: '測試', unlock() {} } });
   assert.match($('#actionBox').innerHTML, /網頁是舊版[\s\S]*data-do="reload"/);
   assert.equal($('#actionBox').hidden, false);
+});
+
+test('女巫：救、不救、毒藥不使用都先問「是否正確」；沒得選的「繼續」直接走（Leo 2026-10-22 ⑦A）', () => {
+  let r = toStep(newGame(), 'wolf');
+  for (const w of E.actors(r.game, 'wolf')) r = E.nightAction(r, id(w), { target: 12 }, everyone(r), 0, minRand).room;
+  r = E.nightAction(r, id(1), { confirm: true }, everyone(r), 0, minRand).room;
+  r = toStep(r, 'witch');
+  for (const [btn, text] of [['save', /今晚要用解藥救 12 號，是否正確/], ['noSave', /今晚不使用解藥，是否正確/]]) {
+    const m = mount(r, id(8));
+    m.click('#actionBox', 'do', btn);
+    assert.match(m.html('#actionBox'), text);
+    assert.deepEqual(m.sent, [], '按「正確」之前不送出');
+    m.click('#actionBox', 'do', 'yes');
+    assert.deepEqual(m.sent.map(s => s.payload.use), [btn === 'save' ? 'save' : 'skip']);
+  }
+  r = E.nightAction(r, id(8), { use: 'skip' }, everyone(r), 0, minRand).room;
+  r = toStep(r, 'witch');
+  const m = mount(r, id(8));
+  m.click('#actionBox', 'do', 'none');
+  assert.match(m.html('#actionBox'), /今晚不使用毒藥，是否正確/);
+  assert.deepEqual(m.sent, []);
+  // 今晚沒人死、解藥沒得用：「繼續」直接走
+  const quiet = toStep(newGame(), 'witch');
+  const q = mount(quiet, id(8));
+  q.click('#actionBox', 'do', 'noSave');
+  assert.deepEqual(q.sent.map(s => s.payload.use), ['skip']);
+});
+
+test('直接重開、再來一局：主機先把台詞序號歸零，「請確認角色身分。」才會唸（2026-10-22 驗測）', () => {
+  const r = toStep(newGame(), 'guard');
+  globalThis.window = { confirm: () => true };
+  try {
+    const m = mount(r, 'host');
+    m.click('#hostCtl', 'host', 'restart');
+    assert.deepEqual(m.voiceCalls, ['expectFresh']);
+    assert.deepEqual(m.sent, [{ type: 'restart' }]);
+  } finally { delete globalThis.window; }
 });
