@@ -97,10 +97,11 @@ export const voice = {
   // 每次收到新狀態呼叫：台詞編號變大就唸
   onNarration(narration, { replay = false } = {}) {
     if (!narration) return;
-    // 按了直接重開：確認視窗那幾秒還在路上的舊局台詞不唸，等到新局那句（最多等 8 秒，重開失敗也不會一直沒聲音）
+    // 按了直接重開：確認視窗那幾秒還在路上的舊局台詞不唸，等到新局那句。等不到（重開失敗）就在 8 秒後、
+    // 或伺服器回錯時（release）補唸最後收到的那句，不會整段沒聲音（2026-10-23 審查）
     if (waitFor && !replay) {
-      if (Date.now() < waitFor.until && !narration.clips?.includes(waitFor.clip)) return;
-      waitFor = null;
+      if (!narration.clips?.includes(waitFor.clip)) { waitFor.held = narration; return; }
+      this.release(false);
     }
     if (lastSeq === null && !replay) { lastSeq = narration.seq; return; } // 剛連上：不重唸舊的
     if (!replay && narration.seq <= lastSeq) return;
@@ -174,7 +175,18 @@ export const voice = {
   // 剛變成主機（接手、或拿回主機）：當作剛連上，從下一句開始唸——手機記的序號可能停在別局（2026-10-22 驗測）
   resync() { lastSeq = null; },
   // 直接重開：舊局的台詞先不唸，等到這個片段（請確認角色身分）（2026-10-22 瀏覽器實測：會先唸一句舊局的「要上警的玩家請起立。」）
-  holdUntil(clip) { waitFor = { clip, until: Date.now() + 8000 }; },
+  holdUntil(clip) {
+    this.release(false);
+    waitFor = { clip, held: null, timer: setTimeout(() => this.release(), 8000) };
+  },
+  // 不等了：catchUp＝把擋住期間最後收到的那句照常處理（序號比較新就唸）
+  release(catchUp = true) {
+    if (!waitFor) return;
+    clearTimeout(waitFor.timer);
+    const held = waitFor.held;
+    waitFor = null;
+    if (catchUp && held) this.onNarration(held);
+  },
 };
 
 // 一直播一段聽不到的極小聲音（約 -80 dB）：白天背景音樂停了、沒在唸台詞時，iPhone 會把沒聲音的網頁聲音系統暫停，

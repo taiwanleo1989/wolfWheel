@@ -18,7 +18,7 @@ export function renderGame(ctx) {
 
   $('#phaseTag').textContent = phase === 'night' ? `第 ${g.dayNo} 夜` : phase === 'day' ? `第 ${g.dayNo} 天` : '遊戲結束';
   $('#gameCode').textContent = state.code;
-  $('#seatMini').textContent = seat ? `・你是 ${seat} 號` : '・主機';
+  $('#seatMini').textContent = seat ? `・你是 ${seat} 號` : state.you.isHost ? '・主機' : '・沒有座位';
   document.body.classList.toggle('is-night', phase === 'night');
 
   setHTML($('#narration'), g.narration ? `<span>${esc(g.narration.text)}</span>` : '');

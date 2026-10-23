@@ -200,3 +200,43 @@ test('發牌時主機唸「請確認角色身分。」；重新發牌再唸一�
   assert.equal(r.game.narration.seq, 3);
   assert.equal(G.viewFor(r, new Set(), 'host').narration, undefined, '開局後只用 game.narration');
 });
+
+test('換手機的漏洞（2026-10-23 審查）：自己同意自己、蓋掉別人的申請、原手機回來、跨局殘留、yes 不是 true', async () => {
+  const E = await import('../src/engine.js');
+  const r = E.startGame(G.startDeal(fullRoom(), rand).room, 0, rand).room;
+  const on = new Set(['X', 'A', 'host']);
+  // 先申請、再接手主機：接手時申請作廢；硬湊出「申請者就是主機」也同意不了
+  const req = G.claimSeat(r, 'X', 5, on).room;
+  const host = G.takeHost({ ...req, hostLeftAt: 0 }, 'X', new Set(['X']), 60000).room;
+  assert.equal(host.hostClientId, 'X');
+  assert.deepEqual(host.seatRequests, {}, '新主機原本的申請作廢');
+  const self = G.approveSeat({ ...req, hostClientId: 'X' }, 5, true, on);
+  assert.equal(self.ok, false);
+  assert.equal(self.error, '主機不能同意自己接手座位');
+  // 同一號有別支在線上的手機在申請：不能蓋掉；那支離線了才可以
+  assert.match(G.claimSeat(req, 'A', 5, on).error, /已經有一支手機在申請 5 號/);
+  assert.equal(G.claimSeat(req, 'A', 5, new Set(['A'])).room.seatRequests[5], 'A');
+  // 原本的手機回來（打招呼）：申請作廢；主機回來：不再算斷線時間
+  assert.deepEqual(G.hello(req, 'p5').seatRequests, {});
+  assert.equal(G.hello({ ...req, hostLeftAt: 5 }, 'host').hostLeftAt, null);
+  assert.equal(G.hello(req, 'p1'), req, '別人打招呼不動');
+  // 主機斷線記時間；沒記到時間的話，接手要從現在開始等 1 分鐘
+  assert.equal(G.left(r, new Set(), 777).hostLeftAt, 777);
+  assert.equal(G.left(r, new Set(['host']), 777), r);
+  const noTime = G.takeHost(r, 'X', new Set(['X']), 5000);
+  assert.equal(noTime.ok, false);
+  assert.equal(noTime.room.hostLeftAt, 5000);
+  // 只有明確的 true 才算同意
+  for (const yes of ['0', 'false', 1, 'yes']) {
+    const res = G.approveSeat(req, 5, yes, on);
+    assert.equal(res.ok, true);
+    assert.equal(res.room.seats[5], 'p5', `yes=${JSON.stringify(yes)} 不能當同意`);
+  }
+  // 不帶到下一局
+  assert.deepEqual(G.restart(req, rand).room.seatRequests, {});
+  assert.deepEqual(E.newGame(req).room.seatRequests, {});
+  assert.deepEqual(G.backToSetup(G.claimSeat(G.startDeal(fullRoom(), rand).room, 'X', 5, on).room).room.seatRequests, {});
+  // 只有主機能送
+  for (const t of ['approveSeat', 'restart', 'deal', 'exile', 'nextNight', 'skip']) assert.ok(G.HOST_ONLY.includes(t), t);
+  assert.ok(!G.HOST_ONLY.includes('claimSeat') && !G.HOST_ONLY.includes('claimHost'));
+});

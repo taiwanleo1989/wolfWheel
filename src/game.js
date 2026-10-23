@@ -49,17 +49,18 @@ export function redeal(room, rand) {
   return { ok: true, room: { ...room, dealNo: (room.dealNo ?? 0) + 1, game: { roles: R.deal(room.setup.counts, room.players, rand), acked: {}, narration: checkRole(room.game.narration) } } };
 }
 
-// 直接重開（Leo 2026-10-11）：對局中、結束後、發牌中都可以；座位與板子不變，馬上重新發牌
+// 直接重開（Leo 2026-10-11）：對局中、結束後、發牌中都可以；座位與板子不變，馬上重新發牌。
+// 換手機接手座位的申請不帶到下一局（2026-10-23 審查：主機下一局還看到舊申請），要接手的手機重新點一次
 export function restart(room, rand) {
   if (!['deal', 'night', 'day', 'ended'].includes(room.phase)) return { ok: false, error: '現在不能重開' };
   const { game, ...rest } = room;
-  return startDeal({ ...rest, phase: 'lobby' }, rand, game?.narration);
+  return startDeal({ ...rest, phase: 'lobby', seatRequests: {} }, rand, game?.narration);
 }
 
 export function backToSetup(room) {
   if (room.phase !== 'deal') return { ok: false, error: '現在不能回到設定' };
   const { game, ...rest } = room;
-  return { ok: true, room: { ...rest, phase: 'lobby' } };
+  return { ok: true, room: { ...rest, phase: 'lobby', seatRequests: {} } };
 }
 
 export function ack(room, clientId) {
@@ -80,9 +81,13 @@ export function claimSeat(room, clientId, seat, online) {
   const holder = room.seats[seat];
   if (!holder) return { ok: false, error: '沒有這個座位' };
   if (online.has(holder)) return { ok: false, error: `${seat} 號的手機還在線上` };
-  const requests = Object.fromEntries(Object.entries(room.seatRequests ?? {}).filter(([, c]) => c !== clientId)); // 一支手機只留最後一個申請
-  return { ok: true, room: { ...room, seatRequests: { ...requests, [seat]: clientId } } };
+  // 同一號已經有別支（還在線上的）手機在申請：不能蓋掉——主機口頭確認的是前一個人，按同意卻會給到後一個（2026-10-23 審查）
+  const other = room.seatRequests?.[seat];
+  if (other && other !== clientId && online.has(other)) return { ok: false, error: `已經有一支手機在申請 ${seat} 號，請主機先同意或拒絕` };
+  return { ok: true, room: { ...room, seatRequests: { ...dropRequestsBy(room.seatRequests, clientId), [seat]: clientId } } }; // 一支手機只留最後一個申請
 }
+
+const dropRequestsBy = (reqs, clientId) => Object.fromEntries(Object.entries(reqs ?? {}).filter(([, c]) => c !== clientId));
 
 // 主機：同意／拒絕換手機接手座位。同意前再確認一次原本的手機還是離線、申請的手機還在
 export function approveSeat(room, seat, yes, online) {
@@ -91,7 +96,9 @@ export function approveSeat(room, seat, yes, online) {
   if (room.phase === 'lobby' || !req) return { ok: false, error: '沒有這個申請' };
   const { [seat]: _, ...rest } = room.seatRequests;
   const cleared = { ...room, seatRequests: rest };
-  if (!yes) return { ok: true, room: cleared };
+  if (yes !== true) return { ok: true, room: cleared }; // 只有明確的 true 才算同意
+  // 先申請座位、再接手主機，就能自己同意自己＝繞過「主機不能接手座位」（2026-10-23 審查；接手主機時也會清掉他的申請）
+  if (req === room.hostClientId) return { ok: false, error: '主機不能同意自己接手座位', room: cleared };
   if (online.has(room.seats[seat])) return { ok: false, error: `${seat} 號原本的手機已經回來了`, room: cleared };
   if (!online.has(req)) return { ok: false, error: '申請的手機已經離線了', room: cleared };
   if (L.seatOf(room, req)) return { ok: false, error: '申請的手機已經有座位了', room: cleared };
@@ -99,12 +106,35 @@ export function approveSeat(room, seat, yes, online) {
   return r.ok ? { ok: true, room: withLog(r.room, `${seat} 號換了一支手機（主機同意）。`) } : r;
 }
 
-// 換主機：對局中要等原主機斷線滿 1 分鐘（見 L.claimHost），接手後全場紀錄都看得到
+// 換主機：對局中要等原主機斷線滿 1 分鐘（見 L.claimHost），接手後全場紀錄都看得到；
+// 新主機原本申請的座位作廢（主機不能接手座位）
 export function takeHost(room, clientId, online, now) {
+  // 主機離線、但沒記到斷線時間（舊房間、斷線那下房間剛好重啟）：從現在開始算 1 分鐘，不能馬上接手（2026-10-23 審查）
+  if (room.phase !== 'lobby' && room.hostLeftAt == null && room.hostClientId && room.hostClientId !== clientId && !online.has(room.hostClientId)) {
+    return { ok: false, error: `主機斷線 1 分鐘後才能接手（還要 ${L.HOST_TAKEOVER_MS / 1000} 秒）`, room: { ...room, hostLeftAt: now } };
+  }
   const r = L.claimHost(room, clientId, online, now);
   if (!r.ok || r.room === room) return r;
-  return { ok: true, room: withLog(r.room, '主機換成另一支手機了。') };
+  return { ok: true, room: withLog({ ...r.room, seatRequests: dropRequestsBy(r.room.seatRequests, clientId) }, '主機換成另一支手機了。') };
 }
+
+// 房間收到某支手機打招呼：主機回來＝不再算斷線時間；座位原本的手機回來＝那個座位的接手申請作廢（2026-10-23 審查）
+export function hello(room, clientId) {
+  let r = room;
+  if (r.hostClientId === clientId && r.hostLeftAt != null) r = { ...r, hostLeftAt: null };
+  const seat = L.seatOf(r, clientId);
+  if (seat && r.seatRequests?.[seat]) { const { [seat]: _, ...rest } = r.seatRequests; r = { ...r, seatRequests: rest }; }
+  return r;
+}
+
+// 有手機斷線：主機斷線就記下時間（對局中別的手機要等滿 1 分鐘才能接手）
+export function left(room, online, now) {
+  if (room.hostLeftAt != null || !room.hostClientId || online.has(room.hostClientId)) return room;
+  return { ...room, hostLeftAt: now };
+}
+
+// 只有主機能送的訊息（房間收到別支手機送的就擋掉）
+export const HOST_ONLY = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce', 'approveSeat'];
 
 // 對局紀錄（每支手機都看得到）；發牌階段還沒有紀錄就不寫
 function withLog(room, text) {

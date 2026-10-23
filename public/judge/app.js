@@ -156,8 +156,14 @@ function renderDealHost() {
 /* ───────── 畫面總指揮 ───────── */
 function render() {
   if (!state) return;
-  if (session.asHost && !state.you.isHost && !ui.warned) { ui.warned = true; toast('這個房間已經有主機了，你以玩家身分加入'); }
+  // session.asHost＝「這支手機是主機」，重連時會自動要回主機：只在真的當上主機時記，不是主機了就拿掉（2026-10-23 審查：
+  // 接手太早被拒還留著，跳出誤導的提示、之後每次重連都自動搶主機）
+  if (session.asHost && !state.you.isHost) {
+    if (!ui.warned) { ui.warned = true; toast('這個房間已經有主機了，你以玩家身分加入'); }
+    session.asHost = false; store.set('ww-judge', JSON.stringify(session));
+  } else if (state.you.isHost && !session.asHost) { session.asHost = true; store.set('ww-judge', JSON.stringify(session)); }
   if (state.you.role !== ui.lastRole) { ui.lastRole = state.you.role; ui.revealed = false; } // 重新發牌就重新蓋牌
+  if (state.dealNo !== ui.dealNo) { ui.dealNo = state.dealNo; ui.revealed = false; } // 新局抽到同一個角色也要重新蓋牌（2026-10-23 審查）
   if (state.you.isHost && !ui.wasHost) voice.resync(); // 剛接手（或拿回）主機：從下一句開始唸
   ui.wasHost = state.you.isHost;
   const lobby = state.phase === 'lobby';
@@ -251,7 +257,7 @@ function connect() {
     if (e.data === 'pong') { clearTimeout(pongTimer); return; }
     let m; try { m = JSON.parse(e.data); } catch { return; }
     if (m.type === 'state') { state = m; render(); }
-    else if (m.type === 'error') toast(m.error);
+    else if (m.type === 'error') { toast(m.error); if (state?.you?.isHost) voice.release(); } // 例如重開失敗：別再擋著台詞
   };
   sock.onclose = async e => {
     stopPing();
@@ -352,7 +358,7 @@ $('#resumeBtn').onclick = () => session && enter(session.code, session.asHost);
 $('#minus').onclick = () => state && send({ type: 'setPlayers', players: state.players - 1 });
 $('#plus').onclick = () => state && send({ type: 'setPlayers', players: state.players + 1 });
 $('#changeSeat').onclick = () => { ui.picking = true; render(); };
-function takeHost() { session.asHost = true; store.set('ww-judge', JSON.stringify(session)); send({ type: 'claimHost' }); }
+function takeHost() { send({ type: 'claimHost' }); } // 當上了才記 session.asHost（見 render）
 $('#takeHost').onclick = takeHost;
 $('#dealRequests').addEventListener('click', e => approveFromClick(e, msg => { voice.unlock(); send(msg); }));
 for (const b of document.querySelectorAll('[data-leave]')) b.onclick = () => { if (confirm('確定離開這個房間？')) leave(); };

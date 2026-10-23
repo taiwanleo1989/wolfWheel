@@ -64,10 +64,13 @@ export class Room extends DurableObject {
       }
       if (msg.asHost) {
         const r = G.takeHost(this.room, clientId, this.onlineIds(ws), Date.now());
-        if (r.ok) this.room = r.room; else this.send(ws, { type: 'error', error: r.error });
+        if (r.ok || r.room) this.room = r.room; // 失敗也可能要存（開始算主機斷線時間）
+        if (!r.ok) this.send(ws, { type: 'error', error: r.error });
       }
-      // 主機回來了：不再算斷線時間；夜裡還在等角色的話，接著每 30 秒重唸
-      if (this.room.hostClientId === clientId) this.room = E.resumeRepeat({ ...this.room, hostLeftAt: null }, Date.now());
+      // 主機回來＝不再算斷線時間；座位原本的手機回來＝那個座位的接手申請作廢（G.hello）
+      this.room = G.hello(this.room, clientId);
+      // 主機回來了：夜裡還在等角色的話，接著每 30 秒重唸
+      if (this.room.hostClientId === clientId) this.room = E.resumeRepeat(this.room, Date.now());
       await this.touch();
       return;
     }
@@ -75,9 +78,8 @@ export class Room extends DurableObject {
 
     const online = this.onlineIds();
     const isHost = this.room.hostClientId === me.clientId;
-    const hostOnly = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce', 'approveSeat'];
     const now = Date.now();
-    if (hostOnly.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
+    if (G.HOST_ONLY.includes(msg.type) && !isHost) return this.send(ws, { type: 'error', error: '只有主機能做這件事' });
     let result;
     switch (msg.type) {
       case 'claimSeat': result = G.claimSeat(this.room, me.clientId, msg.seat, online); break;
@@ -122,11 +124,9 @@ export class Room extends DurableObject {
   async onLeave(ws) {
     try { ws.close(1000); } catch {}
     if (!this.room) return;
-    // 主機斷線：記下時間，對局中別的手機要等滿 1 分鐘才能接手（見 L.claimHost）
-    if (this.room.hostLeftAt == null && !this.onlineIds(ws).has(this.room.hostClientId)) {
-      this.room = { ...this.room, hostLeftAt: Date.now() };
-      await this.save();
-    }
+    // 主機斷線：記下時間，對局中別的手機要等滿 1 分鐘才能接手（見 G.left、L.claimHost）
+    const next = G.left(this.room, this.onlineIds(ws), Date.now());
+    if (next !== this.room) { this.room = next; await this.save(); }
     this.broadcast(ws);
     await this.schedule();
   }

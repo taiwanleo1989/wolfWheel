@@ -653,7 +653,7 @@ function askSkill(g, seq0) {
 export function newGame(room) {
   if (room.phase !== 'ended' && room.phase !== 'day' && room.phase !== 'night') return fail('現在不能重開');
   const { game, ...rest } = room;
-  return ok({ ...rest, phase: 'lobby' });
+  return ok({ ...rest, phase: 'lobby', seatRequests: {} }); // 換手機接手座位的申請不帶到下一局
 }
 
 /* ───────── 每支手機看到的內容 ───────── */
