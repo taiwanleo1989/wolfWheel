@@ -50,8 +50,8 @@ export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
 
 // 夜裡角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒）。
-// 死掉的角色也一樣（Leo 2026-10-17「角色死亡也是要講 30 秒」）：假等抽到超過 30 秒，就在 30 秒重唸、等到假等結束，
-// 跟「活人慢慢按」長得一模一樣，聽重唸猜不出誰死了
+// 死掉的角色不會重唸：假等最長 29 秒（R.FAKE_WAIT_CAP），一定比 30 秒短（Leo 2026-10-27 選 A：實玩死掉的神職重唸，
+// 大家以為在等死人按、像卡住）。代價：聽到重唸＝那個角色還活著。下面「假等中重唸」的程式留著給上線前開的舊房間
 export const REPEAT_MS = 30000;
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
@@ -161,10 +161,11 @@ function openBeat(room, g, now, rand) {
   if (beat.act === null) { n.wait = 'police'; g.timer = { at: now + POLICE_MS }; }
   else if (actors(g, curStep(n)).length === 0) {
     n.wait = 'fake';
-    // 假等一個角色只抽一次（8～45 秒），有好幾句台詞的（女巫：解藥、毒藥）分給每一句——不然死掉的女巫等兩次、
+    // 假等一個角色只抽一次（預設 8～25 秒），有好幾句台詞的（女巫：解藥、毒藥）分給每一句——不然死掉的女巫等兩次、
     // 最長快 100 秒，比別的角色長一倍（Leo 2026-10-22 實玩：一直重唸「女巫請睜眼」像卡住，選方案 1）
     const left = scriptFor(curStep(n), room.setup.counts).beats.length - n.beat; // 含這一句還剩幾句
-    if (n.beat === 0 || n.fakeLeft == null) n.fakeLeft = between(rand, [room.setup.rules.fakeWaitMin, room.setup.rules.fakeWaitMax]);
+    const cap = v => Math.min(R.FAKE_WAIT_CAP, v); // 上線前開的房間可能還存著 45、60 秒
+    if (n.beat === 0 || n.fakeLeft == null) n.fakeLeft = between(rand, [cap(room.setup.rules.fakeWaitMin), cap(room.setup.rules.fakeWaitMax)]);
     const sec = left > 1 ? between(rand, [1, n.fakeLeft - (left - 1)]) : n.fakeLeft;
     n.fakeLeft -= sec;
     n.fakeEnd = now + 1000 * sec;

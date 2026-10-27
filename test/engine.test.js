@@ -617,31 +617,30 @@ test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 3
   d = E.advance(d, d.game.timer.at, minRand).room;
   assert.equal(d.game.night.stage, 'pause', '假等結束直接往下走，不重唸');
   assert.equal(d.game.narration.seq, seq);
-  // 死掉的角色假等抽到最長（預設 45 秒）：跟活人一樣在 30 秒重唸一次，45 秒才往下走（Leo 2026-10-17）
+  // 死掉的角色假等抽到最長（預設 25 秒）：不重唸，25 秒就往下走（Leo 2026-10-27 選 A：重唸像在等死人按）
   const maxRand = k => k - 1;
+  assert.ok(R.FAKE_WAIT_CAP * 1000 < E.REPEAT_MS, '假等上限一定比重唸短');
   let m = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room;
   for (let i = 0; i < 20 && !(m.game.night.stage === 'acting' && m.game.night.steps[m.game.night.idx] === 'guard'); i++) m = E.advance(m, m.game.timer.at, maxRand).room;
   const mOpened = m.game.night.openedAt, mSeq = m.game.narration.seq;
-  assert.equal(m.setup.rules.fakeWaitMax, 45, '預設假等最長 45 秒');
-  assert.equal(m.game.night.fakeEnd - mOpened, 45000);
-  assert.equal(m.game.timer.at - mOpened, E.REPEAT_MS, '30 秒先重唸');
-  m = E.advance(m, m.game.timer.at, maxRand).room;
-  assert.equal(m.game.narration.seq, mSeq + 1, '死掉的角色也重唸');
-  assert.equal(m.game.narration.text, '守衛請睜眼。請選擇今晚要守護的玩家。');
-  assert.equal(m.game.night.stage, 'acting');
-  assert.equal(m.game.timer.at - mOpened, 45000, '重唸後等到假等結束');
+  assert.equal(m.setup.rules.fakeWaitMax, 25, '預設假等最長 25 秒');
+  assert.equal(m.game.night.fakeEnd - mOpened, 25000);
+  assert.equal(m.game.timer.at - mOpened, 25000, '鬧鐘直接到假等結束，中間不重唸');
   assert.equal(E.privateGame(m, 8).action, undefined, '死掉的守衛手機不出現按鈕');
   m = E.advance(m, m.game.timer.at, maxRand).room;
-  assert.equal(m.game.night.stage, 'pause', '45 秒到就往下走');
-  assert.equal(m.game.narration.seq, mSeq + 1, '沒有多唸');
-  // 假等設 60 秒：30、60 秒…照活人的節奏，每 30 秒一次
-  let long = E.nextNight(night(newGame('lang-wang-shou-wei', { fakeWaitMax: 60 }), { wolf: 8 }), 1e6).room;
-  for (let i = 0; i < 20 && !(long.game.night.stage === 'acting' && long.game.night.steps[long.game.night.idx] === 'guard'); i++) long = E.advance(long, long.game.timer.at, maxRand).room;
-  const lOpened = long.game.night.openedAt;
-  long = E.advance(long, long.game.timer.at, maxRand).room;
-  assert.equal(long.game.timer.at - lOpened, 60000);
-  long = E.advance(long, long.game.timer.at, maxRand).room;
-  assert.equal(long.game.night.stage, 'pause', '剛好 60 秒＝假等結束，往下走（不再重唸）');
+  assert.equal(m.game.night.stage, 'pause', '25 秒到就往下走');
+  assert.equal(m.game.narration.seq, mSeq, '沒有重唸');
+  // 設定調不超過 29 秒；上線前開的房間存著 60 秒也照 29 秒算
+  assert.equal(R.cleanRules({ fakeWaitMax: 60 }).fakeWaitMax, R.FAKE_WAIT_CAP);
+  let old = night(newGame(), { wolf: 8 });
+  old = { ...old, setup: { ...old.setup, rules: { ...old.setup.rules, fakeWaitMin: 60, fakeWaitMax: 60 } } };
+  old = E.nextNight(old, 1e6).room;
+  for (let i = 0; i < 20 && !(old.game.night.stage === 'acting' && old.game.night.steps[old.game.night.idx] === 'guard'); i++) old = E.advance(old, old.game.timer.at, maxRand).room;
+  const oSeq = old.game.narration.seq;
+  assert.equal(old.game.night.fakeEnd - old.game.night.openedAt, R.FAKE_WAIT_CAP * 1000);
+  old = E.advance(old, old.game.timer.at, maxRand).room;
+  assert.equal(old.game.night.stage, 'pause', '舊房間也不重唸');
+  assert.equal(old.game.narration.seq, oSeq);
   // 活人的重唸不受假等設定影響
   const alive = play(newGame('lang-wang-shou-wei', { fakeWaitMax: 60 }), {}, atAct('guard'));
   assert.equal(alive.game.timer.at - alive.game.night.openedAt, E.REPEAT_MS);
