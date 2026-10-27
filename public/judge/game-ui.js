@@ -6,7 +6,7 @@ const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 20
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
-const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null };
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null, manualExile: false };
 const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
@@ -66,8 +66,8 @@ function renderAction() {
   if (!seat || !me) { box.hidden = true; return; }
 
   // 換了一個動作就清掉剛才選的座位
-  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}|${me.vote ? 'v' + g.vote?.round : ''}`;
-  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.skillPick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
+  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}|${me.vote ? 'v' + g.vote?.round : ''}|${me.passBadge ? 'p' : ''}`;
+  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.skillPick = null; ui.badgePick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
   const pick = ui.pick;
   let html = '';
   // 「是否正確」：選好之後先確認，按「正確」才送出（照手稿：上帝回比號碼確認；白天投票也一樣）
@@ -85,20 +85,23 @@ function renderAction() {
         <button class="btn" type="button" data-do="guard0">今晚不守</button></div>`}`;
     } else if (a.kind === 'wolf') {
       const wolves = me.wolves.filter(w => a.killers.includes(w.seat)); // 今晚一起殺人的（狼隊死光後是隱狼、石像鬼）
-      const votesFor = n => wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat);
+      // 隱狼一起投（Leo 2026-10-27）：狼隊的手機只看到「隱狼」選誰，看不到他是幾號（a.hidden）
+      const votesFor = n => [...wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat + '號'), ...(a.hidden?.vote === n ? ['隱狼'] : [])];
+      const voteText = v => (v === undefined || v === null ? '還沒選' : v === 0 ? '空刀' : v + ' 號');
       const myVote = a.votes[seat];
       const king = me.wolves.find(w => w.king);
       const agreed = a.proposal !== null && a.proposal !== undefined;
       html = `<h2>今晚要擊殺的目標是？</h2>
-        <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}</p>
+        <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}${a.hidden ? '　還有一隻隱狼一起投（號碼保密）' : ''}</p>
+        ${a.iAmHidden ? '<p class="hint"><b>你是隱狼：不用睜眼</b>，在手機上投就好；狼隊只看到「隱狼」選誰，看不到你的號碼。</p>' : ''}
         ${agreed
           ? `<div class="confirm"><p>${a.proposal ? `今晚要擊殺的玩家是 <b class="digits">${a.proposal}</b> 號` : '今晚空刀'}，是否正確？</p>
               <div class="row-gap"><button class="btn primary" type="button" data-do="wolfYes">正確</button><button class="btn" type="button" data-do="wolfNo">重選</button></div>
               <p class="hint small">任何一隻狼按「正確」就確定。</p></div>`
           : `<p class="hint">所有狼人點同一個人（或都按空刀）之後，會問「是否正確」。</p>
-            ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.length ? v.map(s => s + '號').join(' ') : '' }; }), myVote || null)}
+            ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.join(' ') }; }), myVote || null)}
             <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
-            <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${a.votes[w.seat] === undefined ? '還沒選' : a.votes[w.seat] === 0 ? '空刀' : a.votes[w.seat] + ' 號'}</li>`).join('')}</ul>`}`;
+            <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${voteText(a.votes[w.seat])}</li>`).join('')}${a.hidden ? `<li>隱狼：${a.hidden.voted ? voteText(a.hidden.vote) : '還沒選'}</li>` : ''}</ul>`}`;
     } else if (a.kind === 'witchSave') {
       const info = a.saveUsedUp ? '解藥已經用掉了，不會告知今晚死亡的玩家。'
         : a.victim ? `今晚死亡的玩家是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人死亡。';
@@ -166,6 +169,14 @@ function renderAction() {
       <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
       <div class="row-gap"><button class="btn primary" type="button" data-do="idiotFlip">翻牌（免於出局）</button>
       <button class="btn" type="button" data-do="idiotOut">不翻牌，出局</button></div>`;
+  } else if (phase === 'day' && me.passBadge) {
+    // 警長出局：自己選要移交給誰、還是撕掉警徽（Leo 2026-10-27：警長自己選，主機不能代按）
+    const pick = ui.badgePick;
+    html = `<h2>你是警長，你出局了</h2>
+      <p class="hint">請選要把警徽移交給誰，或撕掉警徽（之後這局沒有警長）。按下後全場紀錄會寫出來。</p>
+      ${picker(me.passBadge.candidates.map(n => ({ n })), pick, 'data-badge-pick')}
+      <div class="row-gap"><button class="btn primary" type="button" data-do="passBadge"${pick ? '' : ' disabled'}>移交給 ${pick ?? '…'} 號</button>
+      <button class="btn" type="button" data-do="tearBadge">撕掉警徽</button></div>`;
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
       <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。</p>
@@ -194,6 +205,8 @@ function renderAction() {
 
 function onAction(e) {
   // 騎士決鬥、自爆另外選號（2026-10-27 審查：跟投票共用同一格，決鬥點了號碼投票也跟著選好）
+  const bp = e.target.closest('[data-badge-pick]');
+  if (bp) { const n = Number(bp.dataset.badgePick); ui.badgePick = ui.badgePick === n ? null : n; c.render(); return; }
   const sp = e.target.closest('[data-skill-pick]');
   if (sp) { const n = Number(sp.dataset.skillPick); ui.skillPick = ui.skillPick === n ? null : n; c.render(); return; }
   const p = e.target.closest('[data-pick]');
@@ -239,6 +252,8 @@ function onAction(e) {
     case 'graveSeen': act({ seen: true }); break;
     case 'hunterSeen': act({ seen: true }); break;
     case 'reload': location.reload(); break;
+    case 'passBadge': if (ui.badgePick && confirm(`把警徽移交給 ${ui.badgePick} 號？`)) { c.send({ type: 'passBadge', target: ui.badgePick }); ui.badgePick = null; } break;
+    case 'tearBadge': if (confirm('撕掉警徽？之後這局沒有警長。')) c.send({ type: 'passBadge', target: 0 }); break;
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
@@ -304,18 +319,28 @@ function renderHost() {
       return;
     }
     const v = g.vote, res = v && !v.open ? v.result : null;
+    // 投票（Leo 2026-10-27）：主機按「進行投票」→ 唸「請大家進行投票。」→ 每個人在手機上選 → 選完每支手機顯示結果 → 主機照結果放逐。
+    // 手動點號碼放逐收在「手動登記」（有人手機沒電、沒投票時用）
+    const top1 = res?.top.length === 1 && g.alive[res.top[0]] ? res.top[0] : null;
+    const manual = ui.manualExile ? `
+        <h3>手動登記被放逐的人</h3>
+        ${picker(aliveSeats().map(n => ({ n })), pick, 'data-host-pick')}
+        <div class="row-gap"><button class="btn primary" type="button" data-host="exile"${pick ? '' : ' disabled'}>放逐 ${pick ?? '…'} 號</button>
+        <button class="btn" type="button" data-host="exile0">平票／沒人出局</button>
+        <button class="btn small" type="button" data-host="manualExile">收起</button></div>`
+      : '<div class="row-gap"><button class="btn small" type="button" data-host="manualExile">手動登記放逐（沒投票時）</button></div>';
     html = `<h2>白天</h2>
       ${sheriffHTML(g)}
-      <p class="hint">請大家依序發言，發言完按「開始投票」，每個人在自己手機上點號碼；投完統計會同時出現在每支手機。</p>
+      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選；全部選完，每支手機都會顯示投票結果。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
         <p class="done">投票中：已投 ${v.voted}／${v.voters.length} 人</p>
         <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
-        <div class="row-gap"><button class="btn primary big" type="button" data-host="startVote">${res ? '重新投票' : '開始投票'}</button></div>
-        ${res?.top.length > 1 ? `<div class="row-gap"><button class="btn primary" type="button" data-host="pk">平票 PK（${res.top.join('、')} 號）：其他人再投一次</button></div>` : ''}
-        <h3>被放逐的是${res?.top.length === 1 ? '（已照最高票選好）' : ''}</h3>
-        ${picker(aliveSeats().map(n => ({ n })), pick, 'data-host-pick')}
-        <div class="row-gap"><button class="btn primary" type="button" data-host="exile"${pick ? '' : ' disabled'}>放逐 ${pick ?? '…'} 號</button>
-        <button class="btn" type="button" data-host="exile0">平票／沒人出局</button></div>`}
+        ${top1 ? `<div class="row-gap"><button class="btn primary big" type="button" data-host="exileTop">照投票結果：放逐 ${top1} 號</button></div>` : ''}
+        ${res?.top.length > 1 ? `<div class="row-gap"><button class="btn primary" type="button" data-host="pk">平票 PK（${res.top.join('、')} 號）：其他人再投一次</button>
+          <button class="btn" type="button" data-host="exile0">平票，沒人出局</button></div>` : ''}
+        ${res && !res.top.length ? '<div class="row-gap"><button class="btn" type="button" data-host="exile0">全部棄票，沒人出局</button></div>' : ''}
+        <div class="row-gap"><button class="btn ${res ? '' : 'primary big'}" type="button" data-host="startVote">${res ? '重新投票' : '進行投票'}</button></div>
+        ${manual}`}
       <div class="row-gap"><button class="btn primary big" type="button" data-host="night">天黑請閉眼</button></div>
       <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a>${bgm}</div>`;
   } else if (phase === 'ended') {
@@ -358,17 +383,17 @@ function hostPick() {
 
 // 警長（Leo 2026-10-27）：主機登記誰當警長、警長出局移交警徽、撕警徽。全場都看得到（座位表標「警長」、紀錄寫一行）
 function sheriffHTML(g) {
+  if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號出局了</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
   const pick = ui.sheriffPick;
-  const status = g.badgePending ? `<p class="warn"><b>警長 ${g.sheriff} 號出局了</b>：請他選要移交給誰，或撕掉警徽。</p>`
-    : g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票）</p>`
-    : g.badgeTorn ? '<p class="hint">警徽已撕掉，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
-  const open = ui.sheriffOpen || g.badgePending || (g.deathsPending && !g.sheriff && !g.badgeTorn);
-  if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '移交／撕警徽' : '登記警長'}</button></div>`;
-  return `<div class="sheriff"><h3>警長</h3>${status}
+  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票；出局時由他自己選移交或撕警徽）</p>`
+    : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
+  const open = ui.sheriffOpen || (g.deathsPending && !g.sheriff && !g.badgeTorn);
+  if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '登記錯了，改警長' : '登記警長'}</button></div>`;
+  return `<div class="sheriff"><h3>登記警長</h3>${status}
     ${picker(aliveSeats({ except: [g.sheriff] }).map(n => ({ n })), pick, 'data-sheriff-pick')}
-    <div class="row-gap"><button class="btn primary small" type="button" data-host="sheriff"${pick ? '' : ' disabled'}>${g.sheriff ? '警徽移交給' : '警長是'} ${pick ?? '…'} 號</button>
-    ${g.sheriff || !g.badgeTorn ? '<button class="btn small" type="button" data-host="tear">撕警徽</button>' : ''}
-    ${g.badgePending ? '' : '<button class="btn small" type="button" data-host="sheriffClose">收起</button>'}</div></div>`;
+    <div class="row-gap"><button class="btn primary small" type="button" data-host="sheriff"${pick ? '' : ' disabled'}>警長是 ${pick ?? '…'} 號</button>
+    ${!g.sheriff && !g.badgeTorn ? '<button class="btn small" type="button" data-host="tear">警徽流失（沒有警長）</button>' : ''}
+    <button class="btn small" type="button" data-host="sheriffClose">收起</button></div></div>`;
 }
 
 function onHost(e) {
@@ -393,16 +418,22 @@ function onHost(e) {
     case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': { const n = hostPick(); if (n && confirm(`登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n }); break; }
     case 'startVote': send({ type: 'startVote' }); break;
+    case 'exileTop': {
+      const r = state.game.vote?.result, n = r?.top.length === 1 ? r.top[0] : null;
+      if (n && confirm(`照投票結果，登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n });
+      break;
+    }
     case 'pk': send({ type: 'startVote', pk: true }); break;
     case 'endVote': if (confirm('結束投票？還沒投的人算棄票。')) send({ type: 'endVote' }); break;
     case 'sheriffOpen': ui.sheriffOpen = true; c.render(); break;
     case 'sheriffClose': ui.sheriffOpen = false; ui.sheriffPick = null; c.render(); break;
     case 'sheriff': {
       const n = ui.sheriffPick; if (!n) break;
-      if (confirm(state.game.sheriff ? `警徽移交給 ${n} 號？` : `登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
+      if (confirm(`登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
       break;
     }
-    case 'tear': if (confirm('撕掉警徽？之後這局沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
+    case 'tear': if (confirm('警徽流失？之後這局沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
+    case 'manualExile': ui.manualExile = !ui.manualExile; c.render(); break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':
       if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;

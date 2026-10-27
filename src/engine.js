@@ -90,11 +90,12 @@ const seatsList = g => Object.keys(g.roles).map(Number).sort((a, b) => a - b);
 function say(g, clips) { g.narration = { seq: (g.narration?.seq ?? 0) + 1, text: lineText(clips), clips }; }
 function note(g, clips) { g.log.push({ day: g.dayNo, text: lineText(clips) }); say(g, clips); }
 
-// 晚上一起殺人的狼：活著的狼隊；狼隊全部出局後換隱狼、石像鬼（還活著的）
+// 晚上一起殺人的狼：活著的狼隊＋隱狼（Leo 2026-10-27：隱狼參與夜裡投票；狼隊看不到他的號碼，見 privateGame）；
+// 狼隊全部出局後換隱狼、石像鬼（還活著的）
 export function killers(g) {
   const alive = seatsList(g).filter(s => g.alive[s] && isWolfRole(g.roles[s]));
   const pack = alive.filter(s => isPackRole(g.roles[s]));
-  return pack.length ? pack : alive;
+  return pack.length ? alive.filter(s => isPackRole(g.roles[s]) || g.roles[s] === 'hidden') : alive;
 }
 
 // 某一步要誰動作（只算活著的）：狼人那步是 killers；上警不等任何人；其他是那個角色本人
@@ -111,7 +112,8 @@ function wolfMates(g, seat) {
   const pack = seatsList(g).filter(s => isPackRole(g.roles[s]));
   const set = new Set(role === 'gargoyle' ? [seat] : role === 'hidden' ? [...pack, seat] : pack);
   const k = killers(g);
-  if (k.includes(seat)) for (const s of k) set.add(s);
+  // 狼隊死光、剩隱狼石像鬼一起殺人時才互相見面；狼隊還活著時隱狼雖然一起投刀，狼隊照樣不知道他是誰
+  if (k.includes(seat) && !pack.some(s => g.alive[s])) for (const s of k) set.add(s);
   return [...set].sort((a, b) => a - b).map(s => ({ seat: s, king: g.roles[s] === 'king', alive: g.alive[s] }));
 }
 
@@ -612,6 +614,7 @@ export function nextNight(room, now) {
 export function setSheriff(room, seat, now = 0) {
   if (room.phase !== 'day') return fail('白天才能登記警長');
   const g0 = room.game;
+  if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`); // Leo 2026-10-27
   seat = Number(seat);
   if (g0.alive[seat] !== true) return fail('只能選活著的人');
   if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
@@ -627,12 +630,26 @@ export function setSheriff(room, seat, now = 0) {
 export function tearBadge(room, now = 0) {
   if (room.phase !== 'day') return fail('白天才能撕警徽');
   const g0 = room.game;
+  if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`);
   if (g0.badgeTorn && !g0.sheriff) return fail('警徽已經撕掉了');
   if (g0.day?.vote?.open) return fail('投票中不能撕警徽');
   const g = structuredClone(g0);
   Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });
   g.log.push({ day: g.dayNo, text: '警徽撕掉了，之後沒有警長。' });
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
+}
+
+// 出局的警長在自己手機選：移交給一個活著的人（target），或撕掉警徽（0）（Leo 2026-10-27：警長自己選，主機不能代按）
+export function passBadge(room, clientId, target, now = 0) {
+  if (room.phase !== 'day' || !room.game.badgePending) return fail('現在不用移交警徽');
+  const seat = L.seatOf(room, clientId);
+  if (!seat || seat !== room.game.sheriff) return fail('只有警長能選');
+  target = Number(target ?? 0);
+  if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
+  const g = structuredClone(room.game);
+  Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false });
+  g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，之後沒有警長。` });
+  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
 /* ───────── 投票（玩家在自己手機按號碼，Leo 2026-10-27） ───────── */
@@ -662,6 +679,7 @@ export function startVote(room, pk = false, now = 0) {
   if (!voters.length) return fail('沒有人可以投票');
   const g = structuredClone(g0);
   g.day.vote = { round: (g0.day.vote?.round ?? 0) + 1, pk: Boolean(pk), open: true, candidates, voters, ballots: {}, result: null };
+  say(g, ['voteStart']); // 主機唸「請大家進行投票。」（Leo 2026-10-27）
   g.log.push({ day: g.dayNo, text: pk ? `平票 PK：${candidates.join('、')} 號，其他人重新投票。` : '開始投票。' });
   return ok({ ...room, game: g });
 }
@@ -749,15 +767,17 @@ function goodCanTurn(g, alive, { knifeOnly = false } = {}) {
 // 好人還能「追輪次」就不算綁票，看警徽在哪一邊（Leo 2026-10-27，取代 10-14 選 A 的條件——沒有警長時照舊）：
 //   8-1 警徽在好人手上：夜裡還有追輪次的技能——守衛（守隊友）、女巫還有解藥或毒藥、獵人（帶槍）
 //   8-2 警徽在狼人手上：白天還有追輪次的技能——騎士還沒決鬥（白天撞一隻出去）
-//   沒有警長：好人白天投不贏、晚上每刀少一個，獵人帶走一隻＝一換一、單靠守衛或解藥只能拖延、單靠毒藥是毒一隻刀一個；
-//   只有讓狼變少而好人不變的才打得破，而且狼要剛好等於好人票數：騎士還沒決鬥，或守衛活著＋女巫還有毒藥（Leo 2026-10-14 綁票選 A）
+//     （好人有 1.5 票，晚上守對一刀就能追一個輪次——Leo 2026-10-27 確認守衛算）
+//   沒有警長：騎士還沒決鬥就不算綁票（Leo 2026-10-27）；其他照 2026-10-14 選 A——狼要剛好等於好人票數，
+//   而且守衛活著＋女巫還有毒藥（同一晚毒一隻狼、守住刀）。獵人一換一、單靠守衛或解藥只能拖延、單靠毒藥是毒一隻刀一個
 function bindCanBreak(g, alive, sheriff, wolfVotes, votes) {
   const has = role => alive.some(s => g.roles[s] === role);
   const knight = has('knight') && !g.knightUsed;
   if (sheriff && isWolfRole(g.roles[sheriff])) return knight;
   if (sheriff) return has('guard') || (has('witch') && (g.potions.save || g.potions.poison)) || has('hunter');
+  if (knight) return true; // 沒有警長：騎士還沒決鬥就不算綁票（Leo 2026-10-27）
   if (wolfVotes !== votes) return false;
-  return knight || (has('guard') && has('witch') && g.potions.poison);
+  return has('guard') && has('witch') && g.potions.poison;
 }
 
 export function houseRuleWin(g, rules = R.DEFAULT_RULES) {
@@ -855,6 +875,23 @@ export function publicGame(room) {
   return pub;
 }
 
+// 狼人投刀的畫面資料。noKnife：狼美人不能被自刀（Leo 2026-10-27）。
+// 隱狼跟狼隊一起投（Leo 2026-10-27），但狼隊只看得到「隱狼選了誰」、看不到他是幾號；隱狼自己看得到全部
+// 隱狼死了也照樣給狼隊一行「隱狼：還沒選」（跟隱狼掉線長得一樣），不然那一行消失＝狼隊推得出死掉的哪一個是隱狼（2026-10-27 自審）
+function wolfView(g, n, seat) {
+  const k = killers(g);
+  const noKnife = seatsList(g).filter(s => g.roles[s] === 'beauty' && g.alive[s]);
+  const hid = k.find(s => g.roles[s] === 'hidden' && s !== seat);
+  const packAlive = k.some(s => isPackRole(g.roles[s]));
+  const boardHasHidden = seatsList(g).some(s => g.roles[s] === 'hidden' && s !== seat);
+  if (!hid && packAlive && isPackRole(g.roles[seat]) && boardHasHidden) {
+    return { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: k, noKnife, hidden: { voted: false, vote: null } };
+  }
+  if (!hid || !packAlive) return { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: k, noKnife, iAmHidden: g.roles[seat] === 'hidden' && packAlive };
+  const { [hid]: hv, ...votes } = n.wolfVotes;
+  return { kind: 'wolf', votes, proposal: n.wolfProposal, killers: k.filter(s => s !== hid), noKnife, hidden: { voted: hv !== undefined, vote: hv ?? null } };
+}
+
 // 私人：只給坐在這個座位的手機
 export function privateGame(room, seat) {
   const g = room.game;
@@ -875,6 +912,8 @@ export function privateGame(room, seat) {
     if (v?.open && v.voters.includes(seat)) me.vote = { mine: v.ballots[seat] ?? null, candidates: v.candidates.filter(s => s !== seat) };
   }
   // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
+  // 出局的警長：自己選移交給誰或撕警徽（Leo 2026-10-27）
+  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s]) };
   // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
   if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;
@@ -885,7 +924,7 @@ export function privateGame(room, seat) {
     const act = curBeat(room, n).act;
     if (act === 'guard') me.action = { kind: 'guard', lastGuard: g.lastGuard };
     // noKnife：狼美人不能被自刀（Leo 2026-10-27）——只有一起殺人的狼看得到
-    if (act === 'wolf') me.action = { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: killers(g), noKnife: seatsList(g).filter(s => g.roles[s] === 'beauty' && g.alive[s]) };
+    if (act === 'wolf') me.action = wolfView(g, n, seat);
     if (act === 'witchSave') me.action = {
       kind: 'witchSave',
       victim: g.potions.save ? n.wolfTarget : null, // 解藥用掉之後就不告知死亡號碼

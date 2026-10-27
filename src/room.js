@@ -111,6 +111,7 @@ export class Room extends DurableObject {
       case 'endVote': result = E.endVote(this.room, now); break;
       case 'sheriff': result = E.setSheriff(this.room, msg.seat, now); break;
       case 'tearBadge': result = E.tearBadge(this.room, now); break;
+      case 'passBadge': result = E.passBadge(this.room, me.clientId, msg.target, now); break; // 出局的警長自己選
       case 'newGame': result = E.newGame(this.room); break;
       case 'restart': result = G.restart(this.room, rand); break;
       default: return;

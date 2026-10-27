@@ -142,7 +142,7 @@ test('投票：什麼時候不能開始；投票中被騎士決鬥、狼人自�
 });
 
 /* ───────── 6：警長 ───────── */
-test('警長：主機登記（警長競選時就能登記）、座位表公開、警長出局要先移交或撕警徽；撕掉之後沒有警長', () => {
+test('警長：主機登記（警長競選時就能登記）、座位表公開；警長出局由他自己在手機上選移交或撕警徽（Leo 2026-10-27），處理完才能往下', () => {
   let r = play(newGame(B), { wolf: 9 });
   assert.ok(r.game.day.pendingDeaths);
   r = ok(E.setSheriff(r, 9)); // 9 號昨晚死了，但死訊還沒公布：照規則可以當選
@@ -156,27 +156,38 @@ test('警長：主機登記（警長競選時就能登記）、座位表公開�
   assert.equal(E.exile(r, 1).ok, false);
   assert.equal(E.nextNight(r, 1e6).ok, false);
   assert.equal(E.duel(r, id(8), 1).ok, false);
-  assert.equal(E.setSheriff(r, 9).ok, false, '不能移交給死人');
-  const passed = ok(E.setSheriff(r, 10));
+  // 主機不能代選；只有出局的警長本人能選
+  assert.equal(E.setSheriff(r, 10).ok, false, '主機不能代替警長移交');
+  assert.equal(E.tearBadge(r).ok, false, '主機不能代替警長撕警徽');
+  assert.equal(E.passBadge(r, id(10), 4).ok, false, '別人不能選');
+  assert.deepEqual(E.privateGame(r, 9).passBadge.candidates, [1, 2, 3, 4, 5, 6, 7, 8, 10, 11]);
+  assert.equal(E.privateGame(r, 10).passBadge, undefined);
+  assert.equal(E.passBadge(r, id(9), 9).ok, false, '不能移交給死人');
+  const passed = ok(E.passBadge(r, id(9), 10));
   assert.equal(passed.game.sheriff, 10);
   assert.equal(passed.game.badgePending, false);
-  assert.equal(passed.game.log.at(-1).text, '警徽移交給 10 號。');
-  const torn = ok(E.tearBadge(r));
+  assert.equal(passed.game.log.at(-1).text, '9 號警長把警徽移交給 10 號。');
+  assert.equal(E.passBadge(passed, id(9), 4).ok, false, '選過就不用再選');
+  const torn = ok(E.passBadge(r, id(9), 0));
   assert.equal(torn.game.sheriff, null);
   assert.equal(torn.game.badgeTorn, true);
-  assert.equal(torn.game.log.at(-1).text, '警徽撕掉了，之後沒有警長。');
+  assert.equal(torn.game.log.at(-1).text, '9 號警長撕掉警徽，之後沒有警長。');
   assert.equal(E.tearBadge(torn).ok, false);
   assert.ok(E.startVote(torn).ok);
+  // 警徽流失（例如沒人當選）：主機可以登記「沒有警長」
+  const lost = ok(E.tearBadge(night(newGame(B))));
+  assert.equal(lost.game.badgeTorn, true);
   // 白天被放逐、被槍帶走的警長也一樣
   let d = night(newGame(B));
   d = ok(E.setSheriff(d, 10));
   d = ok(E.exile(d, 10));
   assert.equal(d.game.badgePending, true);
   assert.equal(E.nextNight(d, 1e6).ok, false, '先處理警徽才能天黑');
-  assert.ok(E.nextNight(ok(E.setSheriff(d, 11)), 1e6).ok);
+  assert.ok(E.nextNight(ok(E.passBadge(d, id(10), 11)), 1e6).ok);
   assert.equal(E.setSheriff({ ...d, phase: 'night' }, 4).ok, false, '晚上不能登記');
   assert.ok(G.HOST_ONLY.includes('sheriff') && G.HOST_ONLY.includes('tearBadge') && G.HOST_ONLY.includes('startVote') && G.HOST_ONLY.includes('endVote'));
   assert.ok(!G.HOST_ONLY.includes('vote'), '投票是每個玩家自己按');
+  assert.ok(!G.HOST_ONLY.includes('passBadge'), '移交警徽是警長自己按');
 });
 
 /* ───────── 8：綁票 ───────── */
@@ -194,7 +205,7 @@ test('綁票 8-1：警徽在好人手上，夜裡還有追輪次的技能（守�
   assert.equal(E.houseRuleWin(dawnState(only([5, 9]), 9, { potions: { save: false, poison: false } })), 'bind', '女巫沒藥了');
   assert.equal(E.houseRuleWin(dawnState(only([9, 10]), 9)), 'bind', '只剩平民');
   assert.equal(E.houseRuleWin(dawnState(only([8, 9]), 9)), 'bind', '警徽在好人手上時，騎士（白天的）不算');
-  assert.equal(E.houseRuleWin(dawnState(only([7, 9]))), 'bind', '沒有警長：照舊（狼 3 > 好人 2）');
+  assert.equal(E.houseRuleWin(dawnState(only([7, 9]))), 'bind', '沒有警長：守衛不算（狼 3 > 好人 2）');
 });
 
 test('綁票 8-2：警徽在狼人手上，白天還有追輪次的技能（騎士）就不算綁票（Leo 2026-10-27）', () => {
@@ -203,13 +214,21 @@ test('綁票 8-2：警徽在狼人手上，白天還有追輪次的技能（騎�
   assert.equal(E.houseRuleWin(dawnState(dead([8, 9]), 1)), null, '騎士還沒決鬥');
   assert.equal(E.houseRuleWin(dawnState(dead([8, 9]), 1, { knightUsed: true })), 'bind', '騎士用過了');
   assert.equal(E.houseRuleWin(dawnState(dead([7, 9]), 1)), 'bind', '警徽在狼人手上時，守衛（夜裡的）不算');
-  // 狼 1、2、3 ＋ 騎士＋平民：沒有警長是 3 > 2 綁票；狼人拿警徽、騎士還在＝不綁票
+  // 狼 1、2、3 ＋ 騎士＋平民：狼人拿警徽、騎士還在＝不綁票；騎士用過＝綁票
   const dead3 = [4, 5, 6, 7, 10, 11];
-  assert.equal(E.houseRuleWin(dawnState(dead3)), 'bind');
   assert.equal(E.houseRuleWin(dawnState(dead3, 2)), null);
+  assert.equal(E.houseRuleWin(dawnState(dead3, 2, { knightUsed: true })), 'bind');
 });
 
-test('綁票：警長算 1.5 票；警長剛出局時先等主機移交或撕警徽，處理完才判（實際流程）', () => {
+test('綁票（Leo 2026-10-27）：沒有警長時騎士還沒決鬥就不算綁票；騎士用過照舊判', () => {
+  const dead3 = [4, 5, 6, 7, 10, 11]; // 狼 1、2、3 ＋ 8 騎士＋9 平民
+  assert.equal(E.houseRuleWin(dawnState(dead3)), null, '3 對 2，騎士還沒決鬥');
+  assert.equal(E.houseRuleWin(dawnState(dead3, null, { knightUsed: true })), 'bind');
+  assert.equal(E.houseRuleWin(dawnState(dead3, null, { badgeTorn: true })), null, '警徽撕掉＝沒有警長，一樣');
+  assert.equal(E.houseRuleWin(dawnState([4, 5, 6, 8, 10, 11])), 'bind', '沒有警長、沒有騎士：守衛 7 號不算（狼 3 > 好人 2）');
+});
+
+test('綁票：警長算 1.5 票；警長剛出局時先等他自己移交或撕警徽，處理完才判（實際流程）', () => {
   // 好人拿警徽、狼 2 對好人 2：2 < 2.5 不綁；狼拿警徽：2.5 ≥ 2 綁
   const two = [3, 4, 5, 6, 7, 8, 11];
   assert.equal(E.houseRuleWin(dawnState(two, 9)), null);
@@ -222,12 +241,12 @@ test('綁票：警長算 1.5 票；警長剛出局時先等主機移交或撕警
   r = night(r, { wolf: 9 });
   assert.equal(r.phase, 'day', '警徽還沒處理，先不判綁票');
   assert.equal(r.game.badgePending, true);
-  const toGood = ok(E.setSheriff(r, 10));
-  assert.equal(toGood.phase, 'day', '移交給好人、守衛活著（8-1）：不綁票');
-  const torn = ok(E.tearBadge(r));
+  const toGood = ok(E.passBadge(r, id(9), 10));
+  assert.equal(toGood.phase, 'day', '移交給好人、守衛活著（8-1：好人 1.5 票，晚上守對就能追一個輪次）：不綁票');
+  const torn = ok(E.passBadge(r, id(9), 0));
   assert.equal(torn.phase, 'ended', '撕掉：狼 3 > 好人 2，綁票');
   assert.equal(torn.game.log.at(-2).text, '狼人不少於好人的票數，形成綁票，狼人陣營直接獲勝。');
-  const toWolf = ok(E.setSheriff(r, 1));
+  const toWolf = ok(E.passBadge(r, id(9), 1));
   assert.equal(toWolf.phase, 'ended', '移交給狼人、騎士已經死了：綁票');
 });
 
@@ -335,13 +354,16 @@ test('畫面：投票中騎士打開決鬥選號，不會連動投票的選號�
   assert.deepEqual(k.sent.at(-1), { type: 'duel', target: 4 });
 });
 
-test('畫面：投票（點號碼 → 是否正確 → 送出）、投完每支手機同時出現統計；主機的開始／結束／PK／照最高票放逐', () => {
+test('畫面：主機按「進行投票」→ 唸「請大家進行投票。」→ 玩家點號碼（是否正確）→ 選完每支手機同時出現結果；主機照結果放逐／PK（Leo 2026-10-27）', () => {
   let r = night(newGame(B));
   const host = mount(r, 'host');
-  assert.match(host.html('#hostCtl'), /data-host="startVote"/);
+  assert.match(host.html('#hostCtl'), /data-host="startVote">進行投票</);
+  assert.ok(!host.html('#hostCtl').includes('data-host-pick'), '手動點號碼放逐收起來了');
   host.click('#hostCtl', 'host', 'startVote');
   assert.deepEqual(host.sent.at(-1), { type: 'startVote' });
   r = ok(E.startVote(r));
+  assert.equal(r.game.narration.text, '請大家進行投票。');
+  assert.deepEqual(r.game.narration.clips, ['voteStart']);
   const p1 = mount(r, id(1));
   assert.match(p1.html('#actionBox'), /請投票[\s\S]*data-do="vote0"/);
   assert.ok(!p1.html('#actionBox').includes('data-pick="1"'), '不能投自己');
@@ -356,24 +378,28 @@ test('畫面：投票（點號碼 → 是否正確 → 送出）、投完每支�
   assert.match(views[0], /投票統計[\s\S]*9 號[\s\S]*10 票[\s\S]*最高票：9 號/);
   assert.ok(views.every(h => h === views[0]), '統計每支手機一樣（主機也一樣）');
   const h2 = mount(r, 'host');
-  assert.match(h2.html('#hostCtl'), /已照最高票選好[\s\S]*放逐 9 號/);
-  h2.click('#hostCtl', 'host', 'exile');
+  assert.match(h2.html('#hostCtl'), /照投票結果：放逐 9 號/);
+  h2.click('#hostCtl', 'host', 'exileTop');
   assert.deepEqual(h2.sent.at(-1), { type: 'exile', target: 9 });
+  // 手動登記還在（沒投票時用）
+  h2.click('#hostCtl', 'host', 'manualExile');
+  assert.match(h2.html('#hostCtl'), /手動登記被放逐的人[\s\S]*data-host-pick="1"/);
   // 平票：主機看到 PK 鈕
   let t = night(newGame(B));
   t = ok(E.startVote(t));
   for (let s = 1; s <= 11; s++) t = ok(E.castVote(t, id(s), s <= 5 || s === 9 ? (s === 9 ? 10 : 9) : s === 10 ? 0 : 10));
   const ht = mount(t, 'host');
-  assert.match(ht.html('#hostCtl'), /平票 PK（9、10 號）/);
-  assert.match(ht.html('#hostCtl'), /放逐 … 號/, '平票不自動選');
+  assert.match(ht.html('#hostCtl'), /平票 PK（9、10 號）[\s\S]*平票，沒人出局/);
+  assert.ok(!ht.html('#hostCtl').includes('照投票結果'), '平票不自動放逐');
   ht.click('#hostCtl', 'host', 'pk');
   assert.deepEqual(ht.sent.at(-1), { type: 'startVote', pk: true });
+  assert.equal(ok(E.startVote(t, true)).game.narration.text, '請大家進行投票。', 'PK 也唸');
 });
 
-test('畫面：主機登記警長、移交／撕警徽；座位表標「警長」；狼人刀人時狼美人不能刀、狼美人昨晚魅惑過的不能選', () => {
+test('畫面：主機登記警長；警長出局由他自己的手機選移交或撕警徽（主機只能等）；座位表標「警長」；狼美人不能刀、昨晚魅惑過的不能選', () => {
   let r = play(newGame(B), { wolf: 9 });
   const host = mount(r, 'host');
-  assert.match(host.html('#hostCtl'), /警長競選[\s\S]*data-sheriff-pick="4"[\s\S]*警長是 … 號[\s\S]*撕警徽/);
+  assert.match(host.html('#hostCtl'), /警長競選[\s\S]*data-sheriff-pick="4"[\s\S]*警長是 … 號[\s\S]*警徽流失/);
   host.click('#hostCtl', 'sheriff-pick', '4');
   host.click('#hostCtl', 'host', 'sheriff');
   assert.deepEqual(host.sent.at(-1), { type: 'sheriff', seat: 4 });
@@ -382,9 +408,18 @@ test('畫面：主機登記警長、移交／撕警徽；座位表標「警長�
   r = ok(E.announceDeaths(r));
   r = ok(E.exile(r, 4));
   const h2 = mount(r, 'host');
-  assert.match(h2.html('#hostCtl'), /警長 4 號出局了[\s\S]*警徽移交給 … 號/);
-  h2.click('#hostCtl', 'host', 'tear');
-  assert.deepEqual(h2.sent.at(-1), { type: 'tearBadge' });
+  assert.match(h2.html('#hostCtl'), /警長 4 號出局了[\s\S]*等他在自己的手機上選/);
+  assert.ok(!h2.html('#hostCtl').includes('data-sheriff-pick'), '主機沒有代選的按鈕');
+  const s4 = mount(r, id(4));
+  assert.match(s4.html('#actionBox'), /你是警長，你出局了[\s\S]*data-badge-pick="1"[\s\S]*撕掉警徽/);
+  assert.ok(!s4.html('#actionBox').includes('data-badge-pick="4"'), '不能移交給自己（已出局）');
+  s4.click('#actionBox', 'badge-pick', '5');
+  assert.match(s4.html('#actionBox'), /移交給 5 號/);
+  s4.click('#actionBox', 'do', 'passBadge');
+  assert.deepEqual(s4.sent.at(-1), { type: 'passBadge', target: 5 });
+  s4.click('#actionBox', 'do', 'tearBadge');
+  assert.deepEqual(s4.sent.at(-1), { type: 'passBadge', target: 0 });
+  assert.ok(!mount(r, id(5)).html('#actionBox').includes('badge-pick'), '別人沒有');
   // 狼人的刀人畫面：狼美人那格不能點；狼美人昨晚魅惑的那格不能點
   const FB = { wolf: 2, beauty: 1, seer: 1, witch: 1, villager: 3 }; // 1–2 狼人、3 狼美人、4 預言家、5 女巫、6–8 平民
   let w = newGame(FB);

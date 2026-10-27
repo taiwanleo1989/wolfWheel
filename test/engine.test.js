@@ -454,7 +454,7 @@ test('提早獲勝看翻盤機會（Leo 2026-10-14 選 2A、4B）：翻過牌的
   // 狼剛好等於好人票數時，騎士還沒決鬥、或守衛活著＋女巫還有毒藥，才可能讓狼變少而好人不變
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'])), null, '騎士還沒決鬥（2 對 2）');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'knight', 'villager'], { knightUsed: true })), 'bind', '騎士用過了');
-  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'wolf', 'knight', 'villager'])), 'bind', '3 對 2：撞死一隻還是綁票');
+  assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'wolf', 'knight', 'villager'])), null, '沒有警長：騎士還沒決鬥就不算綁票（Leo 2026-10-27，取代 10-14「3 對 2 撞死一隻還是綁票」）');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'witch'], { potions: { save: false, poison: true } })), null, '守衛＋毒藥');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'guard', 'witch'], { potions: { save: true, poison: false } })), 'bind', '守衛＋只有解藥：只能拖延');
   assert.equal(E.houseRuleWin(mk(['wolf', 'wolf', 'witch', 'villager'], { potions: { save: true, poison: true } })), 'bind', '只有女巫：毒一隻、刀一個，比例不變');

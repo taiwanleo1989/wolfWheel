@@ -79,14 +79,24 @@ test('夜裡：狼美人、石像鬼、守墓人的手機畫面', () => {
   assert.match(mount(r, 'host').html('#hostCtl'), /現在輪到：<b>守墓人<\/b>/);
 });
 
-test('狼人那步：隊友只列狼隊；隱狼、石像鬼看閉眼畫面', () => {
-  const r = toStep(newGame(), 'wolf');
+test('狼人那步：隊友只列狼隊；隱狼一起投但狼隊只看到「隱狼」不看到號碼（Leo 2026-10-27）；石像鬼看閉眼畫面', () => {
+  let r = toStep(newGame(), 'wolf');
   const a = mount(r, id(1)).html('#actionBox');
-  assert.match(a, /你的隊友：2 號、3 號、4 號/);
+  assert.match(a, /你的隊友：2 號、3 號、4 號　還有一隻隱狼一起投（號碼保密）/);
   const votes = a.match(/<ul class="votes">([\s\S]*?)<\/ul>/)[1];
-  assert.deepEqual([...votes.matchAll(/<li>(\d+) 號/g)].map(x => Number(x[1])), [1, 2, 3, 4], '投票名單沒有隱狼、石像鬼');
-  assert.equal(mount(r, id(5)).html('#actionBox'), '');
+  assert.deepEqual([...votes.matchAll(/<li>(\d+) 號/g)].map(x => Number(x[1])), [1, 2, 3, 4], '號碼名單沒有隱狼、石像鬼');
+  assert.match(votes, /<li>隱狼：還沒選<\/li>/);
+  assert.ok(!votes.includes('5 號') && !a.match(/你的隊友：[^<]*/)[0].includes('5 號'), '狼隊的隊友、票的名單不出現 5 號（隱狼）');
+  const h = mount(r, id(5)).html('#actionBox');
+  assert.match(h, /你是隱狼：不用睜眼/);
+  assert.match(h, /<li>5 號（你）：還沒選<\/li>/, '隱狼自己看得到全部');
   assert.equal(mount(r, id(6)).html('#actionBox'), '');
+  // 隱狼投了 12 號：狼隊看到「隱狼」投 12，看不到號碼
+  r = E.nightAction(r, id(5), { target: 12 }, everyone(r), 0, minRand).room;
+  const b = mount(r, id(2)).html('#actionBox');
+  assert.match(b, /<li>隱狼：12 號<\/li>/);
+  assert.match(b, /<span class="n">12<\/span><span class="tag">隱狼<\/span>/);
+  assert.ok(!b.match(/<ul class="votes">[\s\S]*?<\/ul>/)[0].includes('5 號'));
 });
 
 test('白天：白狼王的自爆按鈕收在「看我的身分」裡，所有活人的畫面一樣（Leo 2026-10-22 B1）；自爆後主機畫面', () => {
