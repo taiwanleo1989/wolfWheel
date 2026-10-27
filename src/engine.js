@@ -341,7 +341,7 @@ function kill(g, seat, { noSkill = false } = {}) {
   g.alive[seat] = false;
   const role = g.roles[seat];
   if ((role === 'hunter' || role === 'king') && !noSkill) g.canShoot.push(seat);
-  if (seat === g.sheriff) g.badgePending = true; // 警長出局：主機移交或撕掉警徽（Leo 2026-10-27）
+  if (seat === g.sheriff) g.badgePending = true; // 警長出局：由他自己選移交或撕掉警徽（Leo 2026-10-27，見 passBadge）
 }
 
 // 白天出局（放逐、被槍帶走、被白狼王帶走）：狼美人出局時，她最近一晚魅惑的人跟著殉情（不能發動技能）。
@@ -882,7 +882,7 @@ export function publicGame(room) {
     nightCalled: Boolean(g.day?.nightCalled),
     nightReason: g.day?.nightCalled ? g.day.nightReason ?? 'knight' : null, // 主機畫面標題：騎士撞狼／白狼王自爆
     idiotChoice: g.day?.idiotChoice ?? null, // 等這個號碼選要不要翻牌（Leo 拍板：只有白癡會出現這個等待）
-    // 警長（主機登記，公開）：badgePending＝警長出局、等主機移交或撕掉警徽
+    // 警長（主機登記，公開）：badgePending＝警長出局、等他自己選移交或撕掉警徽
     sheriff: g.sheriff ?? null, badgeTorn: Boolean(g.badgeTorn), badgePending: Boolean(g.badgePending),
     // 投票：投完才公布誰投誰（result）；投票中只公開投了幾票
     vote: g.day?.vote ? (({ ballots, ...v }) => ({ ...v, voted: Object.keys(ballots).length }))(g.day.vote) : null,

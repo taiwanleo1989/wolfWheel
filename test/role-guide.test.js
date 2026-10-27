@@ -231,6 +231,7 @@ const CHECKS = {
     assert.equal(L3([1, 8, 9]), 'lastThree', '屠邊：騎士不算');
     assert.equal(L3([1, 8, 9], {}, { win: 'all' }), null);
     assert.equal(L3([1, 8, 9], { knightUsed: true }, { win: 'all' }), 'lastThree');
+    assert.equal(L3([1, 4, 9], { canShoot: [6] }), null, '有人要開槍：先等');
     // 實際流程：平票沒人出局也算投完票
     let r = voteAll(withDead(night(newGame(B)), [2, 3, 5, 6, 7, 8, 10, 11]), { 1: 4, 4: 1 });
     assert.deepEqual(r.game.day.vote.result.top, [1, 4]);
@@ -624,6 +625,9 @@ const CHECKS = {
   },
   'wolf-5': () => {
     const day = night(newGame(B));
+    const tie = voteAll(day, { 4: 9, 5: 10 });
+    assert.ok(E.boom(tie, id(1), 0).ok, '平票、主機還沒按沒人出局：還能自爆');
+    assert.ok(E.boom(ok(E.startVote(tie, true)), id(1), 0).ok, 'PK 中也能');
     const auto = voteAll(day, { 4: 9, 5: 9 });
     assert.equal(auto.game.day.exileDone, true, '投完票自動放逐');
     no(E.boom(auto, id(1), 0), '放逐之後');
@@ -649,6 +653,7 @@ const CHECKS = {
   'king-1': () => {
     assert.equal(toNight(night(newGame(F)), 'wolf').game.narration.text, says('king-1')[0]);
     assert.equal(toNight(night(newGame(B)), 'wolf').game.narration.text, LINES.wolfOpen, '沒有狼王不唸');
+    assert.equal(toNight(withDead(night(newGame(F)), [3]), 'wolf').game.narration.text, says('king-1')[0], '狼王出局後也照唸');
     assert.ok(E.killers(newGame(F).game).includes(3));
   },
   'king-2': () => {
@@ -824,6 +829,7 @@ const CHECKS = {
   },
   'hidden-3': () => {
     assert.equal(play(newGame(F), { seer: 6 }).game.seerChecks[0].wolf, false, '預言家查是好人');
+    assert.equal(play(newGame(F), { gargoyle: 6 }).game.gargoyleChecks[0].role, 'hidden', '石像鬼看到「隱狼」');
     assert.equal(voteAll(night(newGame(F)), { 8: 6, 9: 6 }).game.graveInfo.wolf, false, '守墓人看是好人');
     const d = ok(E.duel(night(newGame(F)), id(13), 6));
     assert.equal(d.game.alive[6], false, '騎士撞到＝狼人');
@@ -957,6 +963,13 @@ const CHECKS = {
     const end = voteAll(withDead(night(newGame(HL)), [3]), { 1: 4, 2: 4 });
     assert.equal(end.phase, 'ended');
     assert.deepEqual(end.game.canShoot, [], '遊戲結束就不開槍');
+    // 只是湊成一狼一神一民：先等他開槍
+    const L3H = { wolf: 1, seer: 1, hunter: 1, villager: 2 }; // 1 狼、2 預言家、3 獵人、4、5 平民
+    const wait = voteAll(night(newGame(L3H), { wolf: 5 }), { 1: 3, 2: 3 });
+    assert.equal(wait.phase, 'day');
+    assert.deepEqual(wait.game.canShoot, [3], '先等獵人開槍');
+    assert.equal(ok(E.shoot(wait, id(3), 0)).game.winner, 'wolf', '不開槍才判一狼一神一民');
+    assert.equal(ok(E.shoot(wait, id(3), 1)).game.winner, 'good', '帶走狼＝好人勝');
   },
   'hunter-2': () => {
     const r = play(newGame(B), {}, { step: 'hunter' });
@@ -1091,6 +1104,8 @@ const CHECKS = {
     assert.equal(f.game.alive[14], true);
     const out = ok(E.idiotChoose(r, id(14), false));
     assert.equal(out.game.alive[14], false);
+    assert.equal(out.game.narration.text, fill(says('idiot-1')[1], { N: 14 }), '不翻牌唸被放逐出局');
+    assert.deepEqual(out.game.graveInfo, { day: 1, seat: 14, wolf: false }, '守墓人看得到');
   },
   'idiot-2': () => {
     let r = ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true));
