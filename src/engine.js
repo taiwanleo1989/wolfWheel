@@ -619,6 +619,7 @@ export function setSheriff(room, seat, now = 0) {
   if (room.phase !== 'day') return fail('白天才能登記警長');
   const g0 = room.game;
   if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`); // Leo 2026-10-27
+  if (g0.day?.idiotChoice) return fail('請等被放逐的玩家選擇');
   seat = Number(seat);
   if (g0.alive[seat] !== true) return fail('只能選活著的人');
   if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
@@ -636,6 +637,7 @@ export function tearBadge(room, now = 0) {
   const g0 = room.game;
   if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`);
   if (g0.badgeTorn && !g0.sheriff) return fail('警徽已經撕掉了');
+  if (g0.sheriff) return fail('已經有警長了：登記錯了請改成另一個人');
   if (g0.day?.vote?.open) return fail('投票中不能撕警徽');
   const g = structuredClone(g0);
   Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });

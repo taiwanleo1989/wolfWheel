@@ -578,7 +578,10 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         rejected(E.tearBadge(r), '主機代替警長撕警徽');
         must(E.passBadge(r, id(g.sheriff), rnd(3) ? pickAlive() : 0), '警長處理警徽'); continue;
       }
-      if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) { must(E.setSheriff(r, pickAlive()), '登記警長'); continue; }
+      if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) {
+        if (g.day.idiotChoice) { rejected(E.setSheriff(r, pickAlive()), '白癡選擇中登記警長'); } // 跟主機畫面一致（2026-10-28）
+        else { must(E.setSheriff(r, pickAlive()), '登記警長'); continue; }
+      }
       // 警長競選中：騎士決鬥、狼人自爆也可以（之後順便公布死訊）
       // （按了一定先公布死訊；動作可能因為有人要開槍而不算，但房間照樣往下走）
       const soft = (res, why) => { assert.ok(res.ok || res.room, `seed ${seed} ${why}：${res.error}`); r = res.room; if (!res.ok) assert.equal(r.game.day?.pendingDeaths ?? null, null, `seed ${seed} ${why}被擋卻沒公布死訊`); };

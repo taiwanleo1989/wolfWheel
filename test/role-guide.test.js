@@ -143,6 +143,9 @@ const CHECKS = {
     assert.equal(W([9, 10, 11]), null);
     assert.equal(W([4, 5, 6, 7, 8, 9, 10, 11]), 'wolf');
     assert.equal(W([1, 2, 3]), 'good');
+    // 屠城也會提早判：綁票（好人還活著）
+    const b = nextDay(withDead(r, [4, 5, 6, 7, 8]), { wolf: 9 });
+    assert.equal(b.game.winner, 'wolf', '屠城：綁票照樣判');
   },
   'all-4': () => {
     const r = night(newGame(B)), g = r.game;
@@ -247,6 +250,11 @@ const CHECKS = {
     assert.deepEqual(r.game.day.vote.result.top, [1, 4]);
     r = ok(E.exile(r, 0));
     assert.equal(r.game.winner, 'wolf');
+    const four = withDead(night(newGame(B)), [2, 3, 5, 6, 7, 10, 11]); // 1 狼、4 預言家、8 騎士、9 平民
+    assert.equal(ok(E.duel(ok(E.exile(four, 0)), id(8), 9)).game.winner, 'wolf', '登記之後決鬥才剩三人：判');
+    assert.equal(ok(E.duel(four, id(8), 9)).phase, 'day', '登記之前：不判');
+    const man = withDead(night(newGame(B)), [2, 3, 5, 6, 7, 8, 11]); // 1、4、9、10
+    assert.equal(ok(E.exile(man, 10)).game.winner, 'wolf', '手動登記放逐也算');
   },
   'all-9': () => {
     let r = night(newGame(B));
@@ -496,6 +504,11 @@ const CHECKS = {
     assert.equal(r.game.sheriff, 9, '昨晚死的人也能當選');
     const lost = ok(E.tearBadge(night(newGame(B))));
     assert.equal(lost.game.badgeTorn, true, '警徽流失');
+    const np = ok(E.setSheriff(night(newGame(B, { police: false })), 9));
+    assert.equal(np.game.sheriff, 9, '關掉上警的局也能登記');
+    assert.equal(voteAll(np, { 9: 10 }).game.day.vote.result.rows[0].score, 1.5, '一樣算 1.5 票');
+    no(E.setSheriff(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), 4), '等白癡選擇時不能登記');
+    no(E.tearBadge(ok(E.setSheriff(night(newGame(B)), 4))), '已經有警長：不能按警徽流失');
     const v = ok(E.startVote(night(newGame(B))));
     no(E.setSheriff(v, 4), '投票中不能換警長');
     // 主機改錯：任何時候都能改、流失之後能重新登記
