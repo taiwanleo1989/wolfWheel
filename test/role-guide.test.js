@@ -699,6 +699,7 @@ const CHECKS = {
     assert.ok(E.nightAction(r, id(1), { target: 1 }, everyone(r), 0, minRand).ok, '可以刀自己');
     assert.ok(E.nightAction(r, id(1), { target: 2 }, everyone(r), 0, minRand).ok, '可以刀隊友');
     assert.match(mount(r, id(1)).html('#actionBox'), /不能刀/);
+    assert.match(mount(r, id(1)).html('#actionBox'), /在線上的狼（掉線的不算）都點同一個人/);
   },
   'wolf-5': () => {
     const day = night(newGame(B));
@@ -1167,6 +1168,11 @@ const CHECKS = {
     const r = ok(E.duel(night(newGame(B)), id(8), 1));
     assert.equal(r.game.narration.text, fill(line, { N: 8, M: 1 }));
     no(E.startVote(r), '今天不放逐');
+    // 最後一隻狼是狼王：先等他開槍再判勝負，不唸天黑
+    const lk = ok(E.duel(withDead(night(newGame(KG)), [1, 3]), id(7), 2));
+    assert.equal(lk.game.narration.text, '騎士 7 號決鬥 2 號：2 號是狼人，出局！2 號，請啟動角色技能。');
+    assert.equal(lk.phase, 'day');
+    assert.equal(ok(E.shoot(lk, id(2), 0)).game.narration.text, '遊戲結束，好人陣營獲勝！', '開完（或放棄）才判、不唸天黑');
     const last = ok(E.duel(withDead(night(newGame(B)), [2, 3]), id(8), 1));
     assert.equal(last.game.narration.text, '騎士 8 號決鬥 1 號：1 號是狼人，出局！遊戲結束，好人陣營獲勝！', '撞到最後一隻狼：直接唸勝負');
     assert.equal(ok(E.duel(night(newGame(F)), id(13), 6)).game.alive[6], false, '隱狼算狼');

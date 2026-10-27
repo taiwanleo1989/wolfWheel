@@ -98,7 +98,7 @@ function renderAction() {
           ? `<div class="confirm"><p>${a.proposal ? `今晚要擊殺的玩家是 <b class="digits">${a.proposal}</b> 號` : '今晚空刀'}，是否正確？</p>
               <div class="row-gap"><button class="btn primary" type="button" data-do="wolfYes">正確</button><button class="btn" type="button" data-do="wolfNo">重選</button></div>
               <p class="hint small">任何一隻狼按「正確」就確定。</p></div>`
-          : `<p class="hint">所有狼人點同一個人（或都按空刀）之後，會問「是否正確」。</p>
+          : `<p class="hint">在線上的狼（掉線的不算）都點同一個人（或都按空刀）之後，會問「是否正確」。</p>
             ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.join(' ') }; }), myVote || null)}
             <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
             <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${voteText(a.votes[w.seat])}</li>`).join('')}${a.hidden ? `<li>隱狼：${a.hidden.voted ? voteText(a.hidden.vote) : '還沒選'}</li>` : ''}</ul>`}`;
