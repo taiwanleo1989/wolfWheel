@@ -277,7 +277,7 @@ test('警長：主機登記（警長競選時就能登記）、座位表公開�
   const torn = ok(E.passBadge(r, id(9), 0));
   assert.equal(torn.game.sheriff, null);
   assert.equal(torn.game.badgeTorn, true);
-  assert.equal(torn.game.log.at(-1).text, '9 號警長撕掉警徽，之後沒有警長。');
+  assert.equal(torn.game.log.at(-1).text, '9 號警長撕掉警徽，不交給任何人。');
   assert.equal(E.tearBadge(torn).ok, false);
   assert.ok(E.startVote(torn).ok);
   // 警徽流失（例如沒人當選）：主機可以登記「沒有警長」

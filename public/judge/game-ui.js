@@ -173,7 +173,7 @@ function renderAction() {
     // 警長出局：自己選要移交給誰、還是撕掉警徽（Leo 2026-10-27：警長自己選，主機不能代按）
     const pick = ui.badgePick;
     html = `<h2>你是警長，你出局了</h2>
-      <p class="hint">請選要把警徽移交給誰，或撕掉警徽（之後這局沒有警長）。按下後全場紀錄會寫出來。</p>
+      <p class="hint">請選要把警徽移交給誰，或撕掉警徽（不交給任何人）。按下後全場紀錄會寫出來。</p>
       ${picker(me.passBadge.candidates.map(n => ({ n })), pick, 'data-badge-pick')}
       <div class="row-gap"><button class="btn primary" type="button" data-do="passBadge"${pick ? '' : ' disabled'}>移交給 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="tearBadge">撕掉警徽</button></div>`;
@@ -257,7 +257,7 @@ function onAction(e) {
     case 'hunterSeen': act({ seen: true }); break;
     case 'reload': location.reload(); break;
     case 'passBadge': if (ui.badgePick && confirm(`把警徽移交給 ${ui.badgePick} 號？`)) { c.send({ type: 'passBadge', target: ui.badgePick }); ui.badgePick = null; } break;
-    case 'tearBadge': if (confirm('撕掉警徽？之後這局沒有警長。')) c.send({ type: 'passBadge', target: 0 }); break;
+    case 'tearBadge': if (confirm('撕掉警徽？不交給任何人。')) c.send({ type: 'passBadge', target: 0 }); break;
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
@@ -436,7 +436,7 @@ function onHost(e) {
       if (confirm(`登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
       break;
     }
-    case 'tear': if (confirm('警徽流失？之後這局沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
+    case 'tear': if (confirm('警徽流失？現在沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
     case 'manualExile': ui.manualExile = !ui.manualExile; c.render(); break;
     case 'exile0': if (confirm('登記「今天沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':

@@ -443,7 +443,8 @@ function afterDeaths(room, run) {
 // 騎士撞到狼王（或白狼王帶走獵人／狼王）那天：最後一槍開完（或放棄）才唸「天黑請閉眼」。
 // 自爆、被撞死、被帶走的是警長：也要等他選完移交或撕警徽（2026-10-28 審查：不然大家閉眼了警長還要看手機選）
 function callNightIfReady(room, g, seq0) {
-  if (g.day?.nightCalled && !g.canShoot.length && !g.badgePending && !winnerOf(g, room.setup.counts, room.setup.rules)) {
+  if (g.day?.nightCalled && !g.canShoot.length && !g.badgePending
+    && !winnerOf(g, room.setup.counts, room.setup.rules) && !houseRuleWin(g, room.setup.rules)) {
     say(g, [...(g.narration.seq > seq0 ? g.narration.clips : []), 'nightStart']);
   }
 }
@@ -628,7 +629,7 @@ export function setSheriff(room, seat, now = 0) {
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
 }
 
-// 主機：撕掉警徽（警長出局選擇撕掉、或警徽流失），之後沒有警長
+// 主機：警徽流失（沒人當選），現在沒有警長（之後主機還能重新登記）
 export function tearBadge(room, now = 0) {
   if (room.phase !== 'day') return fail('白天才能撕警徽');
   const g0 = room.game;
@@ -637,7 +638,7 @@ export function tearBadge(room, now = 0) {
   if (g0.day?.vote?.open) return fail('投票中不能撕警徽');
   const g = structuredClone(g0);
   Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });
-  g.log.push({ day: g.dayNo, text: '警徽撕掉了，之後沒有警長。' });
+  g.log.push({ day: g.dayNo, text: '警徽流失，現在沒有警長。' });
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
 }
 
@@ -650,7 +651,7 @@ export function passBadge(room, clientId, target, now = 0) {
   if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
   const g = structuredClone(room.game);
   Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false });
-  g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，之後沒有警長。` });
+  g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，不交給任何人。` });
   const seq0 = room.game.narration?.seq;
   const done = checkWin({ ...room, game: g }, seq0);
   if (done.phase !== 'ended') callNightIfReady(done, done.game, seq0); // 今天要天黑（自爆、撞到狼）：選完警徽才唸
