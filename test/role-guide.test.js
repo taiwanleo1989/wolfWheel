@@ -422,6 +422,11 @@ const CHECKS = {
     r = voteAll(night(newGame(F)), { 1: 14, 2: 14 });
     assert.equal(r.game.day.idiotChoice, 14);
     assert.equal(r.game.narration.text, LINES.voteStart, '白癡：不唸');
+    // 主機不投票、手動登記放逐：效果一樣
+    const m = ok(E.exile(night(newGame(F)), 6));
+    assert.equal(m.game.narration.text, fill(out, { N: 6 }));
+    assert.deepEqual(m.game.graveInfo, { day: 1, seat: 6, wolf: false }, '守墓人看得到');
+    assert.equal(ok(E.exile(night(newGame(F)), 14)).game.day.idiotChoice, 14, '白癡等他選');
   },
   'day-4': () => {
     let r = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
@@ -673,6 +678,10 @@ const CHECKS = {
     no(E.boom(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(1), 0), '白癡在選');
     const sp = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9))));
     no(E.boom(sp, id(1), 0), '警長在選');
+    const bm = mount(night(newGame(B)), id(1));
+    bm.click('#myInfo', 'me', 'show');
+    bm.click('#myInfo', 'do', 'boomOpen');
+    assert.match(bm.html('#myInfo'), /平票、全部棄票要等主機按「沒人出局」才算/);
     no(E.boom(ok(E.exile(voteAll(day, { 4: 9, 5: 10 }), 0)), id(1), 0), '平票沒人出局之後');
     no(E.boom(ok(E.exile(voteAll(day, {}), 0)), id(1), 0), '全部棄票沒人出局之後');
     no(E.boom(ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true)), id(1), 0), '白癡翻牌之後');
@@ -709,6 +718,8 @@ const CHECKS = {
     assert.equal(skip.game.alive[8], true, '可以不開');
     assert.equal(skip.game.narration.seq, ex.game.narration.seq, '不開槍主機不唸');
     assert.equal(skip.game.log.length, ex.game.log.length, '紀錄也不寫');
+    const dk = ok(E.duel(night(newGame(KG)), id(7), 2));
+    assert.equal(ok(E.shoot(dk, id(2), 0)).game.narration.text, LINES.nightStart, '今天要天黑：不開槍就接著唸天黑');
     const hs = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 6, 4: 6 }), id(6), 2));
     assert.deepEqual(hs.game.canShoot, [2], '被獵人的槍帶走');
     assert.deepEqual(ok(E.duel(night(newGame(KG)), id(7), 2)).game.canShoot, [2], '被騎士撞死');
@@ -903,6 +914,7 @@ const CHECKS = {
     const r = withDead(night(newGame(F)), [1, 2, 3, 4, 5]);
     assert.ok(E.killers(r.game).includes(7));
     assert.equal(r.game.alive[6], true, '隱狼還活著也一樣');
+    assert.deepEqual(pick(r, 7).wolves.map(w => w.seat), [6, 7], '跟隱狼見面');
     const solo = play(newGame({ gargoyle: 1, seer: 1, villager: 3 }), {}, { step: 'wolf' });
     assert.deepEqual(E.actors(solo.game, 'wolf'), [1], '沒有狼隊：第一晚就殺人');
     assert.ok(ok(E.nextNight(r, 0)).game.night.steps.includes('gargoyle'), '查驗照常');
@@ -1056,6 +1068,8 @@ const CHECKS = {
   /* 守墓人 */
   'gravekeeper-1': () => {
     assert.ok(!newGame(F).game.night.steps.includes('gravekeeper'));
+    const ng = ok(E.nextNight(night(newGame({ wolf: 2, seer: 1, gravekeeper: 1, hunter: 1, villager: 3 })), 0)).game.night.steps;
+    assert.equal(ng.indexOf('gravekeeper'), ng.indexOf('seer') + 1, '沒有石像鬼：接在預言家後面');
     const r = toNight(voteAll(night(newGame(F)), { 8: 1, 9: 1 }), 'gravekeeper');
     assert.equal(r.game.narration.text, says('gravekeeper-1')[0]);
     assert.deepEqual(pick(r, 12).action.info, { day: 1, seat: 1, wolf: true });
