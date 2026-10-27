@@ -531,7 +531,7 @@ function daySkill(me) {
   // 自爆：白狼王可以帶人；其他狼人（狼美人除外）2026-10-27 起也能自爆，不帶人
   if (me.canBoom) return ui.boomOpen
     ? (me.boomTake ? `<div class="skill"><h2>白狼王自爆</h2>
-       <p class="hint">自爆後你出局，可以帶走一個人或不帶；今天不再投票，直接天黑（你是警長的話，先選完警徽才唸天黑）。今天的放逐結果出來之後就不能自爆。</p>
+       <p class="hint">自爆後你出局，可以帶走一個人或不帶；今天不再投票，直接天黑（被帶走的人要開槍、或你／被帶走的人是警長要選警徽，都等處理完才唸天黑）。今天的放逐結果出來之後就不能自爆。</p>
        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>

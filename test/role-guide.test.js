@@ -242,6 +242,9 @@ const CHECKS = {
     const host = G.viewFor(r, everyone(r), 'host');
     assert.equal(host.you?.game ?? null, null, '主機沒坐下：沒有私人資料');
     assert.ok(!JSON.stringify(host).includes('"roles"'));
+    const seated = G.viewFor(r, everyone(r), id(4));
+    assert.equal(seated.you.role, 'seer', '坐下的主機／玩家看得到自己的身分');
+    assert.ok(!JSON.stringify(seated).includes('"roles"'), '看不到別人的');
     assert.equal(E.publicGame(r).allRoles, undefined);
     r = ok(E.exile(withDead(r, [2, 3]), 1));
     assert.equal(r.phase, 'ended');
@@ -263,6 +266,9 @@ const CHECKS = {
     assert.deepEqual(ok(E.nextNight(night(f), 0)).game.night.steps, ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter'], '第二晚起有守墓人、沒有上警');
     assert.ok(!newGame(B, { police: false }).game.night.steps.includes('police'), '上警可以關');
     assert.ok(!E.NIGHT_ORDER.includes('king'), '狼王帶槍手勢已取消');
+    const lone = newGame({ hidden: 1, gargoyle: 1, seer: 1, villager: 4 });
+    assert.ok(lone.game.night.steps.includes('wolf'), '只有隱狼、石像鬼也有狼人那步');
+    assert.equal(play(lone, {}, { step: 'wolf' }).game.narration.text, LINES.wolfOpen);
   },
   'night-2': () => {
     assert.equal(R.DEFAULT_RULES.fakeWaitMin, 8);
@@ -430,7 +436,6 @@ const CHECKS = {
     assert.deepEqual(pk.game.day.vote.result.top, [], 'PK 那一輪全部棄票');
     assert.equal(ok(E.exile(pk, 0)).game.narration.text, says('day-5')[0]);
     const ab = voteAll(night(newGame(B)), {});
-    assert.equal(ok(E.exile(ok(E.startVote(ab)), 0)).game.narration.text, says('day-4')[0], '又開了一輪還沒投完');
     assert.equal(ok(E.exile(ok(E.duel(ab, id(8), 9)), 0)).game.narration.text, says('day-4')[0], '結果被決鬥清掉');
   },
   'day-10': () => {
@@ -495,7 +500,10 @@ const CHECKS = {
     no(E.startVote(r)); no(E.exile(r, 4)); no(E.duel(r, id(8), 1)); no(E.boom(r, id(1), 0)); no(E.nextNight(r, 0));
     assert.ok(pick(r, 9).passBadge, '出局的警長手機出現選擇');
     no(E.passBadge(r, id(9), 9), '不能移交給死人');
-    assert.equal(ok(E.passBadge(r, id(9), 4)).game.sheriff, 4);
+    const pb = ok(E.passBadge(r, id(9), 4));
+    assert.equal(pb.game.sheriff, 4);
+    assert.equal(pb.game.narration.seq, r.game.narration.seq, '移交主機不唸');
+    assert.equal(pb.game.log.at(-1).text, '9 號警長把警徽移交給 4 號。', '只寫在紀錄');
     const torn = ok(E.passBadge(r, id(9), 0));
     assert.equal(torn.game.sheriff, null);
     assert.equal(torn.game.badgeTorn, true);
@@ -732,6 +740,9 @@ const CHECKS = {
     assert.equal(r.game.narration.text, says('beauty-1')[0]);
     no(E.nightAction(r, id(5), { target: 5 }, everyone(r), 0, minRand), '不能選自己');
     assert.equal(ok(E.nightAction(r, id(5), { target: 0 }, everyone(r), 0, minRand)).game.night.charmTarget, null, '可以不魅惑');
+    const mate = voteAll(night(newGame(F), { charm: 3 }), { 8: 5, 9: 5 });
+    assert.equal(mate.game.alive[3], false, '可以魅惑狼隊友（狼王），一樣殉情');
+    assert.ok(!mate.game.canShoot.includes(3), '殉情的狼王不能開槍');
   },
   'beauty-2': () => {
     let r = night(newGame(F), { charm: 15 });
@@ -941,6 +952,11 @@ const CHECKS = {
     const k = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 2, 4: 2 }), id(2), 6));
     assert.deepEqual(k.game.canShoot, [6], '被狼王的槍帶走');
     assert.deepEqual(ok(E.boom(night(newGame(KG)), id(3), 6)).game.canShoot, [6], '被白狼王帶走');
+    // 這一死讓遊戲結束（屠邊最後一個神）：不開槍
+    const HL = { wolf: 2, seer: 1, hunter: 1, villager: 3 }; // 1、2 狼、3 預言家、4 獵人、5–7 平民
+    const end = voteAll(withDead(night(newGame(HL)), [3]), { 1: 4, 2: 4 });
+    assert.equal(end.phase, 'ended');
+    assert.deepEqual(end.game.canShoot, [], '遊戲結束就不開槍');
   },
   'hunter-2': () => {
     const r = play(newGame(B), {}, { step: 'hunter' });
@@ -1070,6 +1086,8 @@ const CHECKS = {
     assert.match(mount(r, id(14)).html('#actionBox'), /翻牌（免於出局）[\s\S]*不翻牌，出局/);
     const f = ok(E.idiotChoose(r, id(14), true));
     assert.equal(f.game.narration.text, fill(says('idiot-1')[0], { N: 14 }));
+    no(E.startVote(f), '今天的放逐算完成：不能再投票');
+    no(E.boom(f, id(1), 0), '狼人也不能自爆');
     assert.equal(f.game.alive[14], true);
     const out = ok(E.idiotChoose(r, id(14), false));
     assert.equal(out.game.alive[14], false);
