@@ -457,7 +457,7 @@ function onHost(e) {
 function renderVote() {
   const { state, $, setHTML } = c;
   const box = $('#voteBox');
-  const v = state.phase === 'day' ? state.game.vote : null;
+  const v = state.phase === 'day' || state.phase === 'ended' ? state.game.vote : null; // 這一票直接結束遊戲：結算畫面也看得到統計（2026-10-28 審查）
   box.hidden = !v;
   if (!v) return;
   if (v.open) {

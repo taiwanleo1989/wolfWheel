@@ -244,6 +244,9 @@ const CHECKS = {
     r = ok(E.exile(withDead(r, [2, 3]), 1));
     assert.equal(r.phase, 'ended');
     assert.deepEqual(E.publicGame(r).allRoles, r.game.roles, '結束才翻開');
+    // 喊技能＝透露不是被毒死：被毒的獵人不喊、被刀的喊
+    assert.ok(!play(newGame(B, { police: false }), { poison: 6 }).game.narration.text.includes(LINES.skillOn));
+    assert.ok(play(newGame(B, { police: false }), { wolf: 6 }).game.narration.text.includes(LINES.skillOn));
     // 狼美人出局唸殉情＝等於公開她是狼美人
     assert.ok(voteAll(night(newGame(F), { charm: 15 }), { 8: 5, 9: 5 }).game.narration.text.includes('15 號殉情出局。'));
   },
@@ -370,6 +373,9 @@ const CHECKS = {
     const res = r.game.day.vote.result;
     assert.deepEqual(res.abstain, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11], '棄票＋沒投的');
     assert.deepEqual(res.rows[0].voters, [1]);
+    const end = voteAll(withDead(night(newGame(B)), [2, 3]), { 4: 1, 5: 1 });
+    assert.equal(end.phase, 'ended', '這一票直接結束遊戲');
+    assert.match(mount(end, id(4)).html('#voteBox'), /投票統計[\s\S]*最高票：1 號/, '結算畫面也看得到統計');
   },
   'day-3': () => {
     const [out, skill] = says('day-3');
@@ -410,6 +416,32 @@ const CHECKS = {
     assert.equal(r.game.day.exileDone, false);
     assert.equal(ok(E.exile(r, 0)).game.narration.text, says('day-5')[0]);
     assert.equal(ok(E.startVote(r)).game.day.vote.round, 2, '可以重新投票');
+    const pk = voteAll(voteAll(night(newGame(B)), { 1: 9, 2: 10 }), {}, true);
+    assert.deepEqual(pk.game.day.vote.result.top, [], 'PK 那一輪全部棄票');
+    assert.equal(ok(E.exile(pk, 0)).game.narration.text, says('day-5')[0]);
+  },
+  'day-10': () => {
+    const pend = plan => play(newGame(B), plan); // 第一天、死訊還沒公布
+    const bad = (res, why) => {
+      assert.equal(res.ok, false, why);
+      assert.equal(res.room.game.day.pendingDeaths, null, `${why}：死訊照樣公布`);
+      return res.room;
+    };
+    // 自己昨晚死了、對象昨晚死了
+    assert.equal(bad(E.duel(pend({ wolf: 8 }), id(8), 1), '騎士自己死了').game.knightUsed, false);
+    bad(E.duel(pend({ wolf: 1 }), id(8), 1), '對象死了');
+    bad(E.boom(pend({ wolf: 1 }), id(1), 0), '自爆的自己死了');
+    // 昨晚死的人要開槍：先等他開，開完可以再按
+    const h = bad(E.duel(pend({ wolf: 6 }), id(8), 1), '獵人要開槍');
+    assert.equal(h.game.knightUsed, false, '沒用掉');
+    assert.ok(E.duel(ok(E.shoot(h, id(6), 0)), id(8), 1).ok, '開完可以再按');
+    const hb = bad(E.boom(pend({ wolf: 6 }), id(1), 0), '自爆：獵人要開槍');
+    assert.ok(E.boom(ok(E.shoot(hb, id(6), 0)), id(1), 0).ok);
+    // 昨晚死的是剛登記的警長：先等他選警徽
+    const s = bad(E.duel(ok(E.setSheriff(pend({ wolf: 9 }), 9)), id(8), 1), '警長要選警徽');
+    assert.equal(s.game.badgePending, true);
+    assert.ok(E.duel(ok(E.passBadge(s, id(9), 4)), id(8), 1).ok, '選完可以再按');
+    bad(E.boom(ok(E.setSheriff(pend({ wolf: 9 }), 9)), id(1), 0), '自爆：警長要選警徽');
   },
   'day-6': () => {
     let r = play(newGame(B), { wolf: 9 }); // 死訊還沒公布
@@ -507,6 +539,10 @@ const CHECKS = {
     assert.equal(a.votes[2], 15, '看得到隊友選誰');
     assert.deepEqual(a.hidden, { voted: true, vote: 16 }, '只看到「隱狼」選誰');
     assert.ok(!a.killers.includes(6) && !a.killers.includes(7));
+    const mates = pick(r, 1).wolves;
+    assert.deepEqual(mates.filter(w => w.king).map(w => w.seat), [3], '標出狼王（白狼王不標）');
+    assert.deepEqual(a.noKnife, [5], '狼美人那格不能刀');
+    assert.match(mount(r, id(1)).html('#actionBox'), /狼王是 3 號/);
   },
   'wolf-3': () => {
     const [line] = says('wolf-3');
@@ -541,6 +577,9 @@ const CHECKS = {
     no(E.boom(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(1), 0), '白癡在選');
     const sp = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9))));
     no(E.boom(sp, id(1), 0), '警長在選');
+    no(E.boom(ok(E.exile(voteAll(day, { 4: 9, 5: 10 }), 0)), id(1), 0), '平票沒人出局之後');
+    no(E.boom(ok(E.exile(voteAll(day, {}), 0)), id(1), 0), '全部棄票沒人出局之後');
+    no(E.boom(ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true)), id(1), 0), '白癡翻牌之後');
   },
   'wolf-6': () => {
     assert.equal(play(newGame(B), { seer: 1 }).game.seerChecks[0].wolf, true, '預言家查是狼');
@@ -628,6 +667,7 @@ const CHECKS = {
     assert.equal(ex.game.alive[3], false);
     assert.deepEqual(ex.game.canShoot, [], '被放逐沒有技能');
     no(E.boom(voteAll(night(newGame(KG)), { 4: 9, 5: 9 }), id(3), 8), '放逐之後不能自爆');
+    no(E.boom(ok(E.exile(night(newGame(KG)), 0)), id(3), 8), '沒人出局之後也不能');
   },
 
   /* 狼美人 */
