@@ -621,6 +621,8 @@ const CHECKS = {
     assert.equal(tie.game.day.vote, null);
     no(E.startVote(tie, true), '不能接著 PK');
     assert.ok(E.startVote(tie).ok);
+    const after = ok(E.duel(voteAll(night(newGame(B)), { 1: 10, 2: 10 }), id(8), 9));
+    assert.ok(after.game.day.vote?.result, '已經放逐之後才決鬥：統計留著');
     const nv = ok(E.nextNight(ok(E.startVote(night(newGame(B)))), 0));
     assert.equal(nv.phase, 'night', '投票中主機直接天黑：這輪作廢');
   },
@@ -892,7 +894,7 @@ const CHECKS = {
     assert.ok(!pick(r, 1).wolves.some(w => w.seat === 6), '狼隊不知道隱狼');
     const h = mount(r, id(6));
     h.click('#myInfo', 'me', 'show');
-    assert.match(h.html('#myInfo'), /晚上你在手機上跟他們一起投刀[\s\S]*就由你自己決定殺誰/, '「看我的身分」照新規則寫');
+    assert.match(h.html('#myInfo'), /狼隊還活著時，晚上你在手機上跟他們一起投刀[\s\S]*或板子上本來就沒有狼隊[\s\S]*就由你自己決定殺誰/, '「看我的身分」照新規則寫');
   },
   'hidden-2': () => {
     let r = toNight(night(newGame(F)), 'wolf');
@@ -931,6 +933,11 @@ const CHECKS = {
     assert.equal(lastDay.phase, 'day');
     assert.deepEqual(pick(lastDay, 6).wolves.filter(w => w.alive).map(w => w.seat), [6, 7], '白天那一刻就互相顯示');
     assert.ok(pick(lastDay, 7).wolves.some(w => w.seat === 6));
+    const hdead = withDead(lastDay, [6]);
+    assert.deepEqual(pick(hdead, 7).wolves.map(w => w.seat), [7], '隱狼死了：石像鬼名單不再顯示他');
+    const gm = mount(hdead, id(7));
+    gm.click('#myInfo', 'me', 'show');
+    assert.match(gm.html('#myInfo'), /狼隊友：沒有（石像鬼只跟還活著、一起殺人的隱狼見面）/);
     // 板子上本來就沒有狼隊：第一晚就開始，彼此認得
     const NP = { hidden: 1, gargoyle: 1, seer: 1, villager: 4 }; // 1 隱狼、2 石像鬼、3 預言家、4–7 平民
     const np = play(newGame(NP), {}, { step: 'wolf' });
@@ -1160,6 +1167,8 @@ const CHECKS = {
     const r = ok(E.duel(night(newGame(B)), id(8), 1));
     assert.equal(r.game.narration.text, fill(line, { N: 8, M: 1 }));
     no(E.startVote(r), '今天不放逐');
+    const last = ok(E.duel(withDead(night(newGame(B)), [2, 3]), id(8), 1));
+    assert.equal(last.game.narration.text, '騎士 8 號決鬥 1 號：1 號是狼人，出局！遊戲結束，好人陣營獲勝！', '撞到最後一隻狼：直接唸勝負');
     assert.equal(ok(E.duel(night(newGame(F)), id(13), 6)).game.alive[6], false, '隱狼算狼');
     assert.equal(ok(E.duel(night(newGame(F)), id(13), 7)).game.alive[7], false, '石像鬼算狼');
     const k = ok(E.duel(night(newGame(KG)), id(7), 2));

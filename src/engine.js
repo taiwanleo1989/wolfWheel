@@ -541,7 +541,7 @@ function duelNow(room, seat, target) {
   const g = structuredClone(g0);
   g.knightUsed = true;
   g.day.bindCheck = false; // 白天已經往下走，「天亮睜眼」的綁票檢查結束
-  g.day.vote = null; // 投票中被決鬥打斷：這輪作廢，主機再開一次投票
+  if (!g.day.exileDone) g.day.vote = null; // 投票中（或投完還沒放逐）被決鬥打斷：這輪作廢，主機再開一次投票；已經放逐的統計留著（2026-10-28 審查）
   if (isWolfRole(g.roles[target])) {
     // 撞到狼：狼出局，今天不放逐，直接唸「天黑請閉眼」；主機按「進入黑夜」才開始夜晚（Leo 2026-10-10）
     // 撞到狼王：狼王先開槍，開完才唸「天黑請閉眼」（見 shoot）。撞死狼美人＝技能被悶、不殉情（Leo 2026-10-27）
