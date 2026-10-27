@@ -78,11 +78,117 @@ test('投票：主機開始 → 每個人在手機上點號碼 → 全部投完�
   assert.deepEqual(res.rows.map(x => [x.target, x.score]), [[1, 5], [4, 4.5]], '警長 9 號投 4 號算 1.5 票');
   assert.deepEqual(res.abstain, [7, 10]);
   assert.deepEqual(res.top, [1]);
-  assert.equal(r.game.log.at(-1).text, '投票結果：1 號 5 票（4、5、6、8、11 號）；4 號 4.5 票（1、2、3、警長9 號）；棄票 7、10 號。最高票 1 號。');
+  assert.equal(r.game.log.at(-2).text, '投票結果：1 號 5 票（4、5、6、8、11 號）；4 號 4.5 票（1、2、3、警長9 號）；棄票 7、10 號。最高票 1 號。');
   assert.deepEqual(E.publicGame(r).vote.result, res, '統計每支手機一樣');
-  // 主機照統計放逐
-  r = ok(E.exile(r, 1));
+  // 只有一個最高票：投完直接放逐、唸出局（Leo 2026-10-27）
   assert.equal(r.game.alive[1], false);
+  assert.equal(r.game.day.exileDone, true);
+  assert.equal(r.game.narration.text, '1 號被放逐出局。');
+  assert.equal(r.game.log.at(-1).text, '1 號被放逐出局。');
+  assert.equal(E.exile(r, 4).ok, false, '主機不會再放逐一次');
+});
+
+/* ───────── 第三輪（Leo 2026-10-27）：投完自動唸出局、棄票、PK 的人不投 ───────── */
+// 投一輪：plan＝{座位: 投誰}（沒寫的棄票）
+function voteAll(r, plan, pk = false) {
+  r = ok(E.startVote(r, pk));
+  for (const s of r.game.day.vote.voters) {
+    if (!r.game.day.vote.open) break;
+    r = ok(E.castVote(r, id(s), plan[s] ?? 0));
+  }
+  return r;
+}
+
+test('投完票：只有一個最高票就唸「N 號被放逐出局。」；能開槍的獵人接「N 號，請啟動角色技能。」；白癡不唸、等他自己選', () => {
+  // 獵人 6 號被投出去
+  let r = voteAll(night(newGame(B)), { 1: 6, 2: 6, 3: 6, 4: 1 });
+  assert.equal(r.game.narration.text, '6 號被放逐出局。6 號，請啟動角色技能。');
+  assert.deepEqual(r.game.narration.clips, ['n6', 'exiled', 'n6', 'comma', 'skillOn']);
+  assert.deepEqual(r.game.canShoot, [6]);
+  // 平民 9 號：只唸出局
+  r = voteAll(night(newGame(B)), { 1: 9, 2: 9 });
+  assert.equal(r.game.narration.text, '9 號被放逐出局。');
+  // 白癡 5 號（H 板）：不唸，等他選翻不翻
+  let h = night(newGame(H), { wolf: 10 });
+  h = voteAll(h, { 1: 5, 2: 5, 3: 5 });
+  assert.equal(h.game.day.idiotChoice, 5);
+  assert.equal(h.game.narration.text, '請大家進行投票。', '白癡被投出去：主機什麼都不唸（最後一句還是開始投票那句）');
+  assert.equal(h.game.alive[5], true);
+  assert.equal(ok(E.idiotChoose(h, id(5), true)).game.narration.text, '5 號翻牌，是白癡，免於出局，但之後不能投票。');
+  assert.equal(ok(E.idiotChoose(h, id(5), false)).game.narration.text, '5 號被放逐出局。', '不翻牌才唸出局');
+  // 遊戲因此結束：出局接勝負
+  let w = night(newGame(B));
+  w = withDead(w, [2, 3]);
+  w = voteAll(w, { 4: 1, 5: 1, 6: 1 });
+  assert.equal(w.phase, 'ended');
+  assert.equal(w.game.narration.text, '1 號被放逐出局。遊戲結束，好人陣營獲勝！');
+});
+
+test('投完票：狼王被投出去也喊「請啟動角色技能」；平票、全部棄票不自動放逐', () => {
+  const K = { wolf: 2, king: 1, seer: 1, witch: 1, hunter: 1, villager: 3 };
+  let r = night(newGame(K));
+  r = voteAll(r, { 1: 3, 2: 3, 4: 3 });
+  assert.equal(r.game.roles[3], 'king');
+  assert.equal(r.game.narration.text, '3 號被放逐出局。3 號，請啟動角色技能。');
+  // 平票：主機選 PK 或沒人出局
+  let t = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
+  assert.deepEqual(t.game.day.vote.result.top, [9, 10]);
+  assert.equal(t.game.day.exileDone, false);
+  assert.equal(ok(E.exile(t, 0)).game.narration.text, '平票，今天沒有人出局。');
+});
+
+test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的人；全部棄票＝唸「今天沒有人出局。」（不是平票）', () => {
+  let r = night(newGame(B));
+  r = ok(E.startVote(r));
+  // 畫面：棄票按鈕 → 是否正確 → 送 0
+  const p3 = mount(r, id(3));
+  assert.match(p3.html('#actionBox'), /data-do="vote0">棄票</);
+  p3.click('#actionBox', 'do', 'vote0');
+  assert.match(p3.html('#actionBox'), /這輪棄票，是否正確/);
+  p3.click('#actionBox', 'do', 'yes');
+  assert.deepEqual(p3.sent.at(-1), { type: 'vote', target: 0 });
+  r = ok(E.castVote(r, id(3), 0));
+  assert.match(mount(r, id(3)).html('#actionBox'), /你投了棄票/);
+  for (const s of [1, 2, 4, 5, 6, 7, 8, 9, 10]) r = ok(E.castVote(r, id(s), 0));
+  r = ok(E.castVote(r, id(11), 0));
+  const res = r.game.day.vote.result;
+  assert.deepEqual(res.abstain, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.deepEqual(res.top, []);
+  assert.equal(r.game.day.exileDone, false, '全部棄票不自動放逐，主機選');
+  assert.equal(r.game.log.at(-1).text, '投票結果：棄票 1、2、3、4、5、6、7、8、9、10、11 號。沒有人得票。');
+  const host = mount(r, 'host');
+  assert.match(host.html('#hostCtl'), /全部棄票，沒人出局/);
+  assert.match(host.html('#voteBox'), /棄票[\s\S]*1、2、3/);
+  const out = ok(E.exile(r, 0));
+  assert.equal(out.game.narration.text, '今天沒有人出局。');
+  assert.deepEqual(out.game.narration.clips, ['noExile']);
+});
+
+test('平票 PK（Leo 2026-10-27）：10 人、1 號 2 號 PK，只有 3～10 號能投；PK 的人手機顯示不能投；投完照樣自動放逐', () => {
+  let r = night(newGame(H)); // 平安夜：10 人都活著
+  assert.equal(Object.values(r.game.alive).filter(Boolean).length, 10);
+  r = voteAll(r, { 3: 1, 4: 1, 5: 2, 6: 2 });
+  assert.deepEqual(r.game.day.vote.result.top, [1, 2]);
+  r = ok(E.startVote(r, true));
+  const v = r.game.day.vote;
+  assert.deepEqual(v.candidates, [1, 2]);
+  assert.deepEqual(v.voters, [3, 4, 5, 6, 7, 8, 9, 10], '只有 3～10 號投票');
+  assert.equal(E.castVote(r, id(1), 2).ok, false, '1 號不能投');
+  assert.equal(E.castVote(r, id(2), 1).ok, false, '2 號不能投');
+  assert.equal(E.castVote(r, id(3), 4).ok, false, '只能投 1、2 號');
+  // 畫面：PK 的人看到說明、沒有投票鈕；其他人只能點 1、2
+  const a1 = mount(r, id(1)).html('#actionBox');
+  assert.match(a1, /平票 PK：你是被投的人[\s\S]*這輪你不能投票/);
+  assert.ok(!a1.includes('data-do="vote"'));
+  const a3 = mount(r, id(3)).html('#actionBox');
+  assert.match(a3, /平票 PK：請投票/);
+  assert.deepEqual([...a3.matchAll(/data-pick="(\d+)"/g)].map(x => Number(x[1])), [1, 2]);
+  assert.match(mount(r, 'host').html('#voteBox'), /PK：1、2 號（這輪不投票）；投票的人：3、4、5、6、7、8、9、10 號/);
+  for (const s of [3, 4, 5, 6, 7, 8, 9]) r = ok(E.castVote(r, id(s), s < 7 ? 2 : 1));
+  r = ok(E.castVote(r, id(10), 0)); // 棄票也可以
+  assert.deepEqual(r.game.day.vote.result.top, [2]);
+  assert.equal(r.game.alive[2], false, 'PK 結果也自動放逐');
+  assert.equal(r.game.narration.text, '2 號被放逐出局。');
 });
 
 test('投票：平票可以 PK（平手的人不投、其他人只能投他們）；主機可以提早結束（沒投的算棄票）', () => {
@@ -377,13 +483,21 @@ test('畫面：主機按「進行投票」→ 唸「請大家進行投票。」�
   const views = [1, 4, 9, 'host'].map(cid => mount(r, cid).html('#voteBox'));
   assert.match(views[0], /投票統計[\s\S]*9 號[\s\S]*10 票[\s\S]*最高票：9 號/);
   assert.ok(views.every(h => h === views[0]), '統計每支手機一樣（主機也一樣）');
+  // 只有一個最高票：直接放逐、唸出局，主機不用再按（Leo 2026-10-27）
+  assert.equal(r.game.narration.text, '9 號被放逐出局。');
   const h2 = mount(r, 'host');
-  assert.match(h2.html('#hostCtl'), /照投票結果：放逐 9 號/);
-  h2.click('#hostCtl', 'host', 'exileTop');
-  assert.deepEqual(h2.sent.at(-1), { type: 'exile', target: 9 });
+  assert.match(h2.html('#hostCtl'), /✓ 今天的放逐已登記/);
+  assert.ok(!h2.html('#hostCtl').includes('照投票結果'));
+  // 「照投票結果：放逐」只在自動放逐被擋住時出現（例如舊房間）：照樣送放逐
+  const blocked = { ...r, game: { ...r.game, alive: { ...r.game.alive, 9: true }, day: { ...r.game.day, exileDone: false } } };
+  const hb = mount(blocked, 'host');
+  assert.match(hb.html('#hostCtl'), /照投票結果：放逐 9 號/);
+  hb.click('#hostCtl', 'host', 'exileTop');
+  assert.deepEqual(hb.sent.at(-1), { type: 'exile', target: 9 });
   // 手動登記還在（沒投票時用）
-  h2.click('#hostCtl', 'host', 'manualExile');
-  assert.match(h2.html('#hostCtl'), /手動登記被放逐的人[\s\S]*data-host-pick="1"/);
+  const h3 = mount(night(newGame(B)), 'host');
+  h3.click('#hostCtl', 'host', 'manualExile');
+  assert.match(h3.html('#hostCtl'), /手動登記被放逐的人[\s\S]*data-host-pick="1"/);
   // 平票：主機看到 PK 鈕
   let t = night(newGame(B));
   t = ok(E.startVote(t));

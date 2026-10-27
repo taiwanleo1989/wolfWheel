@@ -479,7 +479,8 @@ export function exile(room, target, now = 0) {
   g.day.exileDone = true;
   g.day.bindCheck = false; // 已經進到投票，「天亮睜眼」的綁票檢查結束（投完票改看「一狼一神一民」，見 checkWin）
   if (g.day.vote?.open) g.day.vote = null; // 還在投票主機就直接登記（例如有人手機沒電）：這輪作廢
-  if (!target) note(g, ['tie']);
+  // 沒人出局：上一輪全部棄票＝「今天沒有人出局。」；其他（平票、主機手動）照舊唸「平票，今天沒有人出局。」
+  if (!target) note(g, [g.day.vote?.result?.top.length === 0 ? 'noExile' : 'tie']);
   else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
     // 還沒翻過牌的白癡：由他自己的手機選要不要翻牌（Leo 2026-10-10）；選之前主機不唸結果；不限時
@@ -658,7 +659,7 @@ const hasVote = (g, s) => g.alive[s] === true && !g.idiotRevealed.includes(s);
 const voteWeight = (g, s) => (s === g.sheriff ? 1.5 : 1);
 
 // 主機：開始投票。大家投完（或主機按結束）後，每支手機同時出現投票統計；主機再照統計登記放逐。
-// pk＝上一輪最高票平手：平手的人不投票，其他人只能投他們
+// pk＝上一輪最高票平手：平手的人不投票（例如 10 人 1、2 號 PK，只有 3～10 號投），其他人只能投他們
 export function startVote(room, pk = false, now = 0) {
   if (room.phase !== 'day') return fail('現在不是白天');
   const blocked = pendingBlock(room); if (blocked) return blocked;
@@ -684,6 +685,18 @@ export function startVote(room, pk = false, now = 0) {
   return ok({ ...room, game: g });
 }
 
+// 投票結束（全部投完或主機按結束）：只有一個最高票就直接放逐，主機馬上唸「N 號被放逐出局。」
+// （獵人／狼王接「N 號，請啟動角色技能。」；白癡等他自己選翻不翻，先不唸）（Leo 2026-10-27）。
+// 平票、全部棄票由主機選（PK／沒人出局／重新投票）；放逐被擋住（例如還有人要開槍）就留給主機按
+function finishVote(room, now) {
+  const top = room.game.day.vote.result.top;
+  if (top.length === 1) {
+    const r = exile(room, top[0], now);
+    if (r.ok) return r;
+  }
+  return ok(room);
+}
+
 // 玩家投票：target＝號碼，0＝棄票；投了不能改。全部投完自動結束、公布統計
 export function castVote(room, clientId, target, now = 0) {
   const v0 = room.phase === 'day' ? room.game.day?.vote : null;
@@ -696,8 +709,9 @@ export function castVote(room, clientId, target, now = 0) {
   const g = structuredClone(room.game);
   const v = g.day.vote;
   v.ballots[seat] = target;
-  if (v.voters.every(s => v.ballots[s] !== undefined)) closeVote(g);
-  return ok({ ...room, game: g });
+  if (!v.voters.every(s => v.ballots[s] !== undefined)) return ok({ ...room, game: g });
+  closeVote(g);
+  return finishVote({ ...room, game: g }, now);
 }
 
 // 主機：提早結束投票（有人手機沒電、不投）：沒投的算棄票
@@ -705,7 +719,7 @@ export function endVote(room, now = 0) {
   if (room.phase !== 'day' || !room.game.day?.vote?.open) return fail('現在沒有在投票');
   const g = structuredClone(room.game);
   closeVote(g);
-  return ok({ ...room, game: g });
+  return finishVote({ ...room, game: g }, now);
 }
 
 function closeVote(g) {

@@ -615,7 +615,13 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
           assert.equal(total, r.game.day.vote.voters.reduce((a, s) => a + weight(s), 0), `seed ${seed} 票數對不起來`);
           if (res0.top.length > 1 && rnd(2)) { const pk = E.startVote(r, true); if (pk.ok) { r = pk.room; for (const s of r.game.day.vote.voters) must(E.castVote(r, id(s), r.game.day.vote.candidates[rnd(r.game.day.vote.candidates.length)]), 'PK 投票'); } }
           const top = r.game.day.vote?.result?.top ?? [];
-          must(E.exile(r, top.length === 1 ? top[0] : 0), '照統計放逐'); continue;
+          // 只有一個最高票：投完已經自動放逐（Leo 2026-10-27）；白癡等他自己選、其他人唸「N 號被放逐出局。」
+          if (top.length === 1) {
+            assert.ok(r.game.day.exileDone, `seed ${seed} 一個最高票沒自動放逐`);
+            if (!r.game.day.idiotChoice) assert.ok(r.game.log.some(e => e.text.startsWith(`${top[0]} 號被放逐出局。`)), `seed ${seed} 沒唸出局`);
+            continue;
+          }
+          must(E.exile(r, 0), '平票／全部棄票：沒人出局'); continue;
         }
         must(E.exile(r, rnd(4) ? pickAlive() : 0), '放逐'); continue;
       }

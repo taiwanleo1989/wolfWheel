@@ -194,6 +194,10 @@ function renderAction() {
         ${picker(v.candidates.map(n => ({ n })), pick)}
         ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="vote"${pick ? '' : ' disabled'}>投 ${pick ?? '…'} 號</button>
         <button class="btn" type="button" data-do="vote0">棄票</button></div>`}`;
+  } else if (phase === 'day' && g.vote?.open && g.vote.pk && g.vote.candidates.includes(seat)) {
+    // 平票 PK：PK 的人這輪不投票，只有其他人投（Leo 2026-10-27）
+    html = `<h2>平票 PK：你是被投的人</h2>
+      <p class="hint">這輪你不能投票，由其他人在 ${g.vote.candidates.join('、')} 號裡選。等大家投完，每支手機會同時出現結果。</p>`;
   } else if (phase !== 'ended' && !me.alive) {
     html = `<p class="out">你已出局。可以留遺言（如果還有的話），之後請靜靜看戲，不要透露訊息。</p>`;
   } else if (me.idiotRevealed) {
@@ -331,7 +335,7 @@ function renderHost() {
       : '<div class="row-gap"><button class="btn small" type="button" data-host="manualExile">手動登記放逐（沒投票時）</button></div>';
     html = `<h2>白天</h2>
       ${sheriffHTML(g)}
-      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選；全部選完，每支手機都會顯示投票結果。</p>
+      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選（可以棄票）；全部選完，每支手機都會顯示投票結果，只有一個最高票就直接放逐、唸出局。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
         <p class="done">投票中：已投 ${v.voted}／${v.voters.length} 人</p>
         <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
@@ -434,7 +438,7 @@ function onHost(e) {
     }
     case 'tear': if (confirm('警徽流失？之後這局沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
     case 'manualExile': ui.manualExile = !ui.manualExile; c.render(); break;
-    case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
+    case 'exile0': if (confirm('登記「今天沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':
       if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
       send({ type: 'nextNight' }); break;
@@ -457,7 +461,8 @@ function renderVote() {
   box.hidden = !v;
   if (!v) return;
   if (v.open) {
-    setHTML(box, `<h2>${v.pk ? '平票 PK 投票中' : '投票中'}</h2><p class="hint">已投 ${v.voted}／${v.voters.length} 人。投完後每支手機同時出現統計。</p>`);
+    const pkLine = v.pk ? `<p class="hint">PK：${v.candidates.join('、')} 號（這輪不投票）；投票的人：${v.voters.join('、')} 號。</p>` : '';
+    setHTML(box, `<h2>${v.pk ? '平票 PK 投票中' : '投票中'}</h2>${pkLine}<p class="hint">已投 ${v.voted}／${v.voters.length} 人。投完後每支手機同時出現統計。</p>`);
     return;
   }
   const r = v.result;
