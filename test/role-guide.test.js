@@ -330,6 +330,7 @@ const CHECKS = {
     assert.equal(d.game.timer.at, d.game.night.fakeEnd);
     d = E.advance(d, d.game.timer.at, minRand).room;
     assert.equal(d.game.narration.seq, dseq, '沒有重唸');
+    assert.equal(E.pauseRepeat(toNight(night(newGame(B)), 'seer')).game.timer, null, '主機不在線上：活的角色也不重唸');
     assert.equal(d.game.night.stage, 'pause');
   },
   'night-4': () => {
@@ -497,6 +498,11 @@ const CHECKS = {
     assert.equal(s.game.badgePending, true);
     assert.ok(E.duel(ok(E.passBadge(s, id(9), 4)), id(8), 1).ok, '選完可以再按');
     bad(E.boom(ok(E.setSheriff(pend({ wolf: 9 }), 9)), id(1), 0), '自爆：警長要選警徽');
+    // 公布死訊這一下遊戲就結束：技能不發動
+    const over = E.boom(play(newGame({ wolf: 1, seer: 1, villager: 3 }), { wolf: 2 }), id(1), 0); // 刀死唯一的神
+    assert.equal(over.ok, false);
+    assert.equal(over.room.phase, 'ended');
+    assert.equal(over.room.game.alive[1], true, '自爆沒發動');
   },
   'day-6': () => {
     let r = play(newGame(B), { wolf: 9 }); // 死訊還沒公布
@@ -589,6 +595,10 @@ const CHECKS = {
     const f = voteAll(night(newGame(F)), { 1: 14, 2: 14 });
     assert.equal(f.game.timer, null, '白癡選擇不限時');
     no(E.nextNight(f, 0), '白癡的選擇不能用天黑跳過');
+    const L3H = { wolf: 1, seer: 1, hunter: 1, villager: 2 }; // 1 狼、2 預言家、3 獵人、4、5 平民
+    const h3 = voteAll(night(newGame(L3H), { wolf: 5 }), { 1: 3, 2: 3 });
+    assert.deepEqual(h3.game.canShoot, [3]);
+    assert.equal(ok(E.nextNight(h3, 0)).game.winner, 'wolf', '作廢之後照常判：一狼一神一民直接結束');
     assert.match(mount(r, 'host').html('#hostCtl'), /data-host="night">天黑請閉眼</, '按鈕叫「天黑請閉眼」');
     assert.match(mount(ok(E.boom(night(newGame(B)), id(1), 0)), 'host').html('#hostCtl'), /data-host="night">進入黑夜</, '自爆之後叫「進入黑夜」');
   },
@@ -606,6 +616,8 @@ const CHECKS = {
     assert.equal(tie.game.day.vote, null);
     no(E.startVote(tie, true), '不能接著 PK');
     assert.ok(E.startVote(tie).ok);
+    const nv = ok(E.nextNight(ok(E.startVote(night(newGame(B)))), 0));
+    assert.equal(nv.phase, 'night', '投票中主機直接天黑：這輪作廢');
   },
 
   /* 狼人 */
@@ -650,6 +662,9 @@ const CHECKS = {
     assert.deepEqual(mates.filter(w => w.king).map(w => w.seat), [3], '標出狼王（白狼王不標）');
     assert.deepEqual(a.noKnife, [5], '狼美人那格不能刀');
     assert.match(mount(r, id(1)).html('#actionBox'), /狼王是 3 號/);
+    const dm = mount(night(newGame(F)), id(1));
+    dm.click('#myInfo', 'me', 'show');
+    assert.match(dm.html('#myInfo'), /狼隊友：2 號、3 號（狼王）、4 號、5 號/, '白天看我的身分也看得到');
   },
   'wolf-3': () => {
     const [line] = says('wolf-3');
@@ -706,6 +721,11 @@ const CHECKS = {
     const d = ok(E.duel(night(newGame(B)), id(8), 1));
     assert.equal(d.game.alive[1], false, '騎士撞到＝狼人');
     assert.equal(d.game.alive[8], true);
+    for (const w of [3, 4, 5, 7]) { // 狼王、白狼王、狼美人、石像鬼
+      assert.equal(play(newGame(F), { seer: w }).game.seerChecks[0].wolf, true, `${w} 號預言家查是狼`);
+      assert.equal(voteAll(night(newGame(F)), { 8: w, 9: w }).game.graveInfo.wolf, true, `${w} 號守墓人看是狼`);
+      assert.equal(ok(E.duel(night(newGame(F)), id(13), w)).game.alive[13], true, `${w} 號騎士撞到＝狼`);
+    }
   },
 
   /* 狼王 */
@@ -1176,6 +1196,7 @@ const CHECKS = {
     let r = ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true));
     r = nextDay(r, {});
     assert.ok(!ok(E.startVote(r)).game.day.vote.voters.includes(14), '沒有投票權');
+    assert.ok(ok(E.startVote(r)).game.day.vote.candidates.includes(14), '別人還是可以投他');
     const again = ok(E.exile(r, 14));
     assert.equal(again.game.alive[14], false, '再被放逐直接出局');
     assert.equal(again.game.day.idiotChoice ?? null, null);
