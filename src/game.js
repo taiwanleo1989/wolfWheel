@@ -134,7 +134,7 @@ export function left(room, online, now) {
 }
 
 // 只有主機能送的訊息（房間收到別支手機送的就擋掉）
-export const HOST_ONLY = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce', 'approveSeat'];
+export const HOST_ONLY = ['setPlayers', 'setSetup', 'deal', 'redeal', 'backToSetup', 'start', 'skip', 'exile', 'nextNight', 'newGame', 'restart', 'announce', 'approveSeat', 'startVote', 'endVote', 'sheriff', 'tearBadge'];
 
 // 對局紀錄（每支手機都看得到）；發牌階段還沒有紀錄就不寫
 function withLog(room, text) {

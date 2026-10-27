@@ -103,9 +103,22 @@ test('白天：白狼王的自爆按鈕收在「看我的身分」裡，所有�
   assert.match(m.html('#myInfo'), /<h2>白狼王自爆<\/h2>[\s\S]*自爆，不帶人/);
   m.click('#myInfo', 'pick', '7');
   assert.match(m.html('#myInfo'), /自爆，帶走 7 號/);
+  // 2026-10-27 起一般狼人也能自爆（不帶人）；狼美人不行、好人沒有
   const other = mount(r, id(1));
   other.click('#myInfo', 'me', 'show');
-  assert.ok(!other.html('#myInfo').includes('自爆'));
+  other.click('#myInfo', 'do', 'boomClose'); // 測試裡每支手機共用同一份畫面狀態，先關掉上一支打開的
+  assert.match(other.html('#myInfo'), /自爆（狼人）/);
+  other.click('#myInfo', 'do', 'boomOpen');
+  assert.match(other.html('#myInfo'), /<h2>狼人自爆<\/h2>[\s\S]*確定自爆/);
+  assert.ok(!other.html('#myInfo').includes('帶走'), '一般狼人不能帶人');
+  for (const s of [4, 7, 12]) {
+    const x = mount(r, id(s));
+    x.click('#myInfo', 'me', 'show');
+    assert.ok(!x.html("#myInfo").includes("data-do=\"boomOpen\""), `${s} 號沒有自爆鈕`);
+  }
+  const wb = E.boom(r, id(1), 0).room;
+  assert.equal(wb.game.narration.text, '1 號狼人自爆，天黑請閉眼。');
+  assert.match(mount(wb, 'host').html('#hostCtl'), /<h2>狼人自爆<\/h2>[\s\S]*進入黑夜/);
   const b = E.boom(r, id(3), 7).room;
   assert.match(mount(b, 'host').html('#hostCtl'), /<h2>白狼王自爆<\/h2>[\s\S]*進入黑夜/);
   assert.ok(!mount(b, 'host').html('#hostCtl').includes('被放逐的是'), '主機不出現放逐');
@@ -129,22 +142,21 @@ test('看自己的身分：隱狼看得到狼隊、石像鬼不認得隊友、�
   assert.match(show(id(1)), /狼隊友：2 號、3 號、4 號/, '狼人看不到隱狼、石像鬼');
 });
 
-test('夜裡：狼王的帶槍手勢畫面有「知道了」按鈕，按了往下走（Leo 2026-10-17 實玩：沒有按鈕）', () => {
+test('夜裡：獵人的帶槍手勢畫面有「知道了」按鈕；狼王沒有這一步了（Leo 2026-10-27 取消）', () => {
   // 1–2 狼人、3 狼王、4 預言家、5 女巫、6 獵人、7–12 平民
   const KING = { wolf: 2, king: 1, seer: 1, witch: 1, hunter: 1, villager: 6 };
   let r = L.newRoom('1234', 12, 'host', 0);
   for (let n = 1; n <= 12; n++) r = L.claimSeat(r, id(n), n, new Set()).room;
   r = G.setSetup(r, { counts: KING }).room;
   r = G.startDeal(r, n => n - 1).room;
-  r = toStep(E.startGame(r, 0, minRand).room, 'king');
-  const m = mount(r, id(3));
+  r = E.startGame(r, 0, minRand).room;
+  assert.ok(!r.game.night.steps.includes('king'));
+  r = toStep(r, 'hunter');
+  const m = mount(r, id(6));
   assert.match(m.html('#actionBox'), /你今晚的帶槍手勢是[\s\S]*👍 可以開槍[\s\S]*data-do="hunterSeen"[\s\S]*知道了/);
-  assert.equal(mount(r, id(1)).html('#actionBox'), '', '其他狼人沒有');
-  assert.equal(mount(r, id(6)).html('#actionBox'), '', '獵人沒有');
-  assert.match(mount(r, 'host').html('#hostCtl'), /現在輪到：<b>狼王<\/b>/);
-  const next = E.nightAction(r, id(3), { seen: true }, everyone(r), 0, minRand);
-  assert.ok(next.ok, next.error);
-  assert.equal(next.room.game.night.stage, 'pause');
+  assert.equal(mount(r, id(3)).html('#actionBox'), '', '狼王沒有');
+  assert.match(mount(r, 'host').html('#hostCtl'), /現在輪到：<b>獵人<\/b>/);
+  assert.match(mount(r, 'host').html('#hostCtl'), /睜眼 25 秒後可按/);
   // 舊網頁不認得的步驟：不能一片空白，要叫他重新整理
   const v = G.viewFor(r, everyone(r), id(3));
   v.you.game.action = { kind: 'somethingNew' };

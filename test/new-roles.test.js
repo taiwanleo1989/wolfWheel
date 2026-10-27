@@ -174,36 +174,54 @@ test('只有隱狼／石像鬼的板子：第一晚就由他們殺人', () => {
 });
 
 /* ───────── 狼美人 ───────── */
-test('狼美人：魅惑不能選自己或死人；今晚不魅惑也行', () => {
+test('狼美人：魅惑不能選自己或死人；今晚不魅惑也行；不能連續兩晚魅惑同一位（Leo 2026-10-27）', () => {
   let r = play(newGame(FULL), { wolf: 12 }, atAct('beauty'));
-  assert.deepEqual(E.privateGame(r, 4).action, { kind: 'beauty' });
+  assert.deepEqual(E.privateGame(r, 4).action, { kind: 'beauty', lastCharm: null });
   assert.equal(E.nightAction(r, id(4), { target: 4 }, everyone(r), 0, minRand).ok, false);
   assert.equal(E.nightAction(r, id(1), { target: 9 }, everyone(r), 0, minRand).ok, false, '別的狼不能魅惑');
   r = act(r, 4, { target: 0 });
   assert.equal(r.game.night.charmTarget, null);
+  // 第一晚魅惑 9，第二晚不能再魅惑 9、可以換人；隔一晚（第三晚）又可以
+  let c = night(newGame(FULL), { charm: 9 });
+  c = play(nextNight(c), {}, atAct('beauty'));
+  assert.equal(E.privateGame(c, 4).action.lastCharm, 9);
+  const same = E.nightAction(c, id(4), { target: 9 }, everyone(c), 0, minRand);
+  assert.equal(same.ok, false);
+  assert.match(same.error, /連續兩晚/);
+  c = act(c, 4, { target: 13 });
+  c = play(c);
+  c = play(nextNight(c), {}, atAct('beauty'));
+  assert.equal(E.nightAction(c, id(4), { target: 9 }, everyone(c), 0, minRand).ok, true, '隔一晚可以再魅惑 9');
+  assert.equal(E.nightAction(c, id(4), { target: 13 }, everyone(c), 0, minRand).ok, false, '昨晚魅惑 13');
 });
 
-test('狼美人晚上死（自刀／被毒）：當晚魅惑的人殉情、獵人不能開槍，帶槍手勢也是 👎', () => {
-  let r = play(newGame(FULL, { police: false }), { wolf: 4, charm: 9 }, atAct('hunter'));
-  assert.equal(E.privateGame(r, 9).action.canShoot, false, '會殉情的獵人帶槍手勢 👎');
-  r = play(r);
-  assert.deepEqual(deadSeats(r), [4, 9]);
-  assert.match(said(r), /昨晚死亡的是 4 號、9 號。/);
-  assert.deepEqual(r.game.canShoot, [], '殉情的獵人不能開槍');
-
+test('狼美人不能被自刀、不能自爆；被女巫毒死不殉情（技能被悶）（Leo 2026-10-27）', () => {
+  let r = play(newGame(FULL), {}, atAct('wolf'));
+  const res = E.nightAction(r, id(1), { target: 4 }, everyone(r), 0, minRand);
+  assert.equal(res.ok, false, '狼隊不能刀狼美人');
+  assert.equal(E.nightAction(r, id(4), { target: 4 }, everyone(r), 0, minRand).ok, false, '狼美人自己也不能投自己');
+  assert.deepEqual(E.privateGame(r, 1).action.noKnife, [4], '狼人的畫面標出不能刀的號碼');
   r = night(newGame(FULL), { charm: 12, poison: 4 });
-  assert.deepEqual(deadSeats(r), [4, 12], '被毒也殉情');
+  assert.deepEqual(deadSeats(r), [4], '被毒死的狼美人不殉情');
+  assert.match(said(r), /昨晚死亡的是 4 號。$/);
   r = night(newGame(FULL), { charm: 12, poison: 13 });
   assert.deepEqual(deadSeats(r), [13], '狼美人沒死，魅惑的人沒事');
+  // 被毒死後 12 號不會在白天因為「魅惑」跟著死
+  r = night(newGame(FULL), { charm: 12, poison: 4 });
+  r = E.exile(r, 13).room;
+  assert.equal(r.game.alive[12], true);
+  const d = night(newGame(FULL));
+  assert.equal(E.privateGame(d, 4).canBoom, undefined, '狼美人沒有自爆鈕');
+  assert.equal(E.boom(d, id(4), 0).ok, false, '狼美人不能自爆');
 });
 
-test('狼美人白天出局（放逐、被槍帶走、騎士撞）：魅惑的人殉情，台詞接著唸「N 號殉情出局。」', () => {
+test('狼美人白天出局（放逐、被槍帶走）：魅惑的人殉情、技能被悶，台詞接著唸「N 號殉情出局。」；被騎士撞死不殉情', () => {
   let r = night(newGame(FULL), { charm: 9 });
   assert.equal(E.privateGame(r, 4).charm, 9, '狼美人看得到現在魅惑誰');
   r = E.exile(r, 4).room;
   assert.equal(said(r), '4 號被放逐出局。9 號殉情出局。');
   assert.deepEqual(deadSeats(r), [4, 9]);
-  assert.deepEqual(r.game.canShoot, [], '殉情的獵人不能開槍');
+  assert.deepEqual(r.game.canShoot, [], '殉情的獵人不能開槍（技能被悶）');
 
   r = night(newGame(FULL), { wolf: 9, charm: 12 });
   assert.deepEqual(r.game.canShoot, [9]);
@@ -212,7 +230,27 @@ test('狼美人白天出局（放逐、被槍帶走、騎士撞）：魅惑的�
 
   r = night(newGame(KNIGHT), { charm: 8 });
   r = E.duel(r, id(7), 3).room;
-  assert.equal(said(r), '騎士 7 號決鬥 3 號：3 號是狼人，出局！8 號殉情出局。天黑請閉眼。');
+  assert.equal(said(r), '騎士 7 號決鬥 3 號：3 號是狼人，出局！天黑請閉眼。', '騎士撞死的狼美人技能被悶');
+  assert.equal(r.game.alive[8], true);
+});
+
+test('狼美人：剩一狼美、一神、一民，狼美被放逐帶走殉情的人＝狼人陣營直接獲勝（殉情算狼刀，狼刀優先）（Leo 2026-10-27）', () => {
+  // 1 狼美人、2 預言家、3 平民（屠邊）
+  let r = night(newGame({ beauty: 1, seer: 1, villager: 2 }), { wolf: 4, charm: 3 });
+  assert.deepEqual(deadSeats(r), [4]);
+  assert.equal(r.phase, 'day');
+  r = E.exile(r, 1).room;
+  assert.equal(r.phase, 'ended');
+  assert.equal(r.game.winner, 'wolf');
+  assert.equal(said(r), '1 號被放逐出局。3 號殉情出局。遊戲結束，狼人陣營獲勝！');
+  // 殉情的是神也一樣
+  let g = night(newGame({ beauty: 1, seer: 1, villager: 2 }), { wolf: 4, charm: 2 });
+  g = E.exile(g, 1).room;
+  assert.equal(g.game.winner, 'wolf');
+  // 沒魅惑到人（或魅惑的人已經死了）：狼美出局＝好人勝
+  let n = night(newGame({ beauty: 1, seer: 1, villager: 2 }), { wolf: 4, charm: 0 });
+  n = E.exile(n, 1).room;
+  assert.equal(n.game.winner, 'good');
 });
 
 test('狼美人的魅惑每晚換新：今晚不魅惑，昨晚魅惑的人就沒事', () => {
@@ -282,7 +320,9 @@ test('守墓人死了：照樣唸台詞、假等（不洩漏）', () => {
 test('白狼王自爆帶人：唸「N 號白狼王自爆，帶走了 M 號。天黑請閉眼。」，不放逐，主機按了才進黑夜（不重唸）', () => {
   let r = night(newGame(FULL));
   assert.equal(E.privateGame(r, 3).canBoom, true);
-  assert.equal(E.privateGame(r, 1).canBoom, undefined, '只有白狼王');
+  assert.equal(E.privateGame(r, 3).boomTake, true);
+  assert.equal(E.privateGame(r, 1).canBoom, true, '2026-10-27 起一般狼人也能自爆');
+  assert.equal(E.privateGame(r, 1).boomTake, undefined, '但只有白狼王能帶人');
   assert.equal(E.boom(r, id(1), 7).ok, false);
   assert.equal(E.boom(r, id(3), 3).ok, false, '不能帶自己');
   r = E.boom(r, id(3), 7).room;
@@ -312,12 +352,16 @@ test('白狼王：不帶人也能自爆；帶走獵人 → 獵人先開槍，開
   assert.equal(said(r), '3 號白狼王自爆，帶走了 4 號。12 號殉情出局。天黑請閉眼。');
 });
 
-test('白狼王什麼時候不能爆：公布死訊前、投票放逐後、有人還沒開槍、等白癡選；非自爆出局不能帶人', () => {
-  let r = play(newGame(FULL));
-  assert.equal(E.boom(r, id(3), 7).ok, false, '第一天死訊公布前');
-  r = E.announceDeaths(r).room;
-  assert.equal(E.boom(E.exile(r, 12).room, id(3), 7).ok, false, '投票放逐後');
-  assert.equal(E.privateGame(E.exile(r, 12).room, 3).canBoom, undefined);
+test('白狼王什麼時候不能爆：投票放逐後、有人還沒開槍、等白癡選；非自爆出局不能帶人；警長競選中可以（先公布死訊）', () => {
+  let p = play(newGame(FULL), { wolf: 12 });
+  assert.ok(p.game.day.pendingDeaths);
+  const early = E.boom(p, id(3), 7).room;
+  assert.equal(said(early), '3 號白狼王自爆，帶走了 7 號。昨晚死亡的是 12 號。天黑請閉眼。', '警長競選中自爆：順便公布昨晚死訊');
+  assert.equal(early.game.day.pendingDeaths, null);
+  assert.equal(E.boom(p, id(3), 12).ok, false, '不能帶走昨晚已經死的人');
+  const r = E.announceDeaths(p).room;
+  assert.equal(E.boom(E.exile(r, 13).room, id(3), 7).ok, false, '投票放逐後');
+  assert.equal(E.privateGame(E.exile(r, 13).room, 3).canBoom, undefined);
   const h = night(newGame(FULL), { wolf: 9 });
   assert.equal(E.boom(h, id(3), 7).ok, false, '獵人還沒開槍');
   assert.equal(E.privateGame(h, 3).canBoom, undefined);
@@ -432,7 +476,7 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       hostSeesNothing();
       // 該結束卻沒結束：沒人在等（死訊、開槍、白癡）時，勝負與提早獲勝都必須已經判掉
       const gw = r.game;
-      if (r.phase === 'night' || (!gw.day.pendingDeaths && !gw.canShoot.length && !gw.day.idiotChoice)) {
+      if (r.phase === 'night' || (!gw.day.pendingDeaths && !gw.canShoot.length && !gw.day.idiotChoice && !gw.badgePending)) {
         assert.equal(E.winnerOf(gw, r.setup.counts, r.setup.rules), null, `seed ${seed} 已經分出勝負卻沒結束`);
         if (r.phase === 'day') assert.equal(E.houseRuleWin(gw, r.setup.rules), null, `seed ${seed} 提早獲勝沒判`);
       }
@@ -447,7 +491,9 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
           for (const s of who) assert.ok(r.game.alive[s], `seed ${seed} 死人在動作`);
           if (step === 'wolf') {
             for (const s of who) assert.equal(R.ROLES[r.game.roles[s]].team, 'wolf', `seed ${seed} 好人在狼人那步`);
-            const t = rnd(3) ? pickAlive() : 0;
+            const ok = aliveList().filter(s => r.game.roles[s] !== 'beauty'); // 狼美人不能被自刀
+            const t = rnd(3) ? ok[rnd(ok.length)] : 0;
+            if (r.game.alive[aliveList().find(s => r.game.roles[s] === 'beauty')]) for (const s of who) rejected(E.nightAction(r, id(s), { target: aliveList().find(x => r.game.roles[x] === 'beauty') }, everyone(r), now, rnd), '刀狼美人');
             for (const s of who) tryAct(s, [{ target: t }]);
             assert.ok(tryAct(who[0], [{ confirm: true }]), `seed ${seed} 狼人確認失敗`);
           } else {
@@ -465,39 +511,71 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       }
       // 白天
       const g = r.game;
-      const wk0 = aliveList().find(s => g.roles[s] === 'whiteKing'), kn0 = aliveList().find(s => g.roles[s] === 'knight');
-      const anyone = aliveList()[0];
-      // 該擋的動作要擋：死訊公布前什麼都不能做；唸了天黑請閉眼之後不能放逐、自爆、決鬥；投票後不能自爆
-      if (g.day.pendingDeaths || g.day.idiotChoice) {
-        rejected(E.exile(r, anyone), '等死訊／白癡時放逐');
-        rejected(E.nextNight(r, now), '等死訊／白癡時天黑');
-        if (wk0) rejected(E.boom(r, id(wk0), 0), '等死訊／白癡時自爆');
-        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '等死訊／白癡時決鬥');
+      const live = s => g.alive[s] && !(g.day.pendingDeaths ?? []).includes(s);
+      const wolfBoomers = aliveList().filter(s => live(s) && R.ROLES[g.roles[s]].team === 'wolf' && g.roles[s] !== 'beauty');
+      const wk0 = wolfBoomers[0], kn0 = aliveList().find(s => live(s) && g.roles[s] === 'knight' && !g.knightUsed);
+      const beauty0 = aliveList().find(s => g.roles[s] === 'beauty');
+      const anyone = aliveList().find(s => live(s) && s !== kn0) ?? aliveList()[0];
+      if (beauty0) rejected(E.boom(r, id(beauty0), 0), '狼美人自爆');
+      // 該擋的動作要擋：死訊公布前不能放逐、天黑；等白癡／移交警徽時什麼都不能做；唸了天黑請閉眼之後不能放逐、自爆、決鬥；投票後不能自爆
+      if (g.day.pendingDeaths || g.day.idiotChoice || g.badgePending) {
+        rejected(E.exile(r, anyone), '等死訊／白癡／警徽時放逐');
+        rejected(E.nextNight(r, now), '等死訊／白癡／警徽時天黑');
+        rejected(E.startVote(r), '等死訊／白癡／警徽時投票');
+      }
+      if (g.day.idiotChoice || g.badgePending) {
+        if (wk0) rejected(E.boom(r, id(wk0), 0), '等白癡／警徽時自爆');
+        if (kn0) rejected(E.duel(r, id(kn0), anyone), '等白癡／警徽時決鬥');
       }
       if (g.day.nightCalled) {
         rejected(E.exile(r, anyone), '天黑請閉眼後放逐');
         if (wk0) rejected(E.boom(r, id(wk0), 0), '天黑請閉眼後自爆');
-        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '天黑請閉眼後決鬥');
+        if (kn0) rejected(E.duel(r, id(kn0), anyone), '天黑請閉眼後決鬥');
       }
       if (g.day.exileDone && wk0) rejected(E.boom(r, id(wk0), 0), '投票後自爆');
-      if (g.day.exileDone && kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '投票後決鬥');
       if (g.canShoot.length) {
         if (wk0) rejected(E.boom(r, id(wk0), 0), '等開槍時自爆');
-        if (kn0 && kn0 !== anyone) rejected(E.duel(r, id(kn0), anyone), '等開槍時決鬥');
+        if (kn0) rejected(E.duel(r, id(kn0), anyone), '等開槍時決鬥');
       }
+      const must = (res, why) => { assert.ok(res.ok, `seed ${seed} ${why}：${res.error}`); r = res.room; };
+      // 警長：主機登記（警長競選時、或隨便哪天）、警長出局就移交或撕掉
+      if (g.badgePending) { must(rnd(3) ? E.setSheriff(r, pickAlive()) : E.tearBadge(r), '處理警徽'); continue; }
+      if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) { must(E.setSheriff(r, pickAlive()), '登記警長'); continue; }
+      // 警長競選中：騎士決鬥、狼人自爆也可以（之後順便公布死訊）
+      if (g.day.pendingDeaths && kn0 && rnd(6) === 0) { const t = aliveList().find(s => live(s) && s !== kn0); if (t) { must(E.duel(r, id(kn0), t), '競選中決鬥'); continue; } }
+      if (g.day.pendingDeaths && wk0 && rnd(6) === 0) { must(E.boom(r, id(wk0), 0), '競選中自爆'); continue; }
       if (g.day.pendingDeaths) { r = E.announceDeaths(r).room; continue; }
       if (g.day.idiotChoice) { r = E.idiotChoose(r, id(g.day.idiotChoice), rnd(2) === 0).room; continue; }
       if (g.canShoot.length && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了
       if (g.canShoot.length) { const s = g.canShoot[0]; const t = rnd(2) ? pickAlive() : 0; const res = E.shoot(r, id(s), t === s ? 0 : t); assert.ok(res.ok, res.error); r = res.room; continue; }
-      const wk = aliveList().find(s => g.roles[s] === 'whiteKing');
-      if (wk && !g.day.exileDone && !g.day.nightCalled && rnd(4) === 0) {
-        const t = pickAlive(); const res = E.boom(r, id(wk), t === wk ? 0 : t); assert.ok(res.ok, `seed ${seed} 自爆：${res.error}`); r = res.room; continue;
+      if (wk0 && !g.day.exileDone && !g.day.nightCalled && rnd(6) === 0) {
+        const t = g.roles[wk0] === 'whiteKing' ? pickAlive() : 0;
+        must(E.boom(r, id(wk0), t === wk0 ? 0 : t), '自爆'); continue;
       }
-      const kn = aliveList().find(s => g.roles[s] === 'knight');
-      if (kn && !g.knightUsed && !g.day.nightCalled && !g.day.exileDone && rnd(4) === 0) {
-        const t = pickAlive(); if (t !== kn) { const res = E.duel(r, id(kn), t); assert.ok(res.ok, res.error); r = res.room; continue; }
+      // 騎士白天隨時可以決鬥（放逐之後也行）
+      if (kn0 && !g.day.nightCalled && rnd(5) === 0) {
+        const t = pickAlive(); if (t !== kn0) { must(E.duel(r, id(kn0), t), '決鬥'); continue; }
       }
-      if (!g.day.exileDone && !g.day.nightCalled) { const res = E.exile(r, rnd(4) ? pickAlive() : 0); assert.ok(res.ok, res.error); r = res.room; continue; }
+      if (!g.day.exileDone && !g.day.nightCalled) {
+        if (rnd(2)) { // 玩家在手機上投票；統計出來後主機照最高票登記（平票就 PK 或平票沒人出局）
+          must(E.startVote(r), '開始投票');
+          const v = r.game.day.vote;
+          for (const s of v.voters) {
+            if (rnd(10) === 0) continue; // 有人沒投：主機提早結束
+            const c = v.candidates.filter(x => x !== s);
+            must(E.castVote(r, id(s), rnd(4) && c.length ? c[rnd(c.length)] : 0), '投票');
+          }
+          if (r.game.day.vote.open) must(E.endVote(r), '結束投票');
+          const res0 = r.game.day.vote.result;
+          const weight = s => (s === r.game.sheriff ? 1.5 : 1);
+          const total = res0.rows.reduce((a, x) => a + x.score, 0) + res0.abstain.reduce((a, s) => a + weight(s), 0);
+          assert.equal(total, r.game.day.vote.voters.reduce((a, s) => a + weight(s), 0), `seed ${seed} 票數對不起來`);
+          if (res0.top.length > 1 && rnd(2)) { const pk = E.startVote(r, true); if (pk.ok) { r = pk.room; for (const s of r.game.day.vote.voters) must(E.castVote(r, id(s), r.game.day.vote.candidates[rnd(r.game.day.vote.candidates.length)]), 'PK 投票'); } }
+          const top = r.game.day.vote?.result?.top ?? [];
+          must(E.exile(r, top.length === 1 ? top[0] : 0), '照統計放逐'); continue;
+        }
+        must(E.exile(r, rnd(4) ? pickAlive() : 0), '放逐'); continue;
+      }
       const res = E.nextNight(r, now); assert.ok(res.ok, `seed ${seed} 天黑：${res.error}`); r = res.room;
       // 狼隊還有人活著時，隱狼、石像鬼不會出現在狼人那步
       const pack = aliveList().filter(s => R.ROLES[r.game.roles[s]].team === 'wolf' && !R.LONE_WOLVES.includes(r.game.roles[s]));

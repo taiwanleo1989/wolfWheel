@@ -105,6 +105,12 @@ export class Room extends DurableObject {
       case 'idiot': result = E.idiotChoose(this.room, me.clientId, msg.flip, now); break;
       case 'nextNight': result = E.nextNight(this.room, now); break;
       case 'announce': result = E.announceDeaths(this.room, now); break;
+      // 投票、警長（Leo 2026-10-27）
+      case 'vote': result = E.castVote(this.room, me.clientId, msg.target, now); break;
+      case 'startVote': result = E.startVote(this.room, msg.pk === true, now); break;
+      case 'endVote': result = E.endVote(this.room, now); break;
+      case 'sheriff': result = E.setSheriff(this.room, msg.seat, now); break;
+      case 'tearBadge': result = E.tearBadge(this.room, now); break;
       case 'newGame': result = E.newGame(this.room); break;
       case 'restart': result = G.restart(this.room, rand); break;
       default: return;

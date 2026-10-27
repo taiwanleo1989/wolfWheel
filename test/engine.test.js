@@ -70,11 +70,11 @@ function night(r, plan) {
   return r;
 }
 
-test('黑夜順序照手稿：守衛→狼人→女巫→預言家→獵人→狼王（有狼王才有）；第一晚最後上警', () => {
-  assert.deepEqual(newGame().game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter', 'king', 'police']);
+test('黑夜順序照手稿：守衛→狼人→女巫→預言家→獵人；第一晚最後上警（狼王的帶槍手勢 Leo 2026-10-27 拿掉）', () => {
+  assert.deepEqual(newGame().game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter', 'police']);
   assert.deepEqual(newGame('yu-nv-lie-bai').game.night.steps, ['wolf', 'witch', 'seer', 'hunter', 'police']);
   const second = E.nextNight(night(newGame()), 1e6).room;
-  assert.deepEqual(second.game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter', 'king'], '第二晚起沒有上警');
+  assert.deepEqual(second.game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter'], '第二晚起沒有上警');
 });
 
 test('台詞照手稿：天黑請閉眼、狼王請確認身分（有狼王才唸）、女巫分兩段、上警、天亮請睜眼', () => {
@@ -94,7 +94,7 @@ test('台詞照手稿：天黑請閉眼、狼王請確認身分（有狼王才�
   assert.ok(lines.includes('請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。'));
   assert.ok(lines.includes('預言家請睜眼。請問你今晚要查驗的玩家是？'));
   assert.ok(lines.includes('獵人請睜眼。獵人，你今晚的帶槍手勢是——'));
-  assert.ok(lines.includes('狼王請睜眼。狼王，你今晚的帶槍手勢是——'));
+  assert.ok(!lines.some(l => l.startsWith('狼王請睜眼')), '狼王夜裡不再有帶槍手勢（Leo 2026-10-27）');
   assert.ok(lines.includes('要上警的玩家請起立。'));
   assert.equal(lines.at(-1), '天亮請睜眼。');
   assert.ok(lines.every(l => !/\d+ 號/.test(l)), '主機的台詞不能唸出任何號碼');
@@ -193,22 +193,15 @@ test('獵人夜裡的帶槍手勢：被毒 👎、沒被毒 👍', () => {
   assert.equal(E.privateGame(r, 7).action.canShoot, true);
 });
 
-test('狼王夜裡的帶槍手勢（Leo 2026-10-17）：被毒 👎、沒被毒 👍、被狼刀也 👍；別人看不到', () => {
-  let r = play(newGame(), { poison: 4 }, atAct('king'));
-  assert.deepEqual(E.privateGame(r, 4).action, { kind: 'king', canShoot: false });
-  assert.equal(E.privateGame(r, 1).action, undefined, '其他狼人不會看到狼王的手勢');
-  assert.equal(E.privateGame(r, 7).action, undefined);
-  r = play(newGame(), { wolf: 4 }, atAct('king'));
-  assert.equal(E.privateGame(r, 4).action.canShoot, true);
-  r = act(r, 4, { seen: true });
-  assert.equal(r.game.night.stage, 'pause');
-  r = runUntil(r, x => x.game.narration.text === '狼王請閉眼。');
-  assert.equal(r.game.narration.text, '狼王請閉眼。');
-  // 狼王死了：照唸、假等，手機不出現按鈕
-  let d = E.nextNight(night(newGame(), { poison: 4 }), 1e6).room;
-  d = play(d, {}, x => x.phase === 'night' && x.game.night.stage === 'acting' && x.game.night.steps[x.game.night.idx] === 'king');
-  assert.equal(d.game.night.wait, 'fake');
-  assert.equal(E.privateGame(d, 4).action, undefined);
+test('狼王夜裡沒有帶槍手勢這一步（Leo 2026-10-27 取消）；被刀照樣能開槍、被毒不能', () => {
+  let r = newGame();
+  assert.ok(!r.game.night.steps.includes('king'));
+  r = play(r, {}, x => x.phase !== 'night');
+  for (let i = 0; i < 5; i++) assert.equal(E.privateGame(r, 4).action, undefined);
+  const knifed = night(newGame(), { wolf: 4 });
+  assert.deepEqual(knifed.game.canShoot, [4]);
+  const poisoned = night(newGame(), { poison: 4 });
+  assert.deepEqual(poisoned.game.canShoot, []);
 });
 
 test('獵人／狼王出局可以開槍時喊「N 號，請啟動角色技能。」：放逐也喊、只喊一次、不能開槍不喊（Leo 2026-10-17）', () => {
@@ -243,7 +236,7 @@ test('上警：沒人要動作，計時到（或主機按繼續）就天亮', ()
 
 test('上警可以關掉：第一晚唸完最後一個角色直接天亮，死訊馬上公布', () => {
   let r = newGame('lang-wang-shou-wei', { police: false });
-  assert.deepEqual(r.game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter', 'king']);
+  assert.deepEqual(r.game.night.steps, ['guard', 'wolf', 'witch', 'seer', 'hunter']);
   r = play(r, { wolf: 9 });
   assert.equal(r.phase, 'day');
   assert.equal(r.game.day.pendingDeaths, null);
@@ -361,19 +354,40 @@ test('騎士撞到狼王：狼王先開槍，開完（或不開）才唸天黑�
   assert.equal(early.game.narration.text, '天黑請閉眼。');
 });
 
-test('騎士只能在投票放逐之前、沒人等開槍時決鬥（Leo 2026-10-14 選 1A，跟白狼王自爆同一套）', () => {
+test('騎士白天隨時可以決鬥（Leo 2026-10-27，取代 10-14 的 1A）：放逐後、平票後、警長競選中都行；等開槍那一下不行', () => {
   // 1–3 狼、4 狼王、5 預、6 女、7 獵、8 騎士、9–12 民
   const r = night(newGame('lang-wang-qi-shi'));
   const ex = E.exile(r, 9).room;
-  assert.equal(E.duel(ex, id(8), 2).ok, false, '投票放逐後');
-  assert.equal(E.privateGame(ex, 8).canDuel, undefined);
+  assert.equal(E.privateGame(ex, 8).canDuel, true, '投票放逐後也能決鬥');
+  const after = E.duel(ex, id(8), 2).room;
+  assert.equal(after.game.alive[2], false);
+  assert.equal(E.publicGame(after).nightCalled, true);
+  assert.match(after.game.narration.text, /天黑請閉眼。$/);
   const tie = E.exile(r, 0).room;
-  assert.equal(E.duel(tie, id(8), 2).ok, false, '平票也算投完票');
+  assert.equal(E.duel(tie, id(8), 10).ok, true, '平票後也行');
   const h = night(newGame('lang-wang-qi-shi'), { wolf: 7 }); // 刀獵人
   assert.deepEqual(h.game.canShoot, [7]);
   assert.equal(E.duel(h, id(8), 2).ok, false, '獵人還沒開槍');
   assert.equal(E.privateGame(h, 8).canDuel, undefined);
   assert.equal(E.privateGame(E.shoot(h, id(7), 0).room, 8).canDuel, true, '槍開完就可以');
+  // 警長競選中（第一天死訊還沒公布）：撞到狼＝先公布昨晚死訊再天黑
+  const p = play(newGame('lang-wang-qi-shi'), { wolf: 10 });
+  assert.ok(p.game.day.pendingDeaths);
+  assert.equal(E.privateGame(p, 8).canDuel, true, '警長競選中也看得到決鬥');
+  const pd = E.duel(p, id(8), 3).room;
+  assert.equal(pd.game.day.pendingDeaths, null);
+  assert.equal(pd.game.alive[10], false);
+  assert.equal(pd.game.narration.text, '騎士 8 號決鬥 3 號：3 號是狼人，出局！昨晚死亡的是 10 號。天黑請閉眼。');
+  assert.equal(E.nextNight(pd, 1e6).ok, true);
+  // 警長競選中撞到好人：騎士出局，死訊照樣等主機公布
+  const pg = E.duel(p, id(8), 9).room;
+  assert.equal(pg.game.alive[8], false);
+  assert.ok(pg.game.day.pendingDeaths);
+  // 昨晚已經死了（還沒公布）的騎士不能決鬥、也不能撞昨晚死的人
+  const dk = play(newGame('lang-wang-qi-shi'), { wolf: 8 });
+  assert.equal(E.duel(dk, id(8), 2).ok, false);
+  assert.equal(E.privateGame(dk, 8).canDuel, undefined);
+  assert.equal(E.duel(p, id(8), 10).ok, false, '10 號昨晚死了');
 });
 
 test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在一起唸（不會被蓋掉）', () => {
@@ -586,19 +600,20 @@ test('每一句台詞都由片段表組成：沒有缺片段、文字和片段�
 });
 
 /* ───────── Leo 2026-10-11 ───────── */
-test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 30 秒一次；有操作就重新算；死掉的角色假等超過 30 秒也一樣重唸（Leo 2026-10-17）', () => {
+test('夜裡角色沒操作：25 秒後主機再唸一次同一句（Leo 2026-10-27 從 30 減 5 秒），之後每 25 秒一次；有操作就重新算；死掉的角色不重唸', () => {
   let r = play(newGame(), {}, atAct('wolf'));
   const first = r.game.narration, opened = r.game.night.openedAt;
-  assert.equal(E.REPEAT_MS, 30000);
+  assert.equal(E.REPEAT_MS, 25000);
+  assert.equal(E.SKIP_MS, 25000);
   assert.equal(r.game.timer.at - opened, E.REPEAT_MS);
   r = E.advance(r, r.game.timer.at, minRand).room;
   assert.equal(r.game.narration.seq, first.seq + 1, '序號變大，主機才會再唸');
   assert.equal(r.game.narration.text, '狼人今晚要擊殺的目標是？', '狼人溝通比較久，只重唸這句（Leo 2026-10-17）');
   assert.equal(r.game.night.stage, 'acting', '還在等狼人');
-  assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 30 秒');
+  assert.equal(r.game.night.openedAt, opened, '睜眼時間不變：跳過按鈕照樣 25 秒');
   assert.equal(r.game.log.filter(e => e.text === first.text).length, 0, '重唸不進紀錄');
   r = E.advance(r, r.game.timer.at, minRand).room;
-  assert.equal(r.game.narration.seq, first.seq + 2, '再過 30 秒再唸');
+  assert.equal(r.game.narration.seq, first.seq + 2, '再過 25 秒再唸');
   // 有人操作（狼人投票）：倒數從那一刻重算
   const t = opened + 50000;
   r = E.nightAction(r, id(1), { target: 9 }, everyone(r), t, minRand).room;
@@ -608,7 +623,7 @@ test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 3
   for (const w of [1, 2, 3, 4]) r = act(r, w, { target: 9 });
   r = act(r, 1, { confirm: true });
   assert.equal(r.game.night.stage, 'pause');
-  // 死掉的角色：假等抽到 30 秒以內＝直接往下走，不重唸（minRand 抽到最短 8 秒）
+  // 死掉的角色：假等抽到 25 秒以內＝直接往下走，不重唸（minRand 抽到最短 8 秒）
   let d = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room; // 守衛死了
   d = runUntil(d, x => x.game.night.stage === 'acting' && x.game.night.steps[x.game.night.idx] === 'guard');
   assert.equal(d.game.night.wait, 'fake');
@@ -617,20 +632,20 @@ test('夜裡角色沒操作：30 秒後主機再唸一次同一句，之後每 3
   d = E.advance(d, d.game.timer.at, minRand).room;
   assert.equal(d.game.night.stage, 'pause', '假等結束直接往下走，不重唸');
   assert.equal(d.game.narration.seq, seq);
-  // 死掉的角色假等抽到最長（預設 25 秒）：不重唸，25 秒就往下走（Leo 2026-10-27 選 A：重唸像在等死人按）
+  // 死掉的角色假等抽到最長（預設 20 秒）：不重唸，20 秒就往下走（Leo 2026-10-27 選 A：重唸像在等死人按；同日再減 5 秒）
   const maxRand = k => k - 1;
   assert.ok(R.FAKE_WAIT_CAP * 1000 < E.REPEAT_MS, '假等上限一定比重唸短');
   let m = E.nextNight(night(newGame(), { wolf: 8 }), 1e6).room;
   for (let i = 0; i < 20 && !(m.game.night.stage === 'acting' && m.game.night.steps[m.game.night.idx] === 'guard'); i++) m = E.advance(m, m.game.timer.at, maxRand).room;
   const mOpened = m.game.night.openedAt, mSeq = m.game.narration.seq;
-  assert.equal(m.setup.rules.fakeWaitMax, 25, '預設假等最長 25 秒');
-  assert.equal(m.game.night.fakeEnd - mOpened, 25000);
-  assert.equal(m.game.timer.at - mOpened, 25000, '鬧鐘直接到假等結束，中間不重唸');
+  assert.equal(m.setup.rules.fakeWaitMax, 20, '預設假等最長 20 秒');
+  assert.equal(m.game.night.fakeEnd - mOpened, 20000);
+  assert.equal(m.game.timer.at - mOpened, 20000, '鬧鐘直接到假等結束，中間不重唸');
   assert.equal(E.privateGame(m, 8).action, undefined, '死掉的守衛手機不出現按鈕');
   m = E.advance(m, m.game.timer.at, maxRand).room;
-  assert.equal(m.game.night.stage, 'pause', '25 秒到就往下走');
+  assert.equal(m.game.night.stage, 'pause', '20 秒到就往下走');
   assert.equal(m.game.narration.seq, mSeq, '沒有重唸');
-  // 設定調不超過 29 秒；上線前開的房間存著 60 秒也照 29 秒算
+  // 設定調不超過 24 秒；上線前開的房間存著 60 秒也照 24 秒算
   assert.equal(R.cleanRules({ fakeWaitMax: 60 }).fakeWaitMax, R.FAKE_WAIT_CAP);
   let old = night(newGame(), { wolf: 8 });
   old = { ...old, setup: { ...old.setup, rules: { ...old.setup.rules, fakeWaitMin: 60, fakeWaitMax: 60 } } };

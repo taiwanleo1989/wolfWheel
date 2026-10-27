@@ -204,6 +204,14 @@ body.is-night .bg{background:radial-gradient(circle,rgba(0,0,0,.35) 1px,transpar
 .stuck{margin-top:14px;padding:10px 12px;background:#fff1c9;border:3px dashed var(--ink)}
 .stuck p{margin:0 0 8px;font-weight:900;font-size:14px}
 .done{font-weight:900;color:#2f7a3a}
+/* 投票統計、警長（2026-10-27） */
+.tally{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}
+.tally li{display:grid;grid-template-columns:auto auto 1fr;gap:10px;align-items:baseline;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.05)}
+.tally li.top{background:rgba(196,60,40,.14)}
+.tally .score{font-weight:900}
+.tally .by{font-size:13px;opacity:.8}
+.sheriff{margin:8px 0 12px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.04)}
+.warn{font-weight:900;color:#b3402a}
 .btn.small{font-size:14px;padding:6px 12px;border-width:3px;box-shadow:3px 3px 0 var(--ink)}
 a.btn{display:inline-block;text-decoration:none}
 .log{margin:6px 0 0;padding-left:0;list-style:none;font-weight:900;line-height:1.6}

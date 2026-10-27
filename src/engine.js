@@ -3,7 +3,7 @@
 //
 // 黑夜照 Leo 的手稿（2026-10-08）：守衛 → 狼人 → 女巫（解藥、毒藥兩段）→ 預言家 → 獵人 →（第一晚）上警 → 天亮。
 // 2026-10-13 加五個角色，插進手稿的順序：狼人之後狼美人、預言家之後石像鬼、守墓人（第二晚起）；白狼王、隱狼沒有自己的一步。
-// 2026-10-17 獵人之後加狼王的帶槍手勢（Leo：跟獵人同一套；女巫用完毒才知道今晚能不能開槍）。
+// 2026-10-17 獵人之後加狼王的帶槍手勢；2026-10-27 Leo 拿掉（狼王夜裡不再有帶槍手勢這一步，scriptFor 的 'king' 留給舊房間）。
 // 每個角色＝一段「劇本」：幾句台詞（beat），每句台詞配一個要等的動作，最後一句閉眼。
 // 主機只唸台詞，絕不唸號碼——手稿裡「上帝手比號碼」的部分只出現在當事人的手機上。
 //
@@ -14,12 +14,14 @@
 //   charm（狼美人最近一晚魅惑的座位）, graveInfo{day,seat,wolf}（最近一次投票放逐出局的人）,
 //   canShoot[], knightUsed, log[{day,text}], narration{seq,text},
 //   night{steps,idx,beat,stage,next,openedAt,wolfVotes,wolfProposal,wolfTarget,guardTarget,witchSave,witchPoison,seerTarget,charmTarget,gargoyleTarget},
-//   day{exileDone,pendingDeaths,noSkill[],nightCalled,nightReason}, winner, timer{at}
+//   day{exileDone,pendingDeaths,noSkill[],nightCalled,nightReason,vote}, winner, timer{at},
+//   sheriff（警長座位，主機登記）, badgeTorn（警徽撕掉了）, badgePending（警長出局、等主機移交或撕掉警徽）
+//   day.vote{round,open,candidates[],voters[],ballots{座位:目標,0＝棄票},result}（玩家在手機上按號碼投票，2026-10-27）
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
 import { lineText, seatKey } from '../public/shared/voice-lines.js';
 
-export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter', 'king'];
+export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter'];
 
 // 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間；
 // again＝太久沒操作時重唸的句子（沒寫＝整句重唸）
@@ -46,13 +48,14 @@ export const INTRO_MS = 5000;   // 「天黑請閉眼」之後，等大家閉好
 export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色睜眼
 export const POLICE_MS = 6000;  // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）；Leo 2026-10-17 嫌長，12 → 6 秒
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
-export const SKIP_MS = 30000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）
+export const SKIP_MS = 25000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）；Leo 2026-10-27 夜裡等太久，30 → 25 秒
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）
 
-// 夜裡角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒）。
-// 死掉的角色不會重唸：假等最長 29 秒（R.FAKE_WAIT_CAP），一定比 30 秒短（Leo 2026-10-27 選 A：實玩死掉的神職重唸，
+// 夜裡角色這麼久沒操作，主機就把這句台詞再唸一次（Leo 2026-10-11：先 20 秒，同日改 15 秒；2026-10-17 改 30 秒；
+// 2026-10-27 夜裡等太久、減 5 秒 → 25 秒）。
+// 死掉的角色不會重唸：假等最長 24 秒（R.FAKE_WAIT_CAP），一定比 25 秒短（Leo 2026-10-27 選 A：實玩死掉的神職重唸，
 // 大家以為在等死人按、像卡住）。代價：聽到重唸＝那個角色還活著。下面「假等中重唸」的程式留著給上線前開的舊房間
-export const REPEAT_MS = 30000;
+export const REPEAT_MS = 25000;
 
 // 現在的鬧鐘只是「重唸」（在等活著的角色）？房間用它判斷：主機不在線上就不用重唸（沒人出聲），改回閒置清房
 export const waitingForPeople = room => room.phase === 'night' && room.game?.night?.stage === 'acting' && room.game.night.wait === 'people';
@@ -124,7 +127,7 @@ export function startGame(room, now, rand) {
     alive: Object.fromEntries(seatsList(g).map(s => [s, true])),
     dayNo: 1, potions: { save: true, poison: true }, lastGuard: null, idiotRevealed: [],
     seerChecks: [], gargoyleChecks: [], graveChecks: [], charm: null, graveInfo: null,
-    canShoot: [], knightUsed: false, log: [], winner: null,
+    canShoot: [], knightUsed: false, log: [], winner: null, sheriff: null, badgeTorn: false, badgePending: false,
   });
   return ok(beginNight({ ...room, game: g }, now));
 }
@@ -249,6 +252,7 @@ export function nightAction(room, clientId, payload, online, now, rand) {
       endBeat(room, g, now, rand);
     } else {
       if (target && !aliveTarget(target)) return fail('只能選活著的人');
+      if (target && g.roles[target] === 'beauty') return fail('狼美人不能被自刀'); // Leo 2026-10-27
       night.wolfVotes[seat] = target;
       // 所有「在線上、還活著」的狼都選同一個，才出現「是否正確」的確認
       const voters = actors(g, 'wolf').filter(s => online.has(room.seats[s]));
@@ -287,6 +291,8 @@ export function nightAction(room, clientId, payload, online, now, rand) {
     }
   } else if (act === 'beauty') {
     if (target && (!aliveTarget(target) || target === seat)) return fail('請選一個活著的其他玩家');
+    // g.charm 這時還是前一晚魅惑的人（天亮才換成今晚的）；Leo 2026-10-27：不能連續兩晚魅惑同一位
+    if (target && target === g.charm) return fail('不能連續兩晚魅惑同一位玩家');
     night.charmTarget = target || null;
     endBeat(room, g, now, rand);
   } else if (act === 'gargoyle') {
@@ -333,9 +339,12 @@ function kill(g, seat, { noSkill = false } = {}) {
   g.alive[seat] = false;
   const role = g.roles[seat];
   if ((role === 'hunter' || role === 'king') && !noSkill) g.canShoot.push(seat);
+  if (seat === g.sheriff) g.badgePending = true; // 警長出局：主機移交或撕掉警徽（Leo 2026-10-27）
 }
 
-// 白天出局：狼美人出局時，她最近一晚魅惑的人跟著殉情（不能發動技能）。回傳要接在台詞後面的「8 號殉情出局。」
+// 白天出局（放逐、被槍帶走、被白狼王帶走）：狼美人出局時，她最近一晚魅惑的人跟著殉情（不能發動技能）。
+// 回傳要接在台詞後面的「8 號殉情出局。」。被騎士撞死、被女巫毒死的狼美人技能被悶、不殉情（Leo 2026-10-27），
+// 那兩種不走這裡（duel 用 kill；毒藥在 nightDeaths）
 function dayKill(g, seat) {
   kill(g, seat);
   const c = g.charm;
@@ -344,7 +353,8 @@ function dayKill(g, seat) {
   return [seatKey(c), 'charmDied'];
 }
 
-// 昨晚死了誰：狼刀（同守同救也死）、毒藥；狼美人今晚死了，今晚魅惑的人殉情。noSkill＝不能開槍的
+// 昨晚死了誰：狼刀（同守同救也死）、毒藥；狼美人今晚被刀死，今晚魅惑的人殉情。noSkill＝不能開槍的。
+// 2026-10-27 起狼隊不能刀狼美人、被毒死的狼美人不殉情，所以晚上其實不會殉情（被刀那條留給上線前開的房間）
 function nightDeaths(g, n) {
   const deaths = new Set(), noSkill = new Set();
   if (n.wolfTarget) {
@@ -352,7 +362,7 @@ function nightDeaths(g, n) {
     if (saved === guarded) deaths.add(n.wolfTarget); // 都沒救＝死；同守同救＝也死
   }
   if (n.witchPoison) { deaths.add(n.witchPoison); noSkill.add(n.witchPoison); }
-  const beautyDies = [...deaths].some(s => g.roles[s] === 'beauty');
+  const beautyDies = [...deaths].some(s => g.roles[s] === 'beauty' && s !== n.witchPoison);
   const c = n.charmTarget;
   if (beautyDies && c && g.alive[c] && !deaths.has(c)) { deaths.add(c); noSkill.add(c); }
   return { list: [...deaths].sort((a, b) => a - b), noSkill };
@@ -386,22 +396,33 @@ function dawn(room, now, seq0) {
   return checkWin({ ...room, phase: 'day', game: g }, seq0);
 }
 
-// 主機：警長選完了，公布昨晚死訊
-export function announceDeaths(room, now = 0) {
-  if (room.phase !== 'day' || !room.game.day?.pendingDeaths) return fail('現在沒有要公布的死訊');
-  const g = structuredClone(room.game);
+// 套用第一天還沒公布的死訊（主機按「公布昨晚死訊」；或警長競選中騎士撞到狼、狼人自爆，今天直接天黑時順便公布）。
+// 回傳「昨晚死亡的是 9 號。」的片段
+function flushPending(g) {
   const list = g.day.pendingDeaths;
   // 舊房間（2026-10-13 前開的局）只記了 poisoned
   const noSkill = g.day.noSkill ?? (g.day.poisoned ? [g.day.poisoned] : []);
   for (const s of list) kill(g, s, { noSkill: noSkill.includes(s) });
   g.day.pendingDeaths = null;
-  note(g, deathClips(list));
   g.day.bindCheck = true; // 第一天的「天亮睜眼」到公布死訊才算完
+  return deathClips(list);
+}
+
+// 主機：警長選完了，公布昨晚死訊
+export function announceDeaths(room, now = 0) {
+  if (room.phase !== 'day' || !room.game.day?.pendingDeaths) return fail('現在沒有要公布的死訊');
+  const g = structuredClone(room.game);
+  note(g, flushPending(g));
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
-const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊')
-  : room.game.day?.idiotChoice ? fail('請等被放逐的玩家選擇') : null);
+// 等某個人選擇的那一下（白癡翻不翻、警長出局後主機移交或撕掉警徽）：放逐、投票、技能都先等
+const waitBlock = room => (room.game.day?.idiotChoice ? fail('請等被放逐的玩家選擇')
+  : room.game.badgePending ? fail('請先移交或撕掉警徽') : null);
+const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊') : waitBlock(room));
+
+// 白天「真的還活著」：第一天死訊還沒公布時，昨晚死的人 alive 還是 true（座位表照舊顯示），技能要另外擋
+const liveNow = (g, s) => g.alive[s] === true && !(g.day?.pendingDeaths ?? []).includes(s);
 
 /* ───────── 白天 ───────── */
 // 白天沒有任何倒數：開槍、白癡翻牌、騎士決鬥都一直等本人按（Leo 2026-10-10 拿掉 30 秒，10-11 連計時機制一起拆掉）
@@ -444,6 +465,7 @@ export function exile(room, target, now = 0) {
   target = Number(target ?? 0);
   g.day.exileDone = true;
   g.day.bindCheck = false; // 已經進到投票，「天亮睜眼」的綁票檢查結束（投完票改看「一狼一神一民」，見 checkWin）
+  if (g.day.vote?.open) g.day.vote = null; // 還在投票主機就直接登記（例如有人手機沒電）：這輪作廢
   if (!target) note(g, ['tie']);
   else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
@@ -482,30 +504,32 @@ export function idiotChoose(room, clientId, flip, now = 0) {
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
+// 騎士白天隨時可以決鬥（Leo 2026-10-27，取代 10-14 選 1A「死訊公布後、投票放逐前」）：警長競選中、投票中、放逐之後都可以；
+// 只有等別人選擇（開槍、白癡翻牌、移交警徽）那一下、或今天已經要天黑時不行
 export function duel(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能決鬥');
-  const blocked = pendingBlock(room); if (blocked) return blocked;
   const seat = L.seatOf(room, clientId);
   const g0 = room.game;
-  if (!seat || g0.roles[seat] !== 'knight' || !g0.alive[seat]) return fail('你不能決鬥');
+  if (!seat || g0.roles[seat] !== 'knight' || !liveNow(g0, seat)) return fail('你不能決鬥');
   if (g0.knightUsed) return fail('決鬥只能用一次');
-  // 跟白狼王自爆同一套：死訊公布後、投票放逐前、沒人在等開槍（Leo 2026-10-14 選 1A）
+  const blocked = waitBlock(room); if (blocked) return blocked;
   if (g0.day.nightCalled) return fail('今天已經要天黑了');
-  if (g0.day.exileDone) return fail('投票放逐之後不能決鬥');
   if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target);
-  if (!g0.alive[target] || target === seat) return fail('請選一個活著的其他玩家');
+  if (!liveNow(g0, target) || target === seat) return fail('請選一個活著的其他玩家');
   const g = structuredClone(g0);
   g.knightUsed = true;
   g.day.bindCheck = false; // 白天已經往下走，「天亮睜眼」的綁票檢查結束
+  g.day.vote = null; // 投票中被決鬥打斷：這輪作廢，主機再開一次投票
   if (isWolfRole(g.roles[target])) {
     // 撞到狼：狼出局，今天不放逐，直接唸「天黑請閉眼」；主機按「進入黑夜」才開始夜晚（Leo 2026-10-10）
-    // 撞到狼王：狼王先開槍，開完才唸「天黑請閉眼」（見 shoot）
-    const chain = dayKill(g, target);
-    const over = winnerOf(g, room.setup.counts, room.setup.rules);
+    // 撞到狼王：狼王先開槍，開完才唸「天黑請閉眼」（見 shoot）。撞死狼美人＝技能被悶、不殉情（Leo 2026-10-27）
+    kill(g, target);
+    const deaths = g.day.pendingDeaths ? flushPending(g) : []; // 警長競選中撞到狼：先公布昨晚死訊再天黑
+    const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
     g.day.nightCalled = !over;
     g.day.nightReason = 'knight';
-    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...chain, ...(over || g.canShoot.length ? [] : ['nightStart'])]);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...deaths, ...(over || g.canShoot.length ? [] : ['nightStart'])]);
   } else {
     // 撞到好人：騎士出局，白天繼續發言、投票
     kill(g, seat);
@@ -514,27 +538,37 @@ export function duel(room, clientId, target, now = 0) {
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
-// 白狼王自爆（2026-10-13）：白天發言時、投票放逐之前；帶走一人（0＝不帶），今天直接天黑（跟騎士撞到狼同一套：
-// 唸「天黑請閉眼」、主機按「進入黑夜」）。被帶走的獵人／狼王可以開槍，開完才唸天黑
+// 自爆：Leo 2026-10-27 起狼人陣營都能自爆（狼美人不行），主機唸「3 號狼人自爆，天黑請閉眼。」；自爆的狼王不能開槍。
+// 白狼王（2026-10-13）自爆可以帶走一人（0＝不帶），唸「白狼王自爆」；被帶走的獵人／狼王可以開槍，開完才唸天黑。
+// 時機：白天、投票放逐之前（警長競選中、投票中也可以），今天不放逐，主機按「進入黑夜」；
+// 警長競選中自爆＝先公布昨晚死訊再天黑
 export function boom(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能自爆');
-  const blocked = pendingBlock(room); if (blocked) return blocked;
   const seat = L.seatOf(room, clientId);
   const g0 = room.game;
-  if (!seat || g0.roles[seat] !== 'whiteKing' || !g0.alive[seat]) return fail('你不能自爆');
+  const role = seat ? g0.roles[seat] : null;
+  if (!seat || !isWolfRole(role) || role === 'beauty' || !liveNow(g0, seat)) return fail('你不能自爆');
+  const blocked = waitBlock(room); if (blocked) return blocked;
   if (g0.day.nightCalled) return fail('今天已經要天黑了');
   if (g0.day.exileDone) return fail('投票放逐之後不能自爆');
   if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target ?? 0);
-  if (target && (!g0.alive[target] || target === seat)) return fail('只能帶走活著的其他玩家');
+  if (target && role !== 'whiteKing') return fail('只有白狼王自爆能帶走人');
+  if (target && (!liveNow(g0, target) || target === seat)) return fail('只能帶走活著的其他玩家');
   const g = structuredClone(g0);
   g.day.bindCheck = false; // 白天已經往下走，「天亮睜眼」的綁票檢查結束
-  kill(g, seat);
+  g.day.vote = null; // 投票中自爆：這輪作廢
+  kill(g, seat, { noSkill: true });
   const chain = target ? dayKill(g, target) : [];
-  const over = winnerOf(g, room.setup.counts, room.setup.rules);
+  const deaths = g.day.pendingDeaths ? flushPending(g) : [];
+  const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
+  const night = !over && !g.canShoot.length;
   g.day.nightCalled = !over;
-  g.day.nightReason = 'boom';
-  note(g, [seatKey(seat), ...(target ? ['whiteBoomTook', seatKey(target), 'end'] : ['whiteBoom']), ...chain, ...(over || g.canShoot.length ? [] : ['nightStart'])]);
+  g.day.nightReason = role === 'whiteKing' ? 'boom' : 'wolfBoom';
+  const head = role === 'whiteKing'
+    ? [seatKey(seat), ...(target ? ['whiteBoomTook', seatKey(target), 'end'] : ['whiteBoom']), ...chain]
+    : [seatKey(seat), 'wolfBoom', night && !deaths.length ? 'comma' : 'end'];
+  note(g, [...head, ...deaths, ...(night ? ['nightStart'] : [])]);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
@@ -553,6 +587,110 @@ export function nextNight(room, now) {
   const silent = Boolean(g.day?.nightCalled) && g.narration?.clips.at(-1) === 'nightStart';
   g.dayNo++;
   return ok(beginNight({ ...room, game: g }, now, { silent }));
+}
+
+/* ───────── 警長（主機登記，Leo 2026-10-27） ───────── */
+// 主機：登記誰當警長（競選完），或警長出局後移交警徽。警長投票算 1.5 票，綁票也看警徽在哪一邊（見 houseRuleWin）。
+// 第一天死訊還沒公布時，昨晚死的人也能當選（死訊本來就是警長選完才公布），所以只看座位表上的活人
+export function setSheriff(room, seat, now = 0) {
+  if (room.phase !== 'day') return fail('白天才能登記警長');
+  const g0 = room.game;
+  seat = Number(seat);
+  if (g0.alive[seat] !== true) return fail('只能選活著的人');
+  if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
+  const g = structuredClone(g0);
+  const passed = g.badgePending;
+  Object.assign(g, { sheriff: seat, badgeTorn: false, badgePending: false });
+  g.log.push({ day: g.dayNo, text: passed ? `警徽移交給 ${seat} 號。` : `${seat} 號當上警長。` });
+  return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
+}
+
+// 主機：撕掉警徽（警長出局選擇撕掉、或警徽流失），之後沒有警長
+export function tearBadge(room, now = 0) {
+  if (room.phase !== 'day') return fail('白天才能撕警徽');
+  const g0 = room.game;
+  if (g0.badgeTorn && !g0.sheriff) return fail('警徽已經撕掉了');
+  const g = structuredClone(g0);
+  Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });
+  g.log.push({ day: g.dayNo, text: '警徽撕掉了，之後沒有警長。' });
+  return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
+}
+
+/* ───────── 投票（玩家在自己手機按號碼，Leo 2026-10-27） ───────── */
+// 有投票權：活著、沒翻過牌的白癡；隱狼等狼人陣營照樣投（Leo 2026-10-27）。警長算 1.5 票
+const hasVote = (g, s) => g.alive[s] === true && !g.idiotRevealed.includes(s);
+const voteWeight = (g, s) => (s === g.sheriff ? 1.5 : 1);
+
+// 主機：開始投票。大家投完（或主機按結束）後，每支手機同時出現投票統計；主機再照統計登記放逐。
+// pk＝上一輪最高票平手：平手的人不投票，其他人只能投他們
+export function startVote(room, pk = false, now = 0) {
+  if (room.phase !== 'day') return fail('現在不是白天');
+  const blocked = pendingBlock(room); if (blocked) return blocked;
+  const g0 = room.game;
+  if (g0.day.nightCalled) return fail('今天直接天黑，不投票');
+  if (g0.day.exileDone) return fail('今天已經放逐過了');
+  if (g0.canShoot.length) return fail('請等開槍的玩家先選');
+  if (g0.day.vote?.open) return fail('正在投票');
+  const all = seatsList(g0).filter(s => hasVote(g0, s));
+  let candidates = seatsList(g0).filter(s => g0.alive[s]), voters = all;
+  if (pk) {
+    const top = (g0.day.vote?.result?.top ?? []).filter(s => g0.alive[s]);
+    if (top.length < 2) return fail('上一輪沒有平票');
+    candidates = top;
+    voters = all.filter(s => !top.includes(s));
+    if (!voters.length) return fail('沒有人可以投 PK 票');
+  }
+  if (!voters.length) return fail('沒有人可以投票');
+  const g = structuredClone(g0);
+  g.day.vote = { round: (g0.day.vote?.round ?? 0) + 1, pk: Boolean(pk), open: true, candidates, voters, ballots: {}, result: null };
+  g.log.push({ day: g.dayNo, text: pk ? `平票 PK：${candidates.join('、')} 號，其他人重新投票。` : '開始投票。' });
+  return ok({ ...room, game: g });
+}
+
+// 玩家投票：target＝號碼，0＝棄票；投了不能改。全部投完自動結束、公布統計
+export function castVote(room, clientId, target, now = 0) {
+  const v0 = room.phase === 'day' ? room.game.day?.vote : null;
+  if (!v0?.open) return fail('現在沒有在投票');
+  const seat = L.seatOf(room, clientId);
+  if (!seat || !v0.voters.includes(seat)) return fail('你這輪不能投票');
+  if (v0.ballots[seat] !== undefined) return fail('你已經投過了');
+  target = Number(target ?? 0);
+  if (!Number.isInteger(target) || (target && (!v0.candidates.includes(target) || target === seat))) return fail('請投給可以投的人，或棄票');
+  const g = structuredClone(room.game);
+  const v = g.day.vote;
+  v.ballots[seat] = target;
+  if (v.voters.every(s => v.ballots[s] !== undefined)) closeVote(g);
+  return ok({ ...room, game: g });
+}
+
+// 主機：提早結束投票（有人手機沒電、不投）：沒投的算棄票
+export function endVote(room, now = 0) {
+  if (room.phase !== 'day' || !room.game.day?.vote?.open) return fail('現在沒有在投票');
+  const g = structuredClone(room.game);
+  closeVote(g);
+  return ok({ ...room, game: g });
+}
+
+function closeVote(g) {
+  const v = g.day.vote;
+  v.open = false;
+  const rows = v.candidates.map(target => {
+    const by = v.voters.filter(s => v.ballots[s] === target);
+    return { target, voters: by, score: by.reduce((a, s) => a + voteWeight(g, s), 0) };
+  }).filter(r => r.voters.length).sort((a, b) => b.score - a.score || a.target - b.target);
+  const abstain = v.voters.filter(s => !v.ballots[s]); // 投 0 或沒投＝棄票
+  const top = rows.filter(r => r.score === rows[0].score).map(r => r.target);
+  v.result = { round: v.round, pk: v.pk, rows, abstain, top, sheriff: v.voters.includes(g.sheriff) ? g.sheriff : null };
+  g.log.push({ day: g.dayNo, text: voteText(v.result) });
+}
+
+// 「投票結果：3 號 2.5 票（警長1、4 號）；5 號 1 票（2 號）；棄票 6 號。最高票 3 號。」
+export function voteText(r) {
+  const who = list => list.map(s => (s === r.sheriff ? `警長${s}` : `${s}`)).join('、') + ' 號';
+  const parts = r.rows.map(x => `${x.target} 號 ${x.score} 票（${who(x.voters)}）`);
+  if (r.abstain.length) parts.push(`棄票 ${who(r.abstain)}`);
+  const end = !r.top.length ? '沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號。` : `最高票 ${r.top[0]} 號。`;
+  return `${r.pk ? 'PK ' : ''}投票結果：${parts.join('；') || '全部棄票'}。${end}`;
 }
 
 /* ───────── 勝負 ───────── */
@@ -588,13 +726,19 @@ function goodCanTurn(g, alive, { knifeOnly = false } = {}) {
 //   綁票：天亮睜眼（死訊公布）時，活著的狼人陣營 ≥ 好人的票數（翻過牌的白癡沒有票，Leo 2026-10-14 選 2A）→ 好人投不出狼
 //   一狼一神一民：白天投完票（含平票）剩這三個人 → 今晚狼刀一個就一對一
 // 好人還有翻盤機會時不判（綁票見 bindCanBreak、一狼一神一民見 goodCanTurn）
-// 綁票：好人白天投不贏、晚上每刀少一個，獵人帶走一隻＝一換一、單靠守衛或解藥只能拖延、單靠毒藥是毒一隻刀一個。
-// 只有讓狼變少而好人不變的才打得破，而且狼要剛好等於好人票數：騎士還沒決鬥（白天撞死一隻狼），
-// 或守衛活著＋女巫還有毒藥（同一晚毒一隻狼、守住刀）（Leo 2026-10-14 綁票選 A）
-function bindCanBreak(g, alive, wolves, votes) {
-  if (wolves !== votes) return false;
+// 綁票的票數：警長算 1.5 票（Leo 2026-10-27 起主機登記警長）。
+// 好人還能「追輪次」就不算綁票，看警徽在哪一邊（Leo 2026-10-27，取代 10-14 選 A 的條件——沒有警長時照舊）：
+//   8-1 警徽在好人手上：夜裡還有追輪次的技能——守衛（守隊友）、女巫還有解藥或毒藥、獵人（帶槍）
+//   8-2 警徽在狼人手上：白天還有追輪次的技能——騎士還沒決鬥（白天撞一隻出去）
+//   沒有警長：好人白天投不贏、晚上每刀少一個，獵人帶走一隻＝一換一、單靠守衛或解藥只能拖延、單靠毒藥是毒一隻刀一個；
+//   只有讓狼變少而好人不變的才打得破，而且狼要剛好等於好人票數：騎士還沒決鬥，或守衛活著＋女巫還有毒藥（Leo 2026-10-14 綁票選 A）
+function bindCanBreak(g, alive, sheriff, wolfVotes, votes) {
   const has = role => alive.some(s => g.roles[s] === role);
-  return (has('knight') && !g.knightUsed) || (has('guard') && has('witch') && g.potions.poison);
+  const knight = has('knight') && !g.knightUsed;
+  if (sheriff && isWolfRole(g.roles[sheriff])) return knight;
+  if (sheriff) return has('guard') || (has('witch') && (g.potions.save || g.potions.poison)) || has('hunter');
+  if (wolfVotes !== votes) return false;
+  return knight || (has('guard') && has('witch') && g.potions.poison);
 }
 
 export function houseRuleWin(g, rules = R.DEFAULT_RULES) {
@@ -602,8 +746,13 @@ export function houseRuleWin(g, rules = R.DEFAULT_RULES) {
   const team = s => R.ROLES[g.roles[s]].team;
   const alive = seatsList(g).filter(s => g.alive[s]);
   const n = t => alive.filter(s => team(s) === t).length;
-  const wolves = n('wolf'), votes = n('god') + n('villager') - alive.filter(s => g.idiotRevealed.includes(s)).length;
-  if (g.day.bindCheck && wolves > 0 && wolves >= votes && !bindCanBreak(g, alive, wolves, votes)) return 'bind';
+  const wolves = n('wolf');
+  const sheriff = g.sheriff && g.alive[g.sheriff] ? g.sheriff : null;
+  const goodVoters = alive.filter(s => team(s) !== 'wolf' && !g.idiotRevealed.includes(s));
+  const wolfVotes = wolves + (sheriff && team(sheriff) === 'wolf' ? 0.5 : 0);
+  const votes = goodVoters.length + (sheriff && goodVoters.includes(sheriff) ? 0.5 : 0);
+  // 警長剛出局、警徽還沒移交或撕掉：先等主機處理（警徽到哪一邊會改變結果），處理完再看
+  if (g.day.bindCheck && !g.badgePending && wolves > 0 && wolfVotes >= votes && !bindCanBreak(g, alive, sheriff, wolfVotes, votes)) return 'bind';
   if (g.day.exileDone && alive.length === 3 && wolves === 1 && n('god') === 1 && n('villager') === 1
     && !goodCanTurn(g, alive, { knifeOnly: rules.win === 'side' })) return 'lastThree';
   return null;
@@ -622,7 +771,7 @@ function checkWin(room, seq0) {
   // 狼人已經贏的局面不用等：再開槍只會讓好人更少
   if (w === 'good' && g.canShoot.some(s => isWolfRole(g.roles[s]))) w = null;
   const house = w ? null : houseRuleWin(g, room.setup.rules);
-  if (g.day && !g.canShoot.length) g.day.bindCheck = false; // 綁票只在天亮那一刻看（槍都開完之後）
+  if (g.day && !g.canShoot.length && !g.badgePending) g.day.bindCheck = false; // 綁票只在天亮那一刻看（槍都開完、警徽處理完之後）
   if (house) w = 'wolf';
   if (!w) { askSkill(g, seq0); return room; }
   g.winner = w;
@@ -675,6 +824,10 @@ export function publicGame(room) {
     nightCalled: Boolean(g.day?.nightCalled),
     nightReason: g.day?.nightCalled ? g.day.nightReason ?? 'knight' : null, // 主機畫面標題：騎士撞狼／白狼王自爆
     idiotChoice: g.day?.idiotChoice ?? null, // 等這個號碼選要不要翻牌（Leo 拍板：只有白癡會出現這個等待）
+    // 警長（主機登記，公開）：badgePending＝警長出局、等主機移交或撕掉警徽
+    sheriff: g.sheriff ?? null, badgeTorn: Boolean(g.badgeTorn), badgePending: Boolean(g.badgePending),
+    // 投票：投完才公布誰投誰（result）；投票中只公開投了幾票
+    vote: g.day?.vote ? (({ ballots, ...v }) => ({ ...v, voted: Object.keys(ballots).length }))(g.day.vote) : null,
     // 夜裡只公開「現在輪到哪個角色、第幾句台詞」（本來就唸出來了），不公開死活與進度
     // eyesOpen：這句台詞唸出後到「X 請閉眼」之前（動作中＋做完後的停頓都算，免得從按鈕消失的時間看出角色做完了）
     night: g.night ? { step: curStep(g.night) ?? null, beat: g.night.beat, openedAt: g.night.openedAt, eyesOpen: ['acting', 'pause'].includes(g.night.stage) } : null,
@@ -699,14 +852,20 @@ export function privateGame(room, seat) {
   if (room.phase === 'day' && !g.day?.pendingDeaths) {
     if (g.canShoot.includes(seat)) me.canShoot = true; // 不限時
     if (g.day?.idiotChoice === seat) me.idiotChoose = true;
-    else if (role === 'knight' && g.alive[seat] && !g.knightUsed && !g.day?.idiotChoice && !g.day?.nightCalled && !g.day?.exileDone && !g.canShoot.length) me.canDuel = true;
-    if (role === 'whiteKing' && g.alive[seat] && !g.day?.idiotChoice && !g.day?.exileDone && !g.day?.nightCalled && !g.canShoot.length) me.canBoom = true;
+    const v = g.day?.vote;
+    if (v?.open && v.voters.includes(seat)) me.vote = { mine: v.ballots[seat] ?? null, candidates: v.candidates.filter(s => s !== seat) };
+  }
+  // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
+  if (room.phase === 'day' && liveNow(g, seat) && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
+    if (role === 'knight' && !g.knightUsed) me.canDuel = true;
+    if (isWolfRole(role) && role !== 'beauty' && !g.day?.exileDone) { me.canBoom = true; if (role === 'whiteKing') me.boomTake = true; }
   }
   const n = g.night;
   if (room.phase === 'night' && n?.stage === 'acting' && g.alive[seat] && actors(g, curStep(n)).includes(seat)) {
     const act = curBeat(room, n).act;
     if (act === 'guard') me.action = { kind: 'guard', lastGuard: g.lastGuard };
-    if (act === 'wolf') me.action = { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: killers(g) };
+    // noKnife：狼美人不能被自刀（Leo 2026-10-27）——只有一起殺人的狼看得到
+    if (act === 'wolf') me.action = { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: killers(g), noKnife: seatsList(g).filter(s => g.roles[s] === 'beauty' && g.alive[s]) };
     if (act === 'witchSave') me.action = {
       kind: 'witchSave',
       victim: g.potions.save ? n.wolfTarget : null, // 解藥用掉之後就不告知死亡號碼
@@ -716,7 +875,7 @@ export function privateGame(room, seat) {
     };
     if (act === 'witchPoison') me.action = { kind: 'witchPoison', canPoison: g.potions.poison && !n.witchSave, savedTonight: n.witchSave, poisonUsedUp: !g.potions.poison };
     if (act === 'seer') me.action = { kind: 'seer', checked: n.seerTarget ? g.seerChecks.at(-1) : null };
-    if (act === 'beauty') me.action = { kind: 'beauty' };
+    if (act === 'beauty') me.action = { kind: 'beauty', lastCharm: g.charm }; // 不能連續兩晚魅惑同一位
     if (act === 'gargoyle') me.action = { kind: 'gargoyle', checked: n.gargoyleTarget ? g.gargoyleChecks.at(-1) : null };
     if (act === 'grave') me.action = { kind: 'grave', info: graveFor(g) };
     // 帶槍手勢（獵人、狼王同一套）：被毒、或今晚會殉情（狼美人今晚死、魅惑的是你）都不能開槍

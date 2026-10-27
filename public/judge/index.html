@@ -101,7 +101,7 @@
             <span class="wait-item">最短
               <span class="stepper sm"><button type="button" data-wait="fakeWaitMin" data-d="-1" aria-label="最短少一秒">−</button><span class="digits" id="waitMin">8</span><button type="button" data-wait="fakeWaitMin" data-d="1" aria-label="最短多一秒">+</button></span> 秒</span>
             <span class="wait-item">最長
-              <span class="stepper sm"><button type="button" data-wait="fakeWaitMax" data-d="-1" aria-label="最長少一秒">−</button><span class="digits" id="waitMax">25</span><button type="button" data-wait="fakeWaitMax" data-d="1" aria-label="最長多一秒">+</button></span> 秒</span>
+              <span class="stepper sm"><button type="button" data-wait="fakeWaitMax" data-d="-1" aria-label="最長少一秒">−</button><span class="digits" id="waitMax">20</span><button type="button" data-wait="fakeWaitMax" data-d="1" aria-label="最長多一秒">+</button></span> 秒</span>
           </div>
           <p class="hint small">每次隨機，讓閉眼的人猜不出誰已經死了。</p>
         </div>
@@ -194,6 +194,9 @@
 
     <!-- 自己的動作：夜裡的角色操作、白天開槍、騎士決鬥 -->
     <div class="panel action" id="actionBox" hidden></div>
+
+    <!-- 白天投票：投票中的人數、投完的統計（每支手機都一樣） -->
+    <div class="panel" id="voteBox" hidden></div>
 
     <!-- 主機控制 -->
     <div class="panel host-ctl" id="hostCtl" hidden></div>

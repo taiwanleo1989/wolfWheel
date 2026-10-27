@@ -2,11 +2,11 @@
 import { ROLES, TEAM_NAME, boardByTeam } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
-const SKIP_MS = 30000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣
+const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 2026-10-27 從 30 減 5 秒）
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
-const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null };
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false };
 const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
@@ -38,6 +38,7 @@ export function renderGame(ctx) {
   cover.hidden = !(phase === 'night' && seat && !acting);
 
   renderAction();
+  renderVote();
   renderHost();
   renderTakeover();
   renderBoard();
@@ -65,18 +66,18 @@ function renderAction() {
   if (!seat || !me) { box.hidden = true; return; }
 
   // 換了一個動作就清掉剛才選的座位
-  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}`;
+  const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}|${me.vote ? 'v' + g.vote?.round : ''}`;
   if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
   const pick = ui.pick;
   let html = '';
+  // 「是否正確」：選好之後先確認，按「正確」才送出（照手稿：上帝回比號碼確認；白天投票也一樣）
+  const confirmBox = ui.confirm
+    ? `<div class="confirm"><p>${ui.confirm.text}，是否正確？</p>
+        <div class="row-gap"><button class="btn primary" type="button" data-do="yes">正確</button><button class="btn" type="button" data-do="no">重選</button></div></div>`
+    : '';
 
   if (phase === 'night' && me.alive && me.action) {
     const a = me.action;
-    // 「是否正確」：選好之後先確認，按「正確」才送出（照手稿：上帝回比號碼確認）
-    const confirmBox = ui.confirm
-      ? `<div class="confirm"><p>${ui.confirm.text}，是否正確？</p>
-          <div class="row-gap"><button class="btn primary" type="button" data-do="yes">正確</button><button class="btn" type="button" data-do="no">重選</button></div></div>`
-      : '';
     if (a.kind === 'guard') {
       html = `<h2>請選擇今晚要守護的玩家</h2>
         ${picker(aliveSeats().map(n => ({ n, disabled: n === a.lastGuard, note: n === a.lastGuard ? '昨晚守過' : n === seat ? '自己' : '' })), pick)}
@@ -95,7 +96,7 @@ function renderAction() {
               <div class="row-gap"><button class="btn primary" type="button" data-do="wolfYes">正確</button><button class="btn" type="button" data-do="wolfNo">重選</button></div>
               <p class="hint small">任何一隻狼按「正確」就確定。</p></div>`
           : `<p class="hint">所有狼人點同一個人（或都按空刀）之後，會問「是否正確」。</p>
-            ${picker(aliveSeats().map(n => { const v = votesFor(n); return { n, note: v.length ? v.map(s => s + '號').join(' ') : '' }; }), myVote || null)}
+            ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.length ? v.map(s => s + '號').join(' ') : '' }; }), myVote || null)}
             <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
             <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${a.votes[w.seat] === undefined ? '還沒選' : a.votes[w.seat] === 0 ? '空刀' : a.votes[w.seat] + ' 號'}</li>`).join('')}</ul>`}`;
     } else if (a.kind === 'witchSave') {
@@ -131,7 +132,8 @@ function renderAction() {
     } else if (a.kind === 'beauty') {
       html = `<h2>請選擇今晚要魅惑的玩家</h2>
         <p class="hint">你出局時，今晚魅惑的人會跟著殉情出局（不能發動技能）。</p>
-        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+        ${a.lastCharm ? `<p class="hint">不能連續兩晚魅惑同一位：昨晚魅惑的是 ${a.lastCharm} 號。</p>` : ''}
+        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n, disabled: n === a.lastCharm, note: n === a.lastCharm ? '昨晚魅惑過' : '' })), pick)}
         ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="beauty"${pick ? '' : ' disabled'}>魅惑 ${pick ?? '…'} 號</button>
         <button class="btn" type="button" data-do="beauty0">今晚不魅惑</button></div>`}`;
     } else if (a.kind === 'gargoyle') {
@@ -170,6 +172,17 @@ function renderAction() {
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;
+  } else if (phase === 'day' && me.vote) {
+    // 白天投票（Leo 2026-10-27）：每個有票的人畫面一樣，投完等大家，統計同時出現在每支手機（見 renderVote）
+    const v = me.vote;
+    html = v.mine !== null
+      ? `<h2>你投了${v.mine ? ` <b class="digits">${v.mine}</b> 號` : '棄票'}</h2>
+        <p class="hint">等其他人投完，每支手機會同時出現投票統計。</p>`
+      : `<h2>${g.vote?.pk ? '平票 PK：' : ''}請投票</h2>
+        <p class="hint">點你要放逐的號碼${g.sheriff === seat ? '（你是警長，算 1.5 票）' : ''}，投了就不能改。</p>
+        ${picker(v.candidates.map(n => ({ n })), pick)}
+        ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="vote"${pick ? '' : ' disabled'}>投 ${pick ?? '…'} 號</button>
+        <button class="btn" type="button" data-do="vote0">棄票</button></div>`}`;
   } else if (phase !== 'ended' && !me.alive) {
     html = `<p class="out">你已出局。可以留遺言（如果還有的話），之後請靜靜看戲，不要透露訊息。</p>`;
   } else if (me.idiotRevealed) {
@@ -204,7 +217,10 @@ function onAction(e) {
     case 'gargoyle': ask(`今晚要查驗的玩家是 ${pick} 號`, { target: pick }); break;
     case 'beauty': ask(`今晚要魅惑的玩家是 ${pick} 號`, { target: pick }); break;
     case 'beauty0': ask('今晚不魅惑任何人', { target: 0 }); break;
-    case 'yes': act(ui.confirm.payload); ui.confirm = null; break;
+    case 'yes': if (ui.confirm.vote) c.send({ type: 'vote', target: ui.confirm.payload.target }); else act(ui.confirm.payload); ui.confirm = null; break;
+    // 白天投票：也先問「是否正確」
+    case 'vote': ui.confirm = { text: `投給 ${pick} 號`, payload: { target: pick }, vote: true }; c.render(); break;
+    case 'vote0': ui.confirm = { text: '這輪棄票', payload: { target: 0 }, vote: true }; c.render(); break;
     case 'no': ui.confirm = null; ui.pick = null; c.render(); break;
     // 狼人：全體一致後由任何一隻確認
     case 'wolf0': act({ target: 0 }); break;
@@ -228,7 +244,7 @@ function onAction(e) {
     case 'boomOpen': ui.boomOpen = true; c.render(); break;
     case 'boomClose': ui.boomOpen = false; ui.pick = null; c.render(); break;
     case 'boom': if (confirm(`確定自爆、帶走 ${pick} 號？`)) c.send({ type: 'boom', target: pick }); break;
-    case 'boom0': if (confirm('確定自爆、不帶走任何人？')) c.send({ type: 'boom', target: 0 }); break;
+    case 'boom0': if (confirm(c.state.you.game?.boomTake ? '確定自爆、不帶走任何人？' : '確定自爆？你會出局，今天直接天黑。')) c.send({ type: 'boom', target: 0 }); break;
     case 'idiotFlip': if (confirm('確定翻牌？翻牌後不會出局，但之後不能投票。')) c.send({ type: 'idiot', flip: true }); break;
     case 'idiotOut': if (confirm('確定不翻牌、直接出局？')) c.send({ type: 'idiot', flip: false }); break;
   }
@@ -243,7 +259,8 @@ function renderHost() {
   if (!isHost) return;
   const done = h => setHTML(box, seatRequestsHTML(state.seatRequests) + h + restartRow(phase)); // 最上面是換手機的申請；每個畫面最下面都有「直接重開」
 
-  const key = `${phase}|${g.dayNo}`;
+  // 新的投票統計出來時也重來：放逐的號碼改跟著最高票
+  const key = `${phase}|${g.dayNo}|${g.vote?.round ?? 0}|${g.vote?.open ? 1 : 0}`;
   if (key !== ui.hostKey) { ui.hostKey = key; ui.hostPick = null; }
   const bgm = `<button class="btn small" type="button" data-host="bgm">背景音樂：${voice.bgmOn ? '開' : '關'}</button>
     <button class="btn small" type="button" data-host="voice">主持聲音：${voice.voiceName}</button>`;
@@ -256,20 +273,22 @@ function renderHost() {
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
         <p class="hint center">不按的話，6 秒後會自動天亮。</p>` : skipBox(g.night)}`;
   } else if (phase === 'day') {
-    const pick = ui.hostPick;
+    const pick = hostPick();
     if (g.deathsPending) {
-      // 第一天：先選警長（口頭），選完才公布昨晚死訊
+      // 第一天：先選警長（口頭競選、主機登記），選完才公布昨晚死訊
       html = `<h2>警長競選</h2>
-        <p class="hint">請上警的玩家依序發言，其他人投票選出警長（口頭進行）。選完後再公布昨晚的死訊。</p>
+        <p class="hint">請上警的玩家依序發言，其他人投票選出警長，選好在下面登記。選完後再公布昨晚的死訊。</p>
+        ${sheriffHTML(g)}
         <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>
         <button class="btn primary big" type="button" data-host="announce">警長選好了，公布昨晚死訊</button>`;
       done(html);
       return;
     }
     if (g.nightCalled) {
-      // 騎士撞到狼、白狼王自爆：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
-      html = `<h2>${g.nightReason === 'boom' ? '白狼王自爆' : '騎士撞到狼人'}</h2>
+      // 騎士撞到狼、白狼王／狼人自爆：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
+      html = `<h2>${NIGHT_REASON[g.nightReason] ?? '直接天黑'}</h2>
         <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
+        ${g.badgePending ? sheriffHTML(g) : ''}
         <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
         <div class="row-gap">${bgm}</div>`;
       done(html);
@@ -281,10 +300,16 @@ function renderHost() {
       done(html);
       return;
     }
+    const v = g.vote, res = v && !v.open ? v.result : null;
     html = `<h2>白天</h2>
-      <p class="hint">請大家依序發言、投票（口頭進行）。投完票在這裡登記結果。</p>
-      ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : `
-        <h3>被放逐的是</h3>
+      ${sheriffHTML(g)}
+      <p class="hint">請大家依序發言，發言完按「開始投票」，每個人在自己手機上點號碼；投完統計會同時出現在每支手機。</p>
+      ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
+        <p class="done">投票中：已投 ${v.voted}／${v.voters.length} 人</p>
+        <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
+        <div class="row-gap"><button class="btn primary big" type="button" data-host="startVote">${res ? '重新投票' : '開始投票'}</button></div>
+        ${res?.top.length > 1 ? `<div class="row-gap"><button class="btn primary" type="button" data-host="pk">平票 PK（${res.top.join('、')} 號）：其他人再投一次</button></div>` : ''}
+        <h3>被放逐的是${res?.top.length === 1 ? '（已照最高票選好）' : ''}</h3>
         ${picker(aliveSeats().map(n => ({ n })), pick, 'data-host-pick')}
         <div class="row-gap"><button class="btn primary" type="button" data-host="exile"${pick ? '' : ' disabled'}>放逐 ${pick ?? '…'} 號</button>
         <button class="btn" type="button" data-host="exile0">平票／沒人出局</button></div>`}
@@ -315,13 +340,39 @@ function skipBox(night) {
   const left = SKIP_MS - (Date.now() - ui.skipSince);
   clearTimeout(ui.skipTimer); // 時間到重畫一次，讓按鈕亮起來（只保留一個計時器）
   if (left > 0) ui.skipTimer = setTimeout(() => c.render(), left + 100);
-  return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 30 秒後可按）</button></div>
+  return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 25 秒後可按）</button></div>
     <p class="hint center">手機沒電、沒辦法操作時才按：這一步當作沒有動作。</p>`;
+}
+
+const NIGHT_REASON = { knight: '騎士撞到狼人', boom: '白狼王自爆', wolfBoom: '狼人自爆' };
+
+// 主機要放逐的號碼：主機自己點的（0＝點掉了）；沒點過就照投票統計的最高票（只有一個最高票時）
+function hostPick() {
+  const g = c.state.game, res = g.vote && !g.vote.open ? g.vote.result : null;
+  if (ui.hostPick !== null) return ui.hostPick || null;
+  return res?.top.length === 1 && g.alive[res.top[0]] ? res.top[0] : null;
+}
+
+// 警長（Leo 2026-10-27）：主機登記誰當警長、警長出局移交警徽、撕警徽。全場都看得到（座位表標「警長」、紀錄寫一行）
+function sheriffHTML(g) {
+  const pick = ui.sheriffPick;
+  const status = g.badgePending ? `<p class="warn"><b>警長 ${g.sheriff} 號出局了</b>：請他選要移交給誰，或撕掉警徽。</p>`
+    : g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票）</p>`
+    : g.badgeTorn ? '<p class="hint">警徽已撕掉，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
+  const open = ui.sheriffOpen || g.badgePending || (g.deathsPending && !g.sheriff && !g.badgeTorn);
+  if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '移交／撕警徽' : '登記警長'}</button></div>`;
+  return `<div class="sheriff"><h3>警長</h3>${status}
+    ${picker(aliveSeats({ except: [g.sheriff] }).map(n => ({ n })), pick, 'data-sheriff-pick')}
+    <div class="row-gap"><button class="btn primary small" type="button" data-host="sheriff"${pick ? '' : ' disabled'}>${g.sheriff ? '警徽移交給' : '警長是'} ${pick ?? '…'} 號</button>
+    ${g.sheriff || !g.badgeTorn ? '<button class="btn small" type="button" data-host="tear">撕警徽</button>' : ''}
+    ${g.badgePending ? '' : '<button class="btn small" type="button" data-host="sheriffClose">收起</button>'}</div></div>`;
 }
 
 function onHost(e) {
   const hp = e.target.closest('[data-host-pick]');
-  if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = ui.hostPick === n ? null : n; c.render(); return; }
+  if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = hostPick() === n ? 0 : n; c.render(); return; }
+  const sp = e.target.closest('[data-sheriff-pick]');
+  if (sp) { const n = Number(sp.dataset.sheriffPick); ui.sheriffPick = ui.sheriffPick === n ? null : n; c.render(); return; }
   if (approveFromClick(e, msg => { c.voice.unlock(); c.send(msg); })) return;
   const b = e.target.closest('[data-host]');
   if (!b) return;
@@ -337,7 +388,18 @@ function onHost(e) {
     case 'policeDone': send({ type: 'skip' }); break;
     case 'skip': if (confirm('跳過這一步？這一步當作沒有動作。')) send({ type: 'skip' }); break;
     case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
-    case 'exile': if (confirm(`登記 ${ui.hostPick} 號被放逐？`)) send({ type: 'exile', target: ui.hostPick }); break;
+    case 'exile': { const n = hostPick(); if (n && confirm(`登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n }); break; }
+    case 'startVote': send({ type: 'startVote' }); break;
+    case 'pk': send({ type: 'startVote', pk: true }); break;
+    case 'endVote': if (confirm('結束投票？還沒投的人算棄票。')) send({ type: 'endVote' }); break;
+    case 'sheriffOpen': ui.sheriffOpen = true; c.render(); break;
+    case 'sheriffClose': ui.sheriffOpen = false; ui.sheriffPick = null; c.render(); break;
+    case 'sheriff': {
+      const n = ui.sheriffPick; if (!n) break;
+      if (confirm(state.game.sheriff ? `警徽移交給 ${n} 號？` : `登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
+      break;
+    }
+    case 'tear': if (confirm('撕掉警徽？之後這局沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
     case 'exile0': if (confirm('登記「平票，沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':
       if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
@@ -353,6 +415,25 @@ function onHost(e) {
   }
 }
 
+/* ───────── 投票統計（每支手機都一樣，Leo 2026-10-27） ───────── */
+function renderVote() {
+  const { state, $, setHTML } = c;
+  const box = $('#voteBox');
+  const v = state.phase === 'day' ? state.game.vote : null;
+  box.hidden = !v;
+  if (!v) return;
+  if (v.open) {
+    setHTML(box, `<h2>${v.pk ? '平票 PK 投票中' : '投票中'}</h2><p class="hint">已投 ${v.voted}／${v.voters.length} 人。投完後每支手機同時出現統計。</p>`);
+    return;
+  }
+  const r = v.result;
+  const who = list => list.map(s => (s === r.sheriff ? `${s}（警長）` : `${s}`)).join('、');
+  setHTML(box, `<h2>${r.pk ? '平票 PK ' : ''}投票統計</h2>
+    <ul class="tally">${r.rows.map(x => `<li${r.top.includes(x.target) ? ' class="top"' : ''}><b class="digits">${x.target} 號</b><span class="score">${x.score} 票</span><span class="by">${who(x.voters)} 號投</span></li>`).join('')}
+      ${r.abstain.length ? `<li><b>棄票</b><span class="score"></span><span class="by">${who(r.abstain)} 號</span></li>` : ''}</ul>
+    <p class="done">${!r.top.length ? '沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號` : `最高票：${r.top[0]} 號`}</p>`);
+}
+
 /* ───────── 公開的座位表 ───────── */
 function renderBoard() {
   const { state, $, setHTML } = c;
@@ -364,8 +445,9 @@ function renderBoard() {
   setHTML($('#boardSeats'), seats.map(n => {
     const role = g.allRoles?.[n];
     const tag = role ? ROLES[role].name : g.idiotRevealed.includes(n) ? '白癡' : n === state.you.seat ? '你' : '';
+    const tags = [tag, n === g.sheriff ? '警長' : ''].filter(Boolean).join('・');
     return `<div class="seat taken${g.alive[n] ? '' : ' dead'}${n === state.you.seat ? ' mine' : ''}${role ? ' revealed' : ''}">
-      ${role ? `<span class="mini">${portrait(role)}</span>` : ''}<span class="n">${n}</span>${tag ? `<span class="tag">${tag}</span>` : ''}</div>`;
+      ${role ? `<span class="mini">${portrait(role)}</span>` : ''}<span class="n">${n}</span>${tags ? `<span class="tag">${tags}</span>` : ''}</div>`;
   }).join(''));
 }
 
@@ -406,14 +488,19 @@ function daySkill(me) {
        <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="duelClose">取消</button></div></div>`
     : `<button class="btn big" type="button" data-do="duelOpen">⚔ 發起決鬥（騎士技能）</button>`;
+  // 自爆：白狼王可以帶人；其他狼人（狼美人除外）2026-10-27 起也能自爆，不帶人
   if (me.canBoom) return ui.boomOpen
-    ? `<div class="skill"><h2>白狼王自爆</h2>
+    ? (me.boomTake ? `<div class="skill"><h2>白狼王自爆</h2>
        <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`
-    : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（白狼王技能）</button>`;
+      : `<div class="skill"><h2>狼人自爆</h2>
+       <p class="hint">自爆後你出局，主機唸「你的號碼狼人自爆，天黑請閉眼」；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
+       <div class="row-gap"><button class="btn primary" type="button" data-do="boom0">確定自爆</button>
+       <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`)
+    : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（${me.boomTake ? '白狼王技能' : '狼人'}）</button>`;
   return '';
 }
 

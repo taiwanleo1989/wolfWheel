@@ -1,18 +1,18 @@
 // 角色、板子、發牌。純函式；伺服器（src/）和網頁（public/judge/）共用這一份，改一次兩邊都生效。
 
 export const ROLES = {
-  wolf:     { name: '狼人',  team: 'wolf',     unique: false, desc: '每晚和狼隊友一起選一個人殺掉。白天隱藏身分，混在好人裡。' },
-  king:     { name: '狼王',  team: 'wolf',     unique: true,  desc: '狼人陣營。被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
+  wolf:     { name: '狼人',  team: 'wolf',     unique: false, desc: '每晚和狼隊友一起選一個人殺掉。白天隱藏身分，混在好人裡；白天可以自爆，今天直接天黑。' },
+  king:     { name: '狼王',  team: 'wolf',     unique: true,  desc: '狼人陣營。被殺或被放逐時可以開槍帶走一人；被女巫毒死、自爆不能開槍。' },
   whiteKing: { name: '白狼王', team: 'wolf',    unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。白天發言時（投票放逐之前）可以自爆，帶走一個人，今天直接天黑；不是自爆出局就不能帶人。' },
-  beauty:   { name: '狼美人', team: 'wolf',     unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。狼人殺完人後，再魅惑一個人；狼美人出局時（被殺、被毒、被放逐、被帶走都算），當晚魅惑的人跟著殉情出局，殉情的人不能發動技能。' },
-  hidden:   { name: '隱狼',  team: 'wolf',     unique: true,  desc: '狼人陣營。你知道狼隊友是誰，他們不知道你。晚上不跟狼人一起殺人；預言家查你、守墓人看你都是好人。其他狼人全部出局後，你才開始在晚上殺人。' },
+  beauty:   { name: '狼美人', team: 'wolf',     unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。狼人殺完人後，再單獨睜眼魅惑一個人（不能連續兩晚魅惑同一人）；狼美人出局時（被放逐、被槍帶走、被白狼王帶走），魅惑的人跟著殉情出局，殉情的人不能發動技能。被騎士撞死、被女巫毒死不會殉情。狼隊不能刀狼美人，狼美人不能自爆。' },
+  hidden:   { name: '隱狼',  team: 'wolf',     unique: true,  desc: '狼人陣營。你知道狼隊友是誰，他們不知道你。晚上不跟狼人一起殺人；預言家查你、守墓人看你都是好人。白天跟大家一樣投票。其他狼人全部出局後，你才開始在晚上殺人。' },
   gargoyle: { name: '石像鬼', team: 'wolf',     unique: true,  desc: '狼人陣營，不跟狼隊友見面（互相不知道）。每晚查驗一個人的具體身分。其他狼人全部出局後，你才開始在晚上殺人。' },
   seer:     { name: '預言家', team: 'god',      unique: true,  desc: '每晚查驗一個人，知道他是好人還是狼人。' },
   witch:    { name: '女巫',  team: 'god',      unique: true,  desc: '解藥可以救今晚被殺的人，毒藥可以毒死一個人。兩瓶各只能用一次。' },
   hunter:   { name: '獵人',  team: 'god',      unique: true,  desc: '被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
   guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺（守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
   gravekeeper: { name: '守墓人', team: 'god',   unique: true,  desc: '從第二晚開始，每晚得知前一個白天被投票放逐出局的人是好人還是狼人（隱狼會顯示好人）。' },
-  knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天投票放逐之前可以翻牌和一個人決鬥：他是狼人就出局；不是狼人，騎士自己出局。' },
+  knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天任何時候都可以翻牌和一個人決鬥（只能一次）：他是狼人就出局、今天直接天黑；不是狼人，騎士自己出局。' },
   idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '被投票放逐時翻牌免死，但之後不能再投票。' },
   villager: { name: '平民',  team: 'villager', unique: false, desc: '沒有技能。靠推理和投票找出狼人。' },
 };
@@ -34,9 +34,10 @@ export function boardByTeam(counts) {
   ].filter(x => x.text);
 }
 
-export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 25 }; // 假等：Leo 2026-10-17 從 15 改 45；2026-10-27 改 25
-// 假等最長 29 秒：比夜裡重唸（engine.js REPEAT_MS 30 秒）短，死掉的角色永遠不會重唸——實玩重唸像在等死人按、以為卡住（Leo 2026-10-27 選 A）
-export const FAKE_WAIT_CAP = 29;
+// 假等：Leo 2026-10-17 從 15 改 45；2026-10-27 改 25；同日晚上「夜裡等太久、減 5 秒」改 20
+export const DEFAULT_RULES = { witchSelfSave: 'never', win: 'side', police: true, fakeWaitMin: 8, fakeWaitMax: 20 };
+// 假等最長 24 秒：比夜裡重唸（engine.js REPEAT_MS 25 秒）短，死掉的角色永遠不會重唸——實玩重唸像在等死人按、以為卡住（Leo 2026-10-27 選 A）
+export const FAKE_WAIT_CAP = 24;
 const WITCH_OPTS = ['never', 'first', 'always']; // 預設不能自救（Leo 手稿，2026-10-08）
 const WIN_OPTS = ['side', 'all'];
 
