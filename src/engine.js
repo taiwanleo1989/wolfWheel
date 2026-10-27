@@ -421,8 +421,19 @@ const waitBlock = room => (room.game.day?.idiotChoice ? fail('請等被放逐的
   : room.game.badgePending ? fail('請先移交或撕掉警徽') : null);
 const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊') : waitBlock(room));
 
-// 白天「真的還活著」：第一天死訊還沒公布時，昨晚死的人 alive 還是 true（座位表照舊顯示），技能要另外擋
-const liveNow = (g, s) => g.alive[s] === true && !(g.day?.pendingDeaths ?? []).includes(s);
+// 警長競選中（第一天死訊還沒公布）有人按騎士決鬥、自爆：先公布昨晚死訊（跟主機按「公布」一樣），再照公布後的死活判這個動作。
+// 不能用「昨晚死的人沒有按鈕／按了被擋」——那等於死訊公布前就讓當事人知道誰死了（2026-10-27 審查）。
+// 動作被擋（自己昨晚死了、目標昨晚死了、有人要開槍）＝死訊照樣公布、動作不算；公布死訊和動作接在同一句唸
+function afterDeaths(room, run) {
+  if (room.phase !== 'day' || !room.game.day?.pendingDeaths) return run(room);
+  const a = announceDeaths(room).room;
+  if (a.phase !== 'day') return { ok: false, error: '遊戲已經結束', room: a };
+  const r = run(a);
+  if (!r.ok) return { ...r, room: a };
+  const n = r.room.game.narration, an = a.game.narration;
+  if (n.seq > an.seq) r.room.game.narration = { seq: n.seq, clips: [...an.clips, ...n.clips], text: an.text + n.text };
+  return r;
+}
 
 /* ───────── 白天 ───────── */
 // 白天沒有任何倒數：開槍、白癡翻牌、騎士決鬥都一直等本人按（Leo 2026-10-10 拿掉 30 秒，10-11 連計時機制一起拆掉）
@@ -509,14 +520,18 @@ export function idiotChoose(room, clientId, flip, now = 0) {
 export function duel(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能決鬥');
   const seat = L.seatOf(room, clientId);
+  if (!seat || room.game.roles[seat] !== 'knight' || !room.game.alive[seat]) return fail('你不能決鬥');
+  return afterDeaths(room, r => duelNow(r, seat, target));
+}
+function duelNow(room, seat, target) {
   const g0 = room.game;
-  if (!seat || g0.roles[seat] !== 'knight' || !liveNow(g0, seat)) return fail('你不能決鬥');
+  if (!g0.alive[seat]) return fail('你昨晚已經出局，不能決鬥');
   if (g0.knightUsed) return fail('決鬥只能用一次');
   const blocked = waitBlock(room); if (blocked) return blocked;
   if (g0.day.nightCalled) return fail('今天已經要天黑了');
   if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target);
-  if (!liveNow(g0, target) || target === seat) return fail('請選一個活著的其他玩家');
+  if (g0.alive[target] !== true || target === seat) return fail('請選一個活著的其他玩家');
   const g = structuredClone(g0);
   g.knightUsed = true;
   g.day.bindCheck = false; // 白天已經往下走，「天亮睜眼」的綁票檢查結束
@@ -525,11 +540,10 @@ export function duel(room, clientId, target, now = 0) {
     // 撞到狼：狼出局，今天不放逐，直接唸「天黑請閉眼」；主機按「進入黑夜」才開始夜晚（Leo 2026-10-10）
     // 撞到狼王：狼王先開槍，開完才唸「天黑請閉眼」（見 shoot）。撞死狼美人＝技能被悶、不殉情（Leo 2026-10-27）
     kill(g, target);
-    const deaths = g.day.pendingDeaths ? flushPending(g) : []; // 警長競選中撞到狼：先公布昨晚死訊再天黑
     const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
     g.day.nightCalled = !over;
     g.day.nightReason = 'knight';
-    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...deaths, ...(over || g.canShoot.length ? [] : ['nightStart'])]);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over || g.canShoot.length ? [] : ['nightStart'])]);
   } else {
     // 撞到好人：騎士出局，白天繼續發言、投票
     kill(g, seat);
@@ -541,34 +555,37 @@ export function duel(room, clientId, target, now = 0) {
 // 自爆：Leo 2026-10-27 起狼人陣營都能自爆（狼美人不行），主機唸「3 號狼人自爆，天黑請閉眼。」；自爆的狼王不能開槍。
 // 白狼王（2026-10-13）自爆可以帶走一人（0＝不帶），唸「白狼王自爆」；被帶走的獵人／狼王可以開槍，開完才唸天黑。
 // 時機：白天、投票放逐之前（警長競選中、投票中也可以），今天不放逐，主機按「進入黑夜」；
-// 警長競選中自爆＝先公布昨晚死訊再天黑
+// 警長競選中自爆＝先公布昨晚死訊再自爆（見 afterDeaths）
 export function boom(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能自爆');
   const seat = L.seatOf(room, clientId);
+  const role = seat ? room.game.roles[seat] : null;
+  if (!seat || !isWolfRole(role) || role === 'beauty' || !room.game.alive[seat]) return fail('你不能自爆');
+  return afterDeaths(room, r => boomNow(r, seat, role, target));
+}
+function boomNow(room, seat, role, target) {
   const g0 = room.game;
-  const role = seat ? g0.roles[seat] : null;
-  if (!seat || !isWolfRole(role) || role === 'beauty' || !liveNow(g0, seat)) return fail('你不能自爆');
+  if (!g0.alive[seat]) return fail('你昨晚已經出局，不能自爆');
   const blocked = waitBlock(room); if (blocked) return blocked;
   if (g0.day.nightCalled) return fail('今天已經要天黑了');
   if (g0.day.exileDone) return fail('投票放逐之後不能自爆');
   if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target ?? 0);
   if (target && role !== 'whiteKing') return fail('只有白狼王自爆能帶走人');
-  if (target && (!liveNow(g0, target) || target === seat)) return fail('只能帶走活著的其他玩家');
+  if (target && (g0.alive[target] !== true || target === seat)) return fail('只能帶走活著的其他玩家');
   const g = structuredClone(g0);
   g.day.bindCheck = false; // 白天已經往下走，「天亮睜眼」的綁票檢查結束
   g.day.vote = null; // 投票中自爆：這輪作廢
   kill(g, seat, { noSkill: true });
   const chain = target ? dayKill(g, target) : [];
-  const deaths = g.day.pendingDeaths ? flushPending(g) : [];
   const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
   const night = !over && !g.canShoot.length;
   g.day.nightCalled = !over;
   g.day.nightReason = role === 'whiteKing' ? 'boom' : 'wolfBoom';
   const head = role === 'whiteKing'
     ? [seatKey(seat), ...(target ? ['whiteBoomTook', seatKey(target), 'end'] : ['whiteBoom']), ...chain]
-    : [seatKey(seat), 'wolfBoom', night && !deaths.length ? 'comma' : 'end'];
-  note(g, [...head, ...deaths, ...(night ? ['nightStart'] : [])]);
+    : [seatKey(seat), 'wolfBoom', night ? 'comma' : 'end'];
+  note(g, [...head, ...(night ? ['nightStart'] : [])]);
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
@@ -598,6 +615,7 @@ export function setSheriff(room, seat, now = 0) {
   seat = Number(seat);
   if (g0.alive[seat] !== true) return fail('只能選活著的人');
   if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
+  if (g0.day?.vote?.open) return fail('投票中不能換警長（警長那票的票數會跟著變）'); // 2026-10-27 審查
   const g = structuredClone(g0);
   const passed = g.badgePending;
   Object.assign(g, { sheriff: seat, badgeTorn: false, badgePending: false });
@@ -610,6 +628,7 @@ export function tearBadge(room, now = 0) {
   if (room.phase !== 'day') return fail('白天才能撕警徽');
   const g0 = room.game;
   if (g0.badgeTorn && !g0.sheriff) return fail('警徽已經撕掉了');
+  if (g0.day?.vote?.open) return fail('投票中不能撕警徽');
   const g = structuredClone(g0);
   Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });
   g.log.push({ day: g.dayNo, text: '警徽撕掉了，之後沒有警長。' });
@@ -856,7 +875,8 @@ export function privateGame(room, seat) {
     if (v?.open && v.voters.includes(seat)) me.vote = { mine: v.ballots[seat] ?? null, candidates: v.candidates.filter(s => s !== seat) };
   }
   // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
-  if (room.phase === 'day' && liveNow(g, seat) && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
+  // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
+  if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;
     if (isWolfRole(role) && role !== 'beauty' && !g.day?.exileDone) { me.canBoom = true; if (role === 'whiteKing') me.boomTake = true; }
   }

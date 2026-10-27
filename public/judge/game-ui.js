@@ -6,7 +6,7 @@ const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 20
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
-const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false };
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null };
 const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
@@ -67,7 +67,7 @@ function renderAction() {
 
   // 換了一個動作就清掉剛才選的座位
   const key = `${phase}|${g.dayNo}|${me.action?.kind ?? ''}|${me.canShoot ? 's' : ''}|${me.canDuel ? 'd' : ''}|${me.canBoom ? 'b' : ''}|${me.vote ? 'v' + g.vote?.round : ''}`;
-  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
+  if (key !== ui.pickKey) { ui.pickKey = key; ui.pick = null; ui.skillPick = null; ui.duelOpen = false; ui.boomOpen = false; ui.confirm = null; }
   const pick = ui.pick;
   let html = '';
   // 「是否正確」：選好之後先確認，按「正確」才送出（照手稿：上帝回比號碼確認；白天投票也一樣）
@@ -193,6 +193,9 @@ function renderAction() {
 }
 
 function onAction(e) {
+  // 騎士決鬥、自爆另外選號（2026-10-27 審查：跟投票共用同一格，決鬥點了號碼投票也跟著選好）
+  const sp = e.target.closest('[data-skill-pick]');
+  if (sp) { const n = Number(sp.dataset.skillPick); ui.skillPick = ui.skillPick === n ? null : n; c.render(); return; }
   const p = e.target.closest('[data-pick]');
   if (p) {
     const n = Number(p.dataset.pick);
@@ -239,11 +242,11 @@ function onAction(e) {
     case 'shoot': if (confirm(`確定帶走 ${pick} 號？`)) c.send({ type: 'shoot', target: pick }); break;
     case 'shoot0': if (confirm('確定不發動技能？之後不能反悔。')) c.send({ type: 'shoot', target: 0 }); break;
     case 'duelOpen': ui.duelOpen = true; c.render(); break;
-    case 'duelClose': ui.duelOpen = false; ui.pick = null; c.render(); break;
-    case 'duel': if (confirm(`確定和 ${pick} 號決鬥？猜錯的話你會出局。`)) c.send({ type: 'duel', target: pick }); break;
+    case 'duelClose': ui.duelOpen = false; ui.skillPick = null; c.render(); break;
+    case 'duel': if (confirm(`確定和 ${ui.skillPick} 號決鬥？猜錯的話你會出局。`)) c.send({ type: 'duel', target: ui.skillPick }); break;
     case 'boomOpen': ui.boomOpen = true; c.render(); break;
-    case 'boomClose': ui.boomOpen = false; ui.pick = null; c.render(); break;
-    case 'boom': if (confirm(`確定自爆、帶走 ${pick} 號？`)) c.send({ type: 'boom', target: pick }); break;
+    case 'boomClose': ui.boomOpen = false; ui.skillPick = null; c.render(); break;
+    case 'boom': if (confirm(`確定自爆、帶走 ${ui.skillPick} 號？`)) c.send({ type: 'boom', target: ui.skillPick }); break;
     case 'boom0': if (confirm(c.state.you.game?.boomTake ? '確定自爆、不帶走任何人？' : '確定自爆？你會出局，今天直接天黑。')) c.send({ type: 'boom', target: 0 }); break;
     case 'idiotFlip': if (confirm('確定翻牌？翻牌後不會出局，但之後不能投票。')) c.send({ type: 'idiot', flip: true }); break;
     case 'idiotOut': if (confirm('確定不翻牌、直接出局？')) c.send({ type: 'idiot', flip: false }); break;
@@ -479,12 +482,12 @@ function renderMyInfo() {
 
 // 騎士決鬥、白狼王自爆：放在「看我的身分」裡面，白天大家的畫面才會一樣（Leo 2026-10-22 B1：本來只有這兩個角色有大按鈕，瞄一眼就知道）
 function daySkill(me) {
-  const seat = c.state.you.seat, pick = ui.pick;
+  const seat = c.state.you.seat, pick = ui.skillPick;
   if (c.state.phase !== 'day') return '';
   if (me.canDuel) return ui.duelOpen
     ? `<div class="skill"><h2>騎士決鬥</h2>
        <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續投票。只能用一次。</p>
-       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="duelClose">取消</button></div></div>`
     : `<button class="btn big" type="button" data-do="duelOpen">⚔ 發起決鬥（騎士技能）</button>`;
@@ -492,7 +495,7 @@ function daySkill(me) {
   if (me.canBoom) return ui.boomOpen
     ? (me.boomTake ? `<div class="skill"><h2>白狼王自爆</h2>
        <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
-       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
+       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`

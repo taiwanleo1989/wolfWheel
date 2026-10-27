@@ -356,9 +356,11 @@ test('白狼王什麼時候不能爆：投票放逐後、有人還沒開槍、�
   let p = play(newGame(FULL), { wolf: 12 });
   assert.ok(p.game.day.pendingDeaths);
   const early = E.boom(p, id(3), 7).room;
-  assert.equal(said(early), '3 號白狼王自爆，帶走了 7 號。昨晚死亡的是 12 號。天黑請閉眼。', '警長競選中自爆：順便公布昨晚死訊');
+  assert.equal(said(early), '昨晚死亡的是 12 號。3 號白狼王自爆，帶走了 7 號。天黑請閉眼。', '警長競選中自爆：先公布昨晚死訊');
   assert.equal(early.game.day.pendingDeaths, null);
-  assert.equal(E.boom(p, id(3), 12).ok, false, '不能帶走昨晚已經死的人');
+  const late = E.boom(p, id(3), 12);
+  assert.equal(late.ok, false, '不能帶走昨晚已經死的人');
+  assert.equal(late.room.game.day.pendingDeaths, null, '但死訊已經公布了');
   const r = E.announceDeaths(p).room;
   assert.equal(E.boom(E.exile(r, 13).room, id(3), 7).ok, false, '投票放逐後');
   assert.equal(E.privateGame(E.exile(r, 13).room, 3).canBoom, undefined);
@@ -542,8 +544,13 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       if (g.badgePending) { must(rnd(3) ? E.setSheriff(r, pickAlive()) : E.tearBadge(r), '處理警徽'); continue; }
       if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) { must(E.setSheriff(r, pickAlive()), '登記警長'); continue; }
       // 警長競選中：騎士決鬥、狼人自爆也可以（之後順便公布死訊）
-      if (g.day.pendingDeaths && kn0 && rnd(6) === 0) { const t = aliveList().find(s => live(s) && s !== kn0); if (t) { must(E.duel(r, id(kn0), t), '競選中決鬥'); continue; } }
-      if (g.day.pendingDeaths && wk0 && rnd(6) === 0) { must(E.boom(r, id(wk0), 0), '競選中自爆'); continue; }
+      // （按了一定先公布死訊；動作可能因為有人要開槍而不算，但房間照樣往下走）
+      const soft = (res, why) => { assert.ok(res.ok || res.room, `seed ${seed} ${why}：${res.error}`); r = res.room; if (!res.ok) assert.equal(r.game.day?.pendingDeaths ?? null, null, `seed ${seed} ${why}被擋卻沒公布死訊`); };
+      if (g.day.pendingDeaths && kn0 && rnd(6) === 0) { const t = aliveList().find(s => live(s) && s !== kn0); if (t) { soft(E.duel(r, id(kn0), t), '競選中決鬥'); continue; } }
+      if (g.day.pendingDeaths && wk0 && rnd(6) === 0) { soft(E.boom(r, id(wk0), 0), '競選中自爆'); continue; }
+      // 昨晚死了（還沒公布）的騎士按決鬥：死訊公布、決鬥不算
+      const deadKn = (g.day.pendingDeaths ?? []).find(s => g.roles[s] === 'knight' && !g.knightUsed);
+      if (deadKn && rnd(4) === 0) { const res = E.duel(r, id(deadKn), aliveList().find(s => s !== deadKn)); assert.equal(res.ok, false, `seed ${seed} 死掉的騎士決鬥成功了`); r = res.room; assert.equal(r.game.knightUsed, false); continue; }
       if (g.day.pendingDeaths) { r = E.announceDeaths(r).room; continue; }
       if (g.day.idiotChoice) { r = E.idiotChoose(r, id(g.day.idiotChoice), rnd(2) === 0).room; continue; }
       if (g.canShoot.length && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了

@@ -56,7 +56,8 @@ function mount(room, clientId) {
   };
   renderGame(ctx);
   bindGame($);
-  const click = (box, attr, value) => $(box).fn({ target: { closest: q => (q === `[data-${attr}]` ? { dataset: { [attr]: value } } : null) } });
+  const kebab = attr => attr.replace(/[A-Z]/g, ch => '-' + ch.toLowerCase()); // skillPick → data-skill-pick
+  const click = (box, attr, value) => $(box).fn({ target: { closest: q => (q === `[data-${kebab(attr)}]` ? { dataset: { [attr]: value } } : null) } });
   return { $, click, html: box => $(box).innerHTML, sent, voiceCalls };
 }
 
@@ -101,7 +102,7 @@ test('白天：白狼王的自爆按鈕收在「看我的身分」裡，所有�
   assert.match(m.html('#myInfo'), /自爆（白狼王技能）/);
   m.click('#myInfo', 'do', 'boomOpen');
   assert.match(m.html('#myInfo'), /<h2>白狼王自爆<\/h2>[\s\S]*自爆，不帶人/);
-  m.click('#myInfo', 'pick', '7');
+  m.click('#myInfo', 'skillPick', '7');
   assert.match(m.html('#myInfo'), /自爆，帶走 7 號/);
   // 2026-10-27 起一般狼人也能自爆（不帶人）；狼美人不行、好人沒有
   const other = mount(r, id(1));

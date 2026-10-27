@@ -263,15 +263,30 @@ test('狼人自爆：唸「N 號狼人自爆，天黑請閉眼。」，今天不
 test('狼人自爆：警長競選中也可以，順便公布昨晚死訊；昨晚已經死的狼不能自爆；投票放逐後不行', () => {
   const p = play(newGame(B), { wolf: 9 });
   const b = ok(E.boom(p, id(1), 0));
-  assert.equal(b.game.narration.text, '1 號狼人自爆。昨晚死亡的是 9 號。天黑請閉眼。');
+  assert.equal(b.game.narration.text, '昨晚死亡的是 9 號。1 號狼人自爆，天黑請閉眼。');
   assert.equal(b.game.alive[9], false);
   assert.ok(E.nextNight(b, 1e6).ok);
-  // 狼自刀：昨晚死的狼（還沒公布）不能自爆
+  // 狼自刀：昨晚死的狼（還沒公布）按鈕照樣有（不洩漏），按了＝死訊公布、自爆不算
   const self = play(newGame(B), { wolf: 2 });
-  assert.equal(E.boom(self, id(2), 0).ok, false);
-  assert.equal(E.privateGame(self, 2).canBoom, undefined);
+  assert.equal(E.privateGame(self, 2).canBoom, true);
+  const sr = E.boom(self, id(2), 0);
+  assert.equal(sr.ok, false);
+  assert.equal(sr.room.game.narration.text, '昨晚死亡的是 2 號。');
+  assert.equal(sr.room.game.day.nightCalled, undefined);
   const r = night(newGame(B));
   assert.equal(E.boom(ok(E.exile(r, 9)), id(1), 0).ok, false);
+});
+
+test('投票中不能換警長、撕警徽（警長那票的票數會跟著變；2026-10-27 審查）', () => {
+  let r = night(newGame(B));
+  r = ok(E.setSheriff(r, 9));
+  r = ok(E.startVote(r));
+  r = ok(E.castVote(r, id(9), 1));
+  assert.equal(E.setSheriff(r, 10).ok, false);
+  assert.equal(E.tearBadge(r).ok, false);
+  r = ok(E.endVote(r));
+  assert.equal(r.game.day.vote.result.rows[0].score, 1.5);
+  assert.ok(E.setSheriff(r, 10).ok, '投完就可以');
 });
 
 /* ───────── 4、5 ───────── */
@@ -301,6 +316,24 @@ function mount(room, clientId) {
   return { $, click, html: box => $(box).innerHTML, hidden: box => $(box).hidden, sent };
 }
 globalThis.window = { confirm: () => true };
+
+test('畫面：投票中騎士打開決鬥選號，不會連動投票的選號（2026-10-27 審查）', () => {
+  let r = night(newGame(B));
+  r = ok(E.startVote(r));
+  const k = mount(r, id(8));
+  k.click('#myInfo', 'me', 'show');
+  k.click('#myInfo', 'do', 'duelOpen');
+  k.click('#myInfo', 'skill-pick', '3');
+  assert.match(k.html('#myInfo'), /決鬥 3 號/);
+  assert.match(k.html('#actionBox'), /投 … 號/, '投票那格沒被選');
+  k.click('#actionBox', 'pick', '5');
+  k.click('#actionBox', 'do', 'vote');
+  assert.match(k.html('#actionBox'), /投給 5 號，是否正確/);
+  k.click('#myInfo', 'skill-pick', '4');
+  assert.match(k.html('#myInfo'), /決鬥 4 號/, '確認視窗開著也能改決鬥的號碼');
+  k.click('#myInfo', 'do', 'duel');
+  assert.deepEqual(k.sent.at(-1), { type: 'duel', target: 4 });
+});
 
 test('畫面：投票（點號碼 → 是否正確 → 送出）、投完每支手機同時出現統計；主機的開始／結束／PK／照最高票放逐', () => {
   let r = night(newGame(B));

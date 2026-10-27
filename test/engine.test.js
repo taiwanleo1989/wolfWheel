@@ -377,17 +377,27 @@ test('騎士白天隨時可以決鬥（Leo 2026-10-27，取代 10-14 的 1A）�
   const pd = E.duel(p, id(8), 3).room;
   assert.equal(pd.game.day.pendingDeaths, null);
   assert.equal(pd.game.alive[10], false);
-  assert.equal(pd.game.narration.text, '騎士 8 號決鬥 3 號：3 號是狼人，出局！昨晚死亡的是 10 號。天黑請閉眼。');
+  assert.equal(pd.game.narration.text, '昨晚死亡的是 10 號。騎士 8 號決鬥 3 號：3 號是狼人，出局！天黑請閉眼。');
   assert.equal(E.nextNight(pd, 1e6).ok, true);
-  // 警長競選中撞到好人：騎士出局，死訊照樣等主機公布
+  // 警長競選中撞到好人：一樣先公布死訊，騎士出局、白天繼續
   const pg = E.duel(p, id(8), 9).room;
   assert.equal(pg.game.alive[8], false);
-  assert.ok(pg.game.day.pendingDeaths);
-  // 昨晚已經死了（還沒公布）的騎士不能決鬥、也不能撞昨晚死的人
+  assert.equal(pg.game.day.pendingDeaths, null);
+  assert.equal(pg.game.narration.text, '昨晚死亡的是 10 號。騎士 8 號決鬥 9 號：9 號是好人，騎士以死謝罪。');
+  // 昨晚已經死了（還沒公布）的騎士：按鈕照樣有（不然死訊公布前就知道自己死了，2026-10-27 審查）；
+  // 按了＝死訊公布、決鬥不算
   const dk = play(newGame('lang-wang-qi-shi'), { wolf: 8 });
-  assert.equal(E.duel(dk, id(8), 2).ok, false);
-  assert.equal(E.privateGame(dk, 8).canDuel, undefined);
-  assert.equal(E.duel(p, id(8), 10).ok, false, '10 號昨晚死了');
+  assert.equal(E.privateGame(dk, 8).canDuel, true);
+  const dr = E.duel(dk, id(8), 2);
+  assert.equal(dr.ok, false);
+  assert.equal(dr.room.game.day.pendingDeaths, null, '死訊已經公布');
+  assert.equal(dr.room.game.alive[8], false);
+  assert.equal(dr.room.game.alive[2], true);
+  assert.equal(dr.room.game.narration.text, '昨晚死亡的是 8 號。');
+  const d10 = E.duel(p, id(8), 10);
+  assert.equal(d10.ok, false, '10 號昨晚死了');
+  assert.equal(d10.room.game.day.pendingDeaths, null);
+  assert.equal(d10.room.game.knightUsed, false, '撞死人不算用掉決鬥');
 });
 
 test('遊戲結束時，造成結束的那句台詞和「遊戲結束」接在一起唸（不會被蓋掉）', () => {
