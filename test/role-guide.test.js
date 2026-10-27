@@ -152,6 +152,11 @@ const CHECKS = {
     x = nextDay(x, { wolf: 5, poison: 1 });
     assert.equal(x.phase, 'ended');
     assert.equal(x.game.winner, 'wolf');
+    // 白天：最後一隻狼是狼美人，被放逐、魅惑的是最後一個神（5 人局）
+    const bw = voteAll(night(newGame({ beauty: 1, seer: 1, villager: 3 }), { charm: 2 }), { 2: 1, 3: 1, 4: 1 });
+    assert.equal(bw.game.winner, 'wolf', '狼美人殉情帶走最後一個神');
+    // 最後一隻狼是白狼王，自爆帶走最後一個神
+    assert.equal(ok(E.boom(night(newGame({ whiteKing: 1, seer: 1, villager: 3 })), id(1), 2)).game.winner, 'wolf');
   },
   'all-5': () => {
     const KS = { king: 1, seer: 1, witch: 1, villager: 3 }; // 1 狼王、2 預言家、3 女巫、4–6 平民
@@ -324,6 +329,8 @@ const CHECKS = {
     assert.match(early.error, /25 秒/);
     const skipped = ok(E.skipStep(r, t0 + 25000, minRand));
     assert.equal(skipped.game.night.seerTarget, null, '跳過＝沒動作');
+    const half = act(r, 4, { target: 1 }); // 查了、還沒按知道了
+    assert.equal(ok(E.skipStep(half, t0 + 25000, minRand)).game.seerChecks.length, r.game.seerChecks.length + 1, '已經查的照樣記下');
     // 女巫兩句各自計時、各自跳過
     const w = toNight(night(newGame(B)), 'witch');
     const w1 = ok(E.skipStep(w, w.game.night.openedAt + 25000, minRand));
@@ -511,6 +518,13 @@ const CHECKS = {
     // 被放逐也一樣
     const ex = voteAll(ok(E.setSheriff(night(newGame(B)), 10)), { 1: 10, 2: 10 });
     assert.equal(ex.game.badgePending, true);
+    // 警長剛好是獵人：先選警徽、再開槍
+    const hs = voteAll(ok(E.setSheriff(night(newGame(B)), 6)), { 1: 6, 2: 6 });
+    assert.ok(hs.game.badgePending && hs.game.canShoot.includes(6));
+    const hsUi = mount(hs, id(6)).html('#actionBox');
+    assert.match(hsUi, /你是警長，你出局了/, '先出現選警徽');
+    assert.ok(!hsUi.includes('data-do="shoot"'), '還沒出現開槍');
+    assert.match(mount(ok(E.passBadge(hs, id(6), 4)), id(6)).html('#actionBox'), /你可以發動技能/, '選完才出現開槍');
     // 自爆的、被撞死的是警長：選完警徽才唸天黑
     const bm = ok(E.boom(ok(E.setSheriff(night(newGame(B)), 1)), id(1), 0));
     assert.ok(!bm.game.narration.text.includes(LINES.nightStart), '還沒唸天黑');
@@ -536,6 +550,7 @@ const CHECKS = {
     assert.equal(n.game.alive[1], true, '這一槍作廢');
     const f = voteAll(night(newGame(F)), { 1: 14, 2: 14 });
     assert.equal(f.game.timer, null, '白癡選擇不限時');
+    no(E.nextNight(f, 0), '白癡的選擇不能用天黑跳過');
   },
   'day-9': () => {
     const d = ok(E.duel(ok(E.startVote(night(newGame(B)))), id(8), 1));
@@ -693,6 +708,7 @@ const CHECKS = {
     const b = ok(E.boom(night(newGame(KG)), id(2), 0));
     assert.equal(b.game.alive[2], false);
     assert.deepEqual(b.game.canShoot, [], '自爆');
+    assert.equal(b.game.narration.text, '2 號狼人自爆，天黑請閉眼。', '唸狼人自爆，不公開是狼王');
     const c = voteAll(night(newGame(F), { charm: 3 }), { 8: 5, 9: 5 });
     assert.equal(c.game.alive[3], false, '殉情');
     assert.ok(!c.game.canShoot.includes(3));

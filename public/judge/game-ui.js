@@ -335,7 +335,7 @@ function renderHost() {
       : '<div class="row-gap"><button class="btn small" type="button" data-host="manualExile">手動登記放逐（沒投票時）</button></div>';
     html = `<h2>白天</h2>
       ${sheriffHTML(g)}
-      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選（可以棄票）；全部選完，每支手機都會顯示投票結果，只有一個最高票就直接放逐、唸出局。</p>
+      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選（可以棄票）；全部選完，每支手機都會顯示投票結果，只有一個最高票就直接放逐、唸出局（被投的是還沒翻牌的白癡，就等他自己選）。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
         <p class="done">投票中：已投 ${v.voted}／${v.voters.length} 人</p>
         <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
