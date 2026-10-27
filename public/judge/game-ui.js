@@ -293,7 +293,7 @@ function renderHost() {
       <p class="hint">${step ? `現在輪到：<b>${STEP_NAME[step]}</b>` : '過場中…'}　手機會自動唸台詞、自動往下走。</p>
       <div class="row-gap"><button class="btn small" type="button" data-host="replay">再唸一次</button>${bgm}</div>
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
-        <p class="hint center">不按的話，6 秒後會自動天亮。</p>` : skipBox(g.night)}`;
+        <p class="hint center">不按的話，大約 8～11 秒後會自動天亮。</p>` : skipBox(g.night)}`;
   } else if (phase === 'day') {
     const pick = hostPick();
     if (g.deathsPending) {
@@ -310,7 +310,7 @@ function renderHost() {
       // 騎士撞到狼、白狼王／狼人自爆：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
       html = `<h2>${NIGHT_REASON[g.nightReason] ?? '直接天黑'}</h2>
         <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
-        ${g.badgePending ? sheriffHTML(g) : ''}
+        ${sheriffHTML(g)}
         <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
         <div class="row-gap">${bgm}</div>`;
       done(html);
@@ -391,6 +391,7 @@ function sheriffHTML(g) {
   const pick = ui.sheriffPick;
   const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（${g.idiotRevealed?.includes(g.sheriff) ? '翻過牌的白癡沒有票，警徽還在他身上' : '投票算 1.5 票'}；出局時由他自己選移交或撕警徽）</p>`
     : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
+  if (g.vote?.open) return `<div class="sheriff">${status}</div>`; // 投票中不能換警長（伺服器也擋；2026-10-28 審查：按鈕在卻按不動）
   const open = ui.sheriffOpen || (g.deathsPending && !g.sheriff && !g.badgeTorn);
   if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '登記錯了，改警長' : '登記警長'}</button></div>`;
   return `<div class="sheriff"><h3>登記警長</h3>${status}

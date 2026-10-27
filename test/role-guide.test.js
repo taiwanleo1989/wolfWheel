@@ -326,6 +326,12 @@ const CHECKS = {
     const p = play(newGame(B), {}, { step: 'police' });
     assert.equal(p.game.timer.at - p.game.night.openedAt, 6000, '上警 6 秒自動天亮');
     ok(E.skipStep(p, p.game.night.openedAt, minRand));
+    // 上警時間到（或按了）之後還會再停 2～5 秒才天亮
+    const pa = E.advance(p, p.game.timer.at, maxRand).room;
+    assert.equal(pa.game.night.stage, 'pause');
+    assert.equal(pa.game.timer.at - p.game.timer.at, 5000, '最長再停 5 秒（6＋5＝11）');
+    assert.equal(E.advance(p, p.game.timer.at, minRand).room.game.timer.at - p.game.timer.at, 2000, '最短再停 2 秒（6＋2＝8）');
+    assert.match(mount(p, 'host').html('#hostCtl'), /大約 8～11 秒後會自動天亮/);
   },
   'night-5': () => {
     const at = plan => play(newGame(B, { police: false }), plan);
@@ -435,7 +441,11 @@ const CHECKS = {
       return res.room;
     };
     // 自己昨晚死了、對象昨晚死了
-    assert.equal(bad(E.duel(pend({ wolf: 8 }), id(8), 1), '騎士自己死了').game.knightUsed, false);
+    const self = bad(E.duel(pend({ wolf: 8 }), id(8), 1), '騎士自己死了');
+    assert.equal(self.game.knightUsed, false);
+    assert.equal(pick(self, 8).canDuel, undefined, '已經出局，之後也不能再按');
+    const tgt = bad(E.duel(pend({ wolf: 1 }), id(8), 1), '對象死了（再測一次）');
+    assert.ok(E.duel(tgt, id(8), 2).ok, '換一個人可以再按');
     bad(E.duel(pend({ wolf: 1 }), id(8), 1), '對象死了');
     bad(E.boom(pend({ wolf: 1 }), id(1), 0), '自爆的自己死了');
     // 昨晚死的人要開槍：先等他開，開完可以再按
@@ -470,7 +480,10 @@ const CHECKS = {
     assert.match(h.html('#hostCtl'), /登記錯了，改警長/, '白天一般畫面有');
     h.click('#hostCtl', 'host', 'sheriffOpen');
     assert.ok(!h.html('#hostCtl').includes('data-host="tear"'), '登記了就沒有警徽流失');
-    assert.ok(!mount(ok(E.boom(fix, id(1), 0)), 'host').html('#hostCtl').includes('改警長'), '今天要天黑：沒有');
+    assert.match(mount(ok(E.boom(night(newGame(B)), id(1), 0)), 'host').html('#hostCtl'), /登記警長/, '今天要天黑：也能補登記');
+    assert.ok(E.setSheriff(ok(E.boom(night(newGame(B)), id(1), 0)), 4).ok);
+    assert.ok(!mount(ok(E.startVote(fix)), 'host').html('#hostCtl').includes('改警長'), '投票中：沒有按鈕');
+    assert.match(mount(ok(E.startVote(fix)), 'host').html('#hostCtl'), /警長：<b>5 號<\/b>/, '投票中照樣顯示誰是警長');
     assert.ok(!mount(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), 'host').html('#hostCtl').includes('登記警長'), '等白癡選：沒有');
   },
   'day-7': () => {
@@ -550,6 +563,12 @@ const CHECKS = {
     const online = new Set([...everyone(o)].filter(c => c !== id(3)));
     for (const w of [1, 2]) o = ok(E.nightAction(o, id(w), { target: 9 }, online, 0, minRand));
     assert.equal(o.game.night.wolfProposal, 9);
+    // 兩隻先選好、第三隻才掉線：確認不會自己跳出來，再點一次同一個號碼才出現
+    let late = toNight(night(newGame(B)), 'wolf');
+    for (const w of [1, 2]) late = act(late, w, { target: 9 });
+    no(E.nightAction(late, id(1), { confirm: true }, online, 0, minRand), '還沒有統一意見');
+    late = ok(E.nightAction(late, id(1), { target: 9 }, online, 0, minRand));
+    assert.equal(late.game.night.wolfProposal, 9, '再點一次就出現');
     // 空刀
     const e = play(newGame(B, { police: false }), { wolf: 0 });
     assert.equal(e.game.narration.text, '天亮請睜眼。昨晚是平安夜。');
@@ -719,6 +738,7 @@ const CHECKS = {
     assert.equal(r.game.charm, 15);
     r = nextDay(r, { charm: 16 });
     assert.equal(r.game.charm, 16, '每晚換新');
+    assert.equal(nextDay(r, { charm: 0 }).game.charm, null, '前一晚沒魅惑＝沒有人，前天的不延續');
     r = nextDay(withDead(r, [5]), {});
     assert.equal(r.game.charm, null, '狼美人死了就沒有魅惑');
   },
