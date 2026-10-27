@@ -363,8 +363,8 @@ function restartRow(phase) {
     <button class="btn small" type="button" data-host="newGame">回到設定</button></div>`;
 }
 
-// 「跳過」防手機沒電卡死（Leo 2026-10-10）：每個角色一樣——睜眼就出現（灰的）、睜眼 30 秒後才能按，文字不提任何角色。
-// 時間從這支手機收到「睜眼」那刻算；伺服器自己也會檢查 30 秒
+// 「跳過」防手機沒電卡死（Leo 2026-10-10）：每個角色一樣——睜眼就出現（灰的）、睜眼 SKIP_MS（25 秒）後才能按，文字不提任何角色。
+// 時間從這支手機收到「睜眼」那刻算；伺服器自己也會檢查
 function skipBox(night) {
   if (!night?.step || !night.eyesOpen) { clearTimeout(ui.skipTimer); return ''; }
   const key = `${c.state.game.dayNo}|${night.step}|${night.beat}|${night.openedAt}`;
@@ -372,7 +372,7 @@ function skipBox(night) {
   const left = SKIP_MS - (Date.now() - ui.skipSince);
   clearTimeout(ui.skipTimer); // 時間到重畫一次，讓按鈕亮起來（只保留一個計時器）
   if (left > 0) ui.skipTimer = setTimeout(() => c.render(), left + 100);
-  return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 25 秒後可按）</button></div>
+  return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 ${SKIP_MS / 1000} 秒後可按）</button></div>
     <p class="hint center">手機沒電、沒辦法操作時才按：這一步當作沒有動作。</p>`;
 }
 

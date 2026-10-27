@@ -1,19 +1,19 @@
 // 角色、板子、發牌。純函式；伺服器（src/）和網頁（public/judge/）共用這一份，改一次兩邊都生效。
 
 export const ROLES = {
-  wolf:     { name: '狼人',  team: 'wolf',     unique: false, desc: '每晚和狼隊友一起選一個人殺掉。白天隱藏身分，混在好人裡；白天可以自爆，今天直接天黑。' },
-  king:     { name: '狼王',  team: 'wolf',     unique: true,  desc: '狼人陣營。被殺或被放逐時可以開槍帶走一人；被女巫毒死、自爆不能開槍。' },
+  wolf:     { name: '狼人',  team: 'wolf',     unique: false, desc: '每晚和狼隊友一起選一個人殺掉（狼美人不能刀）。白天隱藏身分，混在好人裡；投票放逐之前可以自爆，今天直接天黑。' },
+  king:     { name: '狼王',  team: 'wolf',     unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。被狼刀、被放逐、被槍帶走、被騎士撞死或被白狼王帶走時，可以開槍帶走一人；被女巫毒死、殉情、自爆不能開槍。' },
   whiteKing: { name: '白狼王', team: 'wolf',    unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。白天發言時（投票放逐之前）可以自爆，帶走一個人，今天直接天黑；不是自爆出局就不能帶人。' },
   beauty:   { name: '狼美人', team: 'wolf',     unique: true,  desc: '狼人陣營，晚上和狼隊友一起殺人。狼人殺完人後，再單獨睜眼魅惑一個人（不能連續兩晚魅惑同一人）；狼美人出局時（被放逐、被槍帶走、被白狼王帶走），魅惑的人跟著殉情出局，殉情的人不能發動技能。被騎士撞死、被女巫毒死不會殉情。狼隊不能刀狼美人，狼美人不能自爆。' },
-  hidden:   { name: '隱狼',  team: 'wolf',     unique: true,  desc: '狼人陣營。你知道狼隊友是誰，他們不知道你。晚上在手機上跟狼人一起投票殺人（不用睜眼，狼隊只看到「隱狼」選誰、看不到你的號碼）；預言家查你、守墓人看你都是好人。' },
-  gargoyle: { name: '石像鬼', team: 'wolf',     unique: true,  desc: '狼人陣營，不跟狼隊友見面（互相不知道）。每晚查驗一個人的具體身分。其他狼人全部出局後，你才開始在晚上殺人。' },
-  seer:     { name: '預言家', team: 'god',      unique: true,  desc: '每晚查驗一個人，知道他是好人還是狼人。' },
-  witch:    { name: '女巫',  team: 'god',      unique: true,  desc: '解藥可以救今晚被殺的人，毒藥可以毒死一個人。兩瓶各只能用一次。' },
-  hunter:   { name: '獵人',  team: 'god',      unique: true,  desc: '被殺或被放逐時可以開槍帶走一人；被女巫毒死不能開槍。' },
-  guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺（守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
+  hidden:   { name: '隱狼',  team: 'wolf',     unique: true,  desc: '狼人陣營。你知道狼隊友是誰，他們不知道你。晚上在手機上跟狼人一起投票殺人（不用睜眼，狼隊只看到「隱狼」選誰、看不到你的號碼）；預言家查你、守墓人看你都是好人。白天可以自爆。' },
+  gargoyle: { name: '石像鬼', team: 'wolf',     unique: true,  desc: '狼人陣營，不跟狼隊友見面（互相不知道）。每晚查驗一個人的具體身分。其他狼人全部出局後，你才開始在晚上殺人。白天可以自爆。' },
+  seer:     { name: '預言家', team: 'god',      unique: true,  desc: '每晚查驗一個人（不能查自己），知道他是好人還是狼人；隱狼查起來是好人。' },
+  witch:    { name: '女巫',  team: 'god',      unique: true,  desc: '解藥可以救今晚被狼刀的人，毒藥可以毒死一個人（不能毒自己）。兩瓶各只能用一次，一晚只能用一瓶；能不能救自己看設定。' },
+  hunter:   { name: '獵人',  team: 'god',      unique: true,  desc: '被狼刀、被放逐、被槍帶走或被白狼王帶走時，可以開槍帶走一人；被女巫毒死、殉情不能開槍。夜裡會看到自己今晚能不能開槍。' },
+  guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺（可以守自己、可以空守；守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
   gravekeeper: { name: '守墓人', team: 'god',   unique: true,  desc: '從第二晚開始，每晚得知前一個白天被投票放逐出局的人是好人還是狼人（隱狼會顯示好人）。' },
   knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天任何時候都可以翻牌和一個人決鬥（只能一次）：他是狼人就出局、今天直接天黑；不是狼人，騎士自己出局。' },
-  idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '被投票放逐時翻牌免死，但之後不能再投票。' },
+  idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '被投票放逐時可以自己選翻牌免死（之後不能再投票），或不翻直接出局。被狼刀、被毒照常出局。' },
   villager: { name: '平民',  team: 'villager', unique: false, desc: '沒有技能。靠推理和投票找出狼人。' },
 };
 export const ROLE_ORDER = ['wolf', 'king', 'whiteKing', 'beauty', 'hidden', 'gargoyle', 'seer', 'witch', 'hunter', 'guard', 'gravekeeper', 'knight', 'idiot', 'villager'];

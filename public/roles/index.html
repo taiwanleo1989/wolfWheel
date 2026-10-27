@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺角色說明</title>
+<meta name="description" content="狼人殺法官工具的角色說明：每個角色的技能、特殊限制，以及投票、警長、勝負的規則。內容跟遊戲實際的判定一致（有自動測試逐條核對）。">
+<meta name="theme-color" content="#0b0f22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Noto+Sans+TC:wght@500;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../judge/style.css">
+<style>
+  /* 這一頁自己的版面；顏色、面板、標題沿用法官工具的 style.css */
+  main{max-width:760px}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+  .toc a{display:inline-block;background:var(--paper);color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:4px 10px;font-weight:900;text-decoration:none;font-size:15px}
+  .toc a.wolf{background:#ffd6d6}
+  .toc a.god{background:#dff0ff}
+  .toc a.villager{background:#efe9da}
+  .toc a.all{background:#fff2c4}
+  .group{margin:30px 0 0;color:#ffd23f;font-weight:900;font-size:24px;letter-spacing:.08em;text-shadow:2px 2px 0 var(--ink)}
+  .panel{scroll-margin-top:12px}
+  .panel h2{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+  .team{display:inline-block;font-size:13px;font-weight:900;letter-spacing:.06em;padding:2px 8px;border:2px solid var(--ink);color:var(--ink)}
+  .team.wolf{background:#ffb3b3}
+  .team.god{background:#b9dcff}
+  .team.villager{background:#e3dac4}
+  .panel.wolf h2{border-bottom:4px solid var(--blood);padding-bottom:6px}
+  .panel.god h2{border-bottom:4px solid #2c6ed5;padding-bottom:6px}
+  .panel.villager h2{border-bottom:4px solid var(--muted);padding-bottom:6px}
+  .blurb{margin:8px 0 10px;padding:8px 10px;background:#fff;border:2px dashed var(--muted);font-size:15px;line-height:1.7}
+  .blurb::before{content:"遊戲裡的簡介　";font-weight:900;color:var(--muted);font-size:13px}
+  h3{margin:14px 0 4px;font-size:16px;font-weight:900;letter-spacing:.06em}
+  ul.rules{margin:0;padding:0;list-style:none}
+  ul.rules li{position:relative;padding:7px 0 7px 64px;border-top:1px solid #d9cdb2;line-height:1.7;font-size:15.5px}
+  ul.rules li:first-child{border-top:none}
+  ul.rules li::before{content:attr(data-rule);position:absolute;left:0;top:9px;font-size:11px;font-weight:900;color:var(--muted);background:#e9dfc6;padding:1px 5px;letter-spacing:.02em;max-width:58px;overflow:hidden;white-space:nowrap}
+  ul.rules b{color:var(--blood)}
+  .say{font-weight:900;color:#1b2550}
+  .say::before{content:"🔊 "}
+  .order{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 4px;font-weight:900}
+  .order span{background:#fff;border:2px solid var(--ink);padding:2px 8px}
+  .order i{font-style:normal;color:var(--muted)}
+  .note{color:#cfd6ff;font-size:14px;line-height:1.7;margin:10px 2px 0}
+  @media (max-width:420px){
+    ul.rules li{padding-left:0;padding-top:24px}
+    ul.rules li::before{top:6px}
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<main>
+  <header class="hero">
+    <div class="kicker">規則說明書</div>
+    <h1>角色<span>說明</span></h1>
+    <p class="sub">每個角色的技能、特殊限制，和遊戲實際怎麼判</p>
+  </header>
+
+  <p class="note">每一條規則前面的小編號（例如 <b>wolf-3</b>）對應一個自動測試：測試照這條規則實際跑一次遊戲，結果不一樣就會失敗。所以這頁寫的，就是法官工具實際的判法。有疑問時講編號最快。</p>
+
+  <nav class="toc" aria-label="目錄">
+    <a class="all" href="#all">陣營與勝負</a>
+    <a class="all" href="#night">黑夜順序</a>
+    <a class="all" href="#day">白天：投票與警長</a>
+    <a class="wolf" href="#wolf">狼人</a>
+    <a class="wolf" href="#king">狼王</a>
+    <a class="wolf" href="#whiteKing">白狼王</a>
+    <a class="wolf" href="#beauty">狼美人</a>
+    <a class="wolf" href="#hidden">隱狼</a>
+    <a class="wolf" href="#gargoyle">石像鬼</a>
+    <a class="god" href="#seer">預言家</a>
+    <a class="god" href="#witch">女巫</a>
+    <a class="god" href="#hunter">獵人</a>
+    <a class="god" href="#guard">守衛</a>
+    <a class="god" href="#gravekeeper">守墓人</a>
+    <a class="god" href="#knight">騎士</a>
+    <a class="god" href="#idiot">白癡</a>
+    <a class="villager" href="#villager">平民</a>
+  </nav>
+
+  <!-- ───────── 共通規則 ───────── -->
+  <h2 class="group">共通規則</h2>
+
+  <section class="panel" id="all">
+    <h2>陣營與勝負</h2>
+    <ul class="rules">
+      <li data-rule="all-1"><b>三種陣營</b>：狼人陣營（狼人、狼王、白狼王、狼美人、隱狼、石像鬼）、神職（預言家、女巫、獵人、守衛、守墓人、騎士、白癡）、平民。神職和平民都是好人。</li>
+      <li data-rule="all-2"><b>屠邊（預設）</b>：板子上有的神職全部出局、或板子上有的平民全部出局 → 狼人陣營獲勝。狼人陣營全部出局 → 好人獲勝。</li>
+      <li data-rule="all-3"><b>屠城（設定可選）</b>：所有好人（神職＋平民）都出局才算狼人陣營獲勝。</li>
+      <li data-rule="all-4"><b>兩邊同時達成</b>（例如同一晚刀死最後一個神、毒死最後一隻狼）→ 狼人陣營獲勝。</li>
+      <li data-rule="all-5">狼人陣營已經全部出局、但狼王出局後還能開槍：<b>先等他開</b>。他帶走最後一個神或民＝兩邊同時達成＝狼人勝；不開槍、或主機按天黑作廢這一槍＝好人勝。</li>
+      <li data-rule="all-6"><b>綁票提早結束</b>：天亮睜眼那一刻（第一天是公布死訊時；有人要開槍、警長要移交警徽就等處理完），活著的狼人陣營票數 ≥ 好人的票數 → 狼人陣營直接獲勝。翻過牌的白癡沒有票；警長算 1.5 票。好人還能「追輪次」時不判，見下一條。</li>
+      <li data-rule="all-7"><b>不算綁票的情況</b>：<br>・警徽在好人手上：守衛活著、女巫還有任一瓶藥、或獵人活著（夜裡還能追一個輪次）。<br>・警徽在狼人手上：騎士還沒決鬥（白天還能撞一隻出去）。<br>・沒有警長：騎士還沒決鬥；不然要狼剛好等於好人票數，而且守衛活著＋女巫還有毒藥。</li>
+      <li data-rule="all-8"><b>一狼一神一民</b>：白天投完票（含平票沒人出局）只剩一隻狼、一個神、一個民 → 狼人陣營直接獲勝。好人還能翻盤就不判：屠邊只看守衛活著、女巫還有解藥；屠城另外也算女巫的毒藥、獵人、還沒決鬥的騎士。</li>
+      <li data-rule="all-9"><b>公開身分只在規則本來就公開的時候</b>：能開槍的人出局時主機喊「N 號，請啟動角色技能」（等於公開他是獵人或狼王）、白癡被放逐時等他選擇、騎士決鬥的結果、自爆、遊戲結束翻開所有人。主機手機也是玩家，畫面上看不到任何人的身分。</li>
+    </ul>
+  </section>
+
+  <section class="panel" id="night">
+    <h2>黑夜順序</h2>
+    <div class="order" data-rule-order>
+      <span>天黑請閉眼</span><i>→</i><span>守衛</span><i>→</i><span>狼人</span><i>→</i><span>狼美人</span><i>→</i><span>女巫</span><i>→</i><span>預言家</span><i>→</i><span>石像鬼</span><i>→</i><span>守墓人</span><i>→</i><span>獵人</span><i>→</i><span>上警（第一晚）</span><i>→</i><span>天亮</span>
+    </div>
+    <ul class="rules">
+      <li data-rule="night-1">板子上沒有的角色不唸。白狼王、隱狼、狼王沒有自己的一步（跟狼人一起）；狼王的「帶槍手勢」已經取消。守墓人從第二晚才開始；上警只有第一晚、而且設定可以關掉。</li>
+      <li data-rule="night-2"><b>死掉的角色照樣唸、照樣等</b>，隨機假等 <b data-const="fakeWaitMin">8</b>～<b data-const="fakeWaitMax">20</b> 秒（設定可調，最長 <b data-const="FAKE_WAIT_CAP">24</b> 秒），所以聽不出誰死了。女巫有兩句，假等時間分給兩句、不會等兩次。</li>
+      <li data-rule="night-3">活著的角色 <b data-const="REPEAT_MS">25</b> 秒沒操作，主機再唸一次同一句（狼人那步只重唸「狼人今晚要擊殺的目標是？」）。死掉的角色假等比這短，所以<b>不會重唸</b>——聽到重唸＝那個角色還活著。</li>
+      <li data-rule="night-4">主機的「跳過」：每一步睜眼 <b data-const="SKIP_MS">25</b> 秒後才能按（防手機沒電卡死），跳過＝當作這一步沒動作。上警可以直接按「大家都起立好了」，不然 <b data-const="POLICE_MS">6</b> 秒自動天亮。</li>
+      <li data-rule="night-5"><b>天亮結算</b>：狼刀的人被女巫救、或被守衛守 → 活；<b>同守同救 → 死</b>；被毒的人 → 死。宣布時只說「昨晚死亡的是…」，不說死因；第一晚有上警時，主機按「公布昨晚死訊」才公布（警長選完再說）。</li>
+    </ul>
+  </section>
+
+  <section class="panel" id="day">
+    <h2>白天：投票、放逐、警長</h2>
+    <ul class="rules">
+      <li data-rule="day-1"><b>誰有票</b>：活著的人都有票（隱狼等狼人陣營也有）；翻過牌的白癡沒有票。<b>警長算 1.5 票</b>。</li>
+      <li data-rule="day-2">主機按「進行投票」<span class="say">請大家進行投票。</span>每個人在自己手機點號碼或<b>棄票</b>，先問「是否正確」；不能投自己、投了不能改。投票中大家只看到「已投幾人」；全部投完（或主機按結束，沒投的算棄票），每支手機同時出現統計：誰得幾票、誰投的、誰棄票。</li>
+      <li data-rule="day-3"><b>只有一個最高票 → 直接放逐</b>，主機唸<span class="say">N 號被放逐出局。</span>出局的人能開槍（獵人、狼王）接著喊<span class="say">N 號，請啟動角色技能。</span>被放逐的是還沒翻牌的白癡就不唸，等他自己選。</li>
+      <li data-rule="day-4"><b>平票</b>：主機選「平票 PK」或「平票，沒人出局」<span class="say">平票，今天沒有人出局。</span>PK 時<b>平手的人不能投票</b>，其他人只能投平手的人（例如 10 人、1 號 2 號 PK，只有 3～10 號投）。</li>
+      <li data-rule="day-5"><b>全部棄票</b>：沒人得票，主機選「全部棄票，沒人出局」<span class="say">今天沒有人出局。</span>或重新投票。</li>
+      <li data-rule="day-6"><b>警長</b>：主機在競選完登記誰當警長（第一天死訊還沒公布時，昨晚死的人也能當選）；沒人當選可以按「警徽流失」。投票中不能換警長。</li>
+      <li data-rule="day-7"><b>警長出局</b>（任何死法）：由他<b>自己的手機</b>選「移交給某個活著的人」或「撕掉警徽」，主機不能代按。選之前不能投票、放逐、決鬥、自爆、天黑。</li>
+      <li data-rule="day-8">開槍、白癡翻牌、騎士決鬥<b>都不限時</b>。還有人沒開槍時不能投票、不能放逐；主機按「天黑」＝作廢沒開的槍。</li>
+      <li data-rule="day-9">投票中有人<b>決鬥或自爆</b>，這輪投票作廢，主機重新開始投票。</li>
+    </ul>
+  </section>
+
+  <!-- ───────── 狼人陣營 ───────── -->
+  <h2 class="group">狼人陣營</h2>
+
+  <section class="panel wolf" id="wolf" data-role="wolf">
+    <h2>狼人 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="wolf">每晚和狼隊友一起選一個人殺掉（狼美人不能刀）。白天隱藏身分，混在好人裡；投票放逐之前可以自爆，今天直接天黑。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="wolf-1">每晚和狼隊一起選一個人殺。<b>在線上、活著的狼（含隱狼）全部選同一人</b>才出現「是否正確」，任何一隻按正確就確定；掉線的狼不算。可以「空刀」。</li>
+      <li data-rule="wolf-2">狼隊（狼人、狼王、白狼王、狼美人）晚上互相看得到彼此和彼此選誰；看不到隱狼的號碼（只看到「隱狼：選幾號」），也不知道石像鬼是誰。</li>
+      <li data-rule="wolf-3"><b>自爆</b>：白天、投票放逐之前（警長競選中、投票中也可以）在「看我的身分」裡自爆，主機唸<span class="say">N 號狼人自爆，天黑請閉眼。</span>今天不放逐，主機按「進入黑夜」。警長競選中自爆＝先公布昨晚死訊再自爆。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="wolf-4"><b>不能刀狼美人</b>（刀人畫面那格標「不能刀」）；其他活著的人都能刀，包含狼隊友自己。</li>
+      <li data-rule="wolf-5">投票放逐之後、有人要開槍或要選擇（白癡、警長移交）時、今天已經要天黑時，不能自爆。</li>
+      <li data-rule="wolf-6">預言家查是狼人；守墓人看是狼人；騎士撞到＝狼人。</li>
+    </ul>
+  </section>
+
+  <section class="panel wolf" id="king" data-role="king">
+    <h2>狼王 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="king">狼人陣營，晚上和狼隊友一起殺人。被狼刀、被放逐、被槍帶走、被騎士撞死或被白狼王帶走時，可以開槍帶走一人；被女巫毒死、殉情、自爆不能開槍。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="king-1">晚上和狼隊一起殺人；狼人睜眼時主機唸<span class="say">狼人請睜眼。狼王請確認身分。今晚要擊殺的目標是？</span>（板子上有狼王才唸這句）。</li>
+      <li data-rule="king-2"><b>開槍</b>：被狼刀、被放逐、被獵人或狼王的槍帶走、被騎士撞死、被白狼王帶走出局 → 自己手機出現開槍，可以帶走一個活著的人或不開；主機喊<span class="say">N 號，請啟動角色技能。</span>開了唸<span class="say">N 號發動技能，帶走了 M 號。</span></li>
+      <li data-rule="king-3">狼人陣營其他人都出局了、但狼王還能開槍 → 先等他開槍再判勝負（見 all-5）。騎士撞死狼王 → 先開槍，開完才唸天黑請閉眼。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="king-4"><b>被女巫毒死、殉情、自爆不能開槍</b>。</li>
+      <li data-rule="king-5">夜裡<b>沒有</b>「狼王帶槍手勢」這一步（已取消）。</li>
+    </ul>
+  </section>
+
+  <section class="panel wolf" id="whiteKing" data-role="whiteKing">
+    <h2>白狼王 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="whiteKing">狼人陣營，晚上和狼隊友一起殺人。白天發言時（投票放逐之前）可以自爆，帶走一個人，今天直接天黑；不是自爆出局就不能帶人。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="whiteKing-1">晚上和狼隊一起殺人。</li>
+      <li data-rule="whiteKing-2"><b>自爆帶人</b>：白天、投票放逐之前（警長競選中、投票中也可以）自爆，可以帶走一個活著的人或不帶。主機唸<span class="say">N 號白狼王自爆，帶走了 M 號。天黑請閉眼。</span>（不帶人：<span class="say">N 號白狼王自爆。天黑請閉眼。</span>）今天不放逐。</li>
+      <li data-rule="whiteKing-3">被帶走的獵人、狼王可以開槍，開完才唸天黑；被帶走的是狼美人 → 她魅惑的人殉情。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="whiteKing-4"><b>不是自爆出局就不能帶人</b>（被刀、被放逐、被毒都沒有技能）。投票放逐之後不能自爆。</li>
+    </ul>
+  </section>
+
+  <section class="panel wolf" id="beauty" data-role="beauty">
+    <h2>狼美人 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="beauty">狼人陣營，晚上和狼隊友一起殺人。狼人殺完人後，再單獨睜眼魅惑一個人（不能連續兩晚魅惑同一人）；狼美人出局時（被放逐、被槍帶走、被白狼王帶走），魅惑的人跟著殉情出局，殉情的人不能發動技能。被騎士撞死、被女巫毒死不會殉情。狼隊不能刀狼美人，狼美人不能自爆。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="beauty-1">晚上和狼隊一起殺人；狼人閉眼後<b>單獨睜眼魅惑一個人</b><span class="say">狼美人請睜眼。請選擇今晚要魅惑的玩家。</span>不能選自己，可以不魅惑。</li>
+      <li data-rule="beauty-2">魅惑<b>一晚有效、每晚換新</b>：算數的是最近一晚魅惑的人。</li>
+      <li data-rule="beauty-3"><b>殉情</b>：狼美人<b>被放逐、被槍帶走、被白狼王帶走</b> → 她魅惑的人跟著出局，主機唸<span class="say">M 號殉情出局。</span>殉情的人<b>不能發動技能</b>（獵人、狼王不能開槍）。</li>
+      <li data-rule="beauty-4"><b>剩一狼美、一神、一民</b>時狼美被放逐、魅惑的人還活著 → 殉情算狼刀、狼刀優先 → <b>狼人陣營獲勝</b>（屠邊；屠城時剩下的人是好人，好人勝）。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="beauty-5"><b>不能連續兩晚魅惑同一位</b>（畫面上昨晚魅惑的那格標「昨晚魅惑過」）。</li>
+      <li data-rule="beauty-6"><b>被騎士撞死、被女巫毒死 → 殉情被悶</b>，魅惑的人沒事。</li>
+      <li data-rule="beauty-7"><b>狼隊不能刀狼美人</b>；<b>狼美人不能自爆</b>。</li>
+    </ul>
+  </section>
+
+  <section class="panel wolf" id="hidden" data-role="hidden">
+    <h2>隱狼 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="hidden">狼人陣營。你知道狼隊友是誰，他們不知道你。晚上在手機上跟狼人一起投票殺人（不用睜眼，狼隊只看到「隱狼」選誰、看不到你的號碼）；預言家查你、守墓人看你都是好人。白天可以自爆。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="hidden-1"><b>單向認人</b>：手機上看得到狼隊是誰；狼隊不知道他。</li>
+      <li data-rule="hidden-2"><b>夜裡在手機上跟狼隊一起投刀</b>，不用睜眼；全體一致也要算他（掉線不算）。狼隊手機只看到「隱狼：選幾號」，看不到他是幾號；隱狼死了，狼隊照樣看到「隱狼：還沒選」（推不出死掉的哪一個是隱狼）。</li>
+      <li data-rule="hidden-3"><b>查驗是好人</b>：預言家查他、守墓人看他都是好人。騎士決鬥照真實陣營＝狼人。</li>
+      <li data-rule="hidden-4">狼隊（狼人、狼王、白狼王、狼美人）全部出局後，晚上在「狼人請睜眼」那步殺人（跟石像鬼一起時彼此見面）。</li>
+      <li data-rule="hidden-5">白天跟大家一樣投票；可以自爆（唸「狼人自爆」）。</li>
+    </ul>
+  </section>
+
+  <section class="panel wolf" id="gargoyle" data-role="gargoyle">
+    <h2>石像鬼 <span class="team wolf">狼人陣營</span></h2>
+    <p class="blurb" data-desc="gargoyle">狼人陣營，不跟狼隊友見面（互相不知道）。每晚查驗一個人的具體身分。其他狼人全部出局後，你才開始在晚上殺人。白天可以自爆。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="gargoyle-1"><b>查具體身分</b>：預言家之後單獨睜眼<span class="say">石像鬼請睜眼。請問你今晚要查驗的玩家是？</span>查一個活著的其他人，看到他的角色名稱（不只好壞）。</li>
+      <li data-rule="gargoyle-2">狼隊全部出局後，晚上在「狼人請睜眼」那步殺人（跟隱狼一起時彼此見面）；查驗照常。</li>
+      <li data-rule="gargoyle-3">白天可以自爆（唸「狼人自爆」）。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="gargoyle-4"><b>不跟狼隊見面</b>：狼隊不知道他、他也不知道狼隊；狼隊還活著時不參與狼刀。預言家查是狼人。</li>
+    </ul>
+  </section>
+
+  <!-- ───────── 神職 ───────── -->
+  <h2 class="group">神職（好人）</h2>
+
+  <section class="panel god" id="seer" data-role="seer">
+    <h2>預言家 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="seer">每晚查驗一個人（不能查自己），知道他是好人還是狼人；隱狼查起來是好人。</p>
+    <ul class="rules">
+      <li data-rule="seer-1">每晚查驗一個<b>活著的其他人</b>，自己手機顯示 👍 好人／👎 狼人；一晚只能查一人。</li>
+      <li data-rule="seer-2"><b>隱狼查起來是好人</b>；其他狼人陣營（含石像鬼）都是狼人。</li>
+      <li data-rule="seer-3">查驗結果只在自己手機；以前查過的紀錄隨時看得到。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="witch" data-role="witch">
+    <h2>女巫 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="witch">解藥可以救今晚被狼刀的人，毒藥可以毒死一個人（不能毒自己）。兩瓶各只能用一次，一晚只能用一瓶；能不能救自己看設定。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="witch-1"><b>解藥</b><span class="say">女巫請睜眼。今晚死亡的玩家是——請問你要使用解藥嗎？</span>手機顯示今晚被刀的號碼，可以救或不救。<b>解藥用掉後就看不到誰被刀</b>。狼人空刀時沒有人可以救。</li>
+      <li data-rule="witch-2"><b>毒藥</b><span class="say">請問你要使用毒藥嗎？如果要，請選擇你要毒殺的號碼。</span>毒一個活著的人，或不使用。被毒的人<b>不能開槍</b>，守衛也<b>守不住</b>。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="witch-3">兩瓶藥<b>各只能用一次</b>，<b>一晚只能用一瓶</b>（今晚用了解藥就不能再毒）。</li>
+      <li data-rule="witch-4"><b>不能毒自己</b>。<b>自救看設定</b>：都不能（預設）／只有第一晚能／每晚都能。</li>
+      <li data-rule="witch-5">救的人剛好也被守衛守 → <b>同守同救，那人反而死</b>。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="hunter" data-role="hunter">
+    <h2>獵人 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="hunter">被狼刀、被放逐、被槍帶走或被白狼王帶走時，可以開槍帶走一人；被女巫毒死、殉情不能開槍。夜裡會看到自己今晚能不能開槍。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="hunter-1"><b>開槍</b>：被狼刀、被放逐、被獵人或狼王的槍帶走、被白狼王帶走出局 → 自己手機出現開槍，帶走一個活著的人或不開；主機喊<span class="say">N 號，請啟動角色技能。</span>開了唸<span class="say">N 號發動技能，帶走了 M 號。</span>不限時。</li>
+      <li data-rule="hunter-2"><b>帶槍手勢</b>：夜裡最後<span class="say">獵人請睜眼。獵人，你今晚的帶槍手勢是——</span>手機顯示 👍 可以開槍／👎 今晚不能開槍（今晚被毒）。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="hunter-3"><b>被女巫毒死、殉情不能開槍</b>。</li>
+      <li data-rule="hunter-4">還沒開槍時大家要等（不能投票、放逐）；主機按天黑＝這一槍作廢。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="guard" data-role="guard">
+    <h2>守衛 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="guard">每晚守護一個人不被狼殺（可以守自己、可以空守；守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="guard-1">每晚守一個活著的人（<b>可以守自己</b>），或空守。守到狼刀的人 → 那人活。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="guard-2"><b>不能連續兩晚守同一人</b>（空守之後隔天守誰都可以）。</li>
+      <li data-rule="guard-3"><b>守不住女巫的毒</b>；跟女巫救同一人 → <b>同守同救，那人死</b>。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="gravekeeper" data-role="gravekeeper">
+    <h2>守墓人 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="gravekeeper">從第二晚開始，每晚得知前一個白天被投票放逐出局的人是好人還是狼人（隱狼會顯示好人）。</p>
+    <ul class="rules">
+      <li data-rule="gravekeeper-1"><b>第二晚起</b>在石像鬼之後睜眼<span class="say">守墓人請睜眼。昨天被放逐的玩家，他的陣營是——</span>手機顯示前一個白天<b>被投票放逐出局</b>的人是 👍 好人／👎 狼人（隱狼顯示好人）。</li>
+      <li data-rule="gravekeeper-2"><b>只看投票放逐</b>：平票沒人出局、白癡翻牌免死、自爆、被槍或白狼王帶走、騎士撞死、殉情都不算 → 顯示「昨天沒有人被投票放逐出局」。白癡被放逐後選不翻牌出局，算放逐。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="knight" data-role="knight">
+    <h2>騎士 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="knight">白天任何時候都可以翻牌和一個人決鬥（只能一次）：他是狼人就出局、今天直接天黑；不是狼人，騎士自己出局。</p>
+    <h3>技能</h3>
+    <ul class="rules">
+      <li data-rule="knight-1"><b>白天隨時決鬥</b>（在「看我的身分」裡）：警長競選中、投票中（這輪投票作廢）、放逐之後都可以。警長競選中決鬥＝先公布昨晚死訊。</li>
+      <li data-rule="knight-2">對方是<b>狼人陣營（照真實陣營，隱狼、石像鬼也算）</b> → 對方出局、今天不放逐，主機唸<span class="say">騎士 N 號決鬥 M 號：M 號是狼人，出局！天黑請閉眼。</span>主機按「進入黑夜」。撞到狼王 → 狼王先開槍再唸天黑。</li>
+      <li data-rule="knight-3">對方是好人 → <b>騎士自己出局</b><span class="say">M 號是好人，騎士以死謝罪。</span>白天繼續。</li>
+    </ul>
+    <h3>限制</h3>
+    <ul class="rules">
+      <li data-rule="knight-4"><b>一局只能決鬥一次</b>；只能選活著的其他人。等別人選擇（開槍、白癡翻牌、警長移交）的那一下、或今天已經要天黑時不行。夜裡沒有動作。</li>
+    </ul>
+  </section>
+
+  <section class="panel god" id="idiot" data-role="idiot">
+    <h2>白癡 <span class="team god">神職</span></h2>
+    <p class="blurb" data-desc="idiot">被投票放逐時可以自己選翻牌免死（之後不能再投票），或不翻直接出局。被狼刀、被毒照常出局。</p>
+    <ul class="rules">
+      <li data-rule="idiot-1"><b>第一次被放逐</b>：主機不唸，等他在自己手機選「翻牌（免於出局）」或「不翻牌，出局」；主機不能代按、不限時。翻牌唸<span class="say">N 號翻牌，是白癡，免於出局，但之後不能投票。</span></li>
+      <li data-rule="idiot-2">翻過牌之後<b>沒有投票權</b>（綁票也不算他的票）；<b>再被放逐直接出局</b>。</li>
+      <li data-rule="idiot-3">被狼刀、被毒、被槍帶走等其他死法照常出局。夜裡沒有動作。</li>
+    </ul>
+  </section>
+
+  <!-- ───────── 平民 ───────── -->
+  <h2 class="group">平民（好人）</h2>
+
+  <section class="panel villager" id="villager" data-role="villager">
+    <h2>平民 <span class="team villager">平民</span></h2>
+    <p class="blurb" data-desc="villager">沒有技能。靠推理和投票找出狼人。</p>
+    <ul class="rules">
+      <li data-rule="villager-1">沒有技能，夜裡不睜眼；白天發言、投票。屠邊時平民全部出局，狼人陣營就獲勝。</li>
+    </ul>
+  </section>
+
+  <p class="foot"><a href="../judge/">← 回法官工具</a>　<a href="../">發言順序轉盤</a></p>
+</main>
+</body>
+</html>

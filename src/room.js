@@ -69,7 +69,7 @@ export class Room extends DurableObject {
       }
       // 主機回來＝不再算斷線時間；座位原本的手機回來＝那個座位的接手申請作廢（G.hello）
       this.room = G.hello(this.room, clientId);
-      // 主機回來了：夜裡還在等角色的話，接著每 30 秒重唸
+      // 主機回來了：夜裡還在等角色的話，接著每 REPEAT_MS（25 秒）重唸
       if (this.room.hostClientId === clientId) this.room = E.resumeRepeat(this.room, Date.now());
       await this.touch();
       return;

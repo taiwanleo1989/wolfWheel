@@ -320,12 +320,12 @@ export function nightAction(room, clientId, payload, online, now, rand) {
 }
 
 // 主機：上警時「大家都起立好了，天亮」；角色的步驟要等這句台詞唸出（角色睜眼）SKIP_MS 之後才能跳過＝當作沒有動作。
-// Leo 2026-10-10：防手機沒電卡死。每個角色、活的死的都同一套：按鈕一律睜眼就出現（灰的）、30 秒才能按；
-// 死掉的角色假等超過 30 秒時也一樣 30 秒後能跳過（2026-10-17 假等預設改 8～45 秒）——活的死的同一套，看不出差別
+// Leo 2026-10-10：防手機沒電卡死。每個角色、活的死的都同一套：按鈕一律睜眼就出現（灰的）、SKIP_MS（25 秒）後才能按；
+// 死掉的角色假等最長 24 秒，按鈕還沒能按就往下走了——活的死的同一套，看不出差別
 export function skipStep(room, now, rand) {
   if (room.phase !== 'night' || room.game.night.stage !== 'acting') return fail('現在沒有可以跳過的步驟');
   const n = room.game.night;
-  if (curStep(n) !== 'police' && now - n.openedAt < SKIP_MS) return fail('睜眼 30 秒後才能跳過');
+  if (curStep(n) !== 'police' && now - n.openedAt < SKIP_MS) return fail(`睜眼 ${SKIP_MS / 1000} 秒後才能跳過`);
   const g = structuredClone(room.game);
   endBeat(room, g, now, rand);
   return ok({ ...room, game: g });
