@@ -157,6 +157,11 @@ const CHECKS = {
     assert.equal(bw.game.winner, 'wolf', '狼美人殉情帶走最後一個神');
     // 最後一隻狼是白狼王，自爆帶走最後一個神
     assert.equal(ok(E.boom(night(newGame({ whiteKing: 1, seer: 1, villager: 3 })), id(1), 2)).game.winner, 'wolf');
+    // 屠城：還有平民活著＝好人勝
+    assert.equal(ok(E.boom(night(newGame({ whiteKing: 1, seer: 1, villager: 3 }, { win: 'all' })), id(1), 2)).game.winner, 'good', '屠城：白狼王帶走最後一個神');
+    let y = withDead(night(newGame(B, { police: false, win: 'all' })), [2, 3, 4, 6, 7, 8]);
+    y = nextDay(y, { wolf: 5, poison: 1 });
+    assert.equal(y.game.winner, 'good', '屠城：刀最後一個神＋毒最後一隻狼');
   },
   'all-5': () => {
     const KS = { king: 1, seer: 1, witch: 1, villager: 3 }; // 1 狼王、2 預言家、3 女巫、4–6 平民
@@ -427,6 +432,7 @@ const CHECKS = {
     assert.deepEqual(pk.game.day.vote.candidates, [9, 10]);
     no(E.castVote(pk, id(9), 10), 'PK 的人不能投');
     no(E.castVote(pk, id(1), 4), '只能投 PK 的人');
+    assert.ok(E.castVote(pk, id(1), 0).ok, 'PK 可以棄票');
     // 10 人、1 號 2 號 PK → 只有 3～10 號投
     const T = { wolf: 2, seer: 1, witch: 1, hunter: 1, villager: 5 };
     let t = voteAll(night(newGame(T)), { 3: 1, 4: 2 });
@@ -536,6 +542,7 @@ const CHECKS = {
     assert.ok(hs.game.badgePending && hs.game.canShoot.includes(6));
     const hsUi = mount(hs, id(6)).html('#actionBox');
     assert.match(hsUi, /你是警長，你出局了/, '先出現選警徽');
+    no(E.shoot(hs, id(6), 1), '伺服器也擋：先選警徽才能開槍');
     assert.ok(!hsUi.includes('data-do="shoot"'), '還沒出現開槍');
     assert.match(mount(ok(E.passBadge(hs, id(6), 4)), id(6)).html('#actionBox'), /你可以發動技能/, '選完才出現開槍');
     // 自爆的、被撞死的是警長：選完警徽才唸天黑
@@ -564,6 +571,8 @@ const CHECKS = {
     const f = voteAll(night(newGame(F)), { 1: 14, 2: 14 });
     assert.equal(f.game.timer, null, '白癡選擇不限時');
     no(E.nextNight(f, 0), '白癡的選擇不能用天黑跳過');
+    assert.match(mount(r, 'host').html('#hostCtl'), /data-host="night">天黑請閉眼</, '按鈕叫「天黑請閉眼」');
+    assert.match(mount(ok(E.boom(night(newGame(B)), id(1), 0)), 'host').html('#hostCtl'), /data-host="night">進入黑夜</, '自爆之後叫「進入黑夜」');
   },
   'day-9': () => {
     const d = ok(E.duel(ok(E.startVote(night(newGame(B)))), id(8), 1));

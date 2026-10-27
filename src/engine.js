@@ -454,6 +454,7 @@ export function shoot(room, clientId, target, now = 0) {
   const seat = L.seatOf(room, clientId);
   if (!seat || !room.game.canShoot.includes(seat)) return fail('你現在不能開槍');
   if (room.game.day?.idiotChoice) return fail('請等被放逐的玩家選擇'); // 有槍時不能放逐（見 exile），照理到不了這裡
+  if (room.game.badgePending && room.game.sheriff === seat) return fail('請先選要移交還是撕掉警徽'); // 出局的警長：先選警徽再開槍
   const g = structuredClone(room.game);
   g.canShoot = g.canShoot.filter(s => s !== seat);
   target = Number(target ?? 0);
