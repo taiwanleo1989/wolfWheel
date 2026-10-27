@@ -153,7 +153,7 @@ function renderAction() {
     } else if (a.kind === 'grave') {
       html = `<h2>昨天被放逐的玩家，他的陣營是</h2>
         ${a.info ? `<div class="seer-result ${a.info.wolf ? 'wolf' : 'good'}"><span class="digits">${a.info.seat}</span> 號是 <b>${a.info.wolf ? '👎 狼人' : '👍 好人'}</b></div>`
-          : '<p class="witch-info">昨天沒有人被投票放逐出局。</p>'}
+          : '<p class="witch-info">昨天沒有人被放逐出局。</p>'}
         <button class="btn primary big" type="button" data-do="graveSeen">知道了</button>`;
     } else if (a.kind === 'hunter' || a.kind === 'king') {
       html = `<h2>你今晚的帶槍手勢是</h2>
@@ -165,7 +165,7 @@ function renderAction() {
       <p class="hint">請按下面重新整理（座位和身分都會保留）。</p>
       <button class="btn primary big" type="button" data-do="reload">重新整理</button>`;
   } else if (phase === 'day' && me.idiotChoose) {
-    html = `<h2>你被投票放逐了</h2>
+    html = `<h2>你被放逐了</h2>
       <p class="hint">你是白癡，可以選擇翻牌：翻牌就不會出局，但之後不能投票。也可以不翻，直接出局。按下後主機會公開宣布。</p>
       <div class="row-gap"><button class="btn primary" type="button" data-do="idiotFlip">翻牌（免於出局）</button>
       <button class="btn" type="button" data-do="idiotOut">不翻牌，出局</button></div>`;

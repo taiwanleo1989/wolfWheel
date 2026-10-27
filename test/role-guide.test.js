@@ -417,6 +417,8 @@ const CHECKS = {
     const res = r.game.day.vote.result;
     assert.deepEqual(res.abstain, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11], '棄票＋沒投的');
     assert.deepEqual(res.rows[0].voters, [1]);
+    no(E.startVote(ok(E.exile(night(newGame(B)), 0))), '放逐登記之後不能再開始投票');
+    no(E.startVote(play(newGame(B), { wolf: 9 })), '死訊公布前不能投票');
     const end = voteAll(withDead(night(newGame(B)), [2, 3]), { 4: 1, 5: 1 });
     assert.equal(end.phase, 'ended', '這一票直接結束遊戲');
     assert.match(mount(end, id(4)).html('#voteBox'), /投票統計[\s\S]*最高票：1 號/, '結算畫面也看得到統計');
@@ -517,6 +519,9 @@ const CHECKS = {
     no(E.tearBadge(ok(E.setSheriff(night(newGame(B)), 4))), '已經有警長：不能按警徽流失');
     const v = ok(E.startVote(night(newGame(B))));
     no(E.setSheriff(v, 4), '投票中不能換警長');
+    no(E.setSheriff(withDead(night(newGame(B)), [4]), 4), '只能登記活著的人');
+    const pd = play(newGame(B), { wolf: 9 });
+    no(E.exile(pd, 1), '死訊公布前不能放逐'); no(E.nextNight(pd, 0), '死訊公布前不能天黑');
     // 主機改錯：任何時候都能改、流失之後能重新登記
     const fix = ok(E.setSheriff(ok(E.setSheriff(night(newGame(B)), 4)), 5));
     assert.equal(fix.game.sheriff, 5, '登記錯了，改警長');
@@ -942,6 +947,7 @@ const CHECKS = {
     let r = toNight(night(newGame(F)), 'gargoyle');
     assert.equal(r.game.narration.text, says('gargoyle-1')[0]);
     no(E.nightAction(r, id(7), { target: 7 }, everyone(r), 0, minRand), '不能查自己');
+    no(E.nightAction(r, id(7), { done: true }, everyone(r), 0, minRand), '不能不查就按知道了');
     r = act(r, 7, { target: 9 });
     assert.deepEqual(pick(r, 7).action.checked, { day: 2, target: 9, role: 'witch' }, '看到角色名稱');
     const d = toNight(withDead(night(newGame(F)), [15]), 'gargoyle');
@@ -1041,7 +1047,7 @@ const CHECKS = {
     const quiet = ok(E.shoot(n, id(6), 0));
     assert.equal(quiet.game.narration.seq, n.game.narration.seq, '不開槍主機不唸');
     assert.equal(quiet.game.log.length, n.game.log.length);
-    assert.match(mount(n, id(6)).html('#actionBox'), /不發動主機不唸/);
+    assert.match(mount(n, id(6)).html('#actionBox'), /你可以發動技能[\s\S]*不發動主機不唸/);
     assert.deepEqual(voteAll(night(newGame(B)), { 1: 6, 2: 6 }).game.canShoot, [6], '被放逐');
     assert.deepEqual(play(newGame(B, { police: false }), { wolf: 6, guard: 6, save: true }).game.canShoot, [6], '同守同救死也能開槍');
     const k = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 2, 4: 2 }), id(2), 6));
@@ -1127,7 +1133,7 @@ const CHECKS = {
     assert.deepEqual(info(ok(E.idiotChoose(voteAll(day(), { 1: 14, 2: 14 }), id(14), false))), { day: 1, seat: 14, wolf: false }, '白癡不翻牌算放逐');
     assert.deepEqual(info(ok(E.exile(day(), 1))), { day: 1, seat: 1, wolf: true }, '主機手動登記放逐也算');
     const ui = mount(toNight(ok(E.boom(day(), id(1), 0)), 'gravekeeper'), id(12)).html('#actionBox');
-    assert.match(ui, /昨天沒有人被投票放逐出局/);
+    assert.match(ui, /昨天沒有人被放逐出局/);
   },
 
   /* 騎士 */
@@ -1189,7 +1195,7 @@ const CHECKS = {
     assert.equal(r.game.day.idiotChoice, 14);
     no(E.idiotChoose(r, 'host', true), '主機不能代按');
     no(E.idiotChoose(r, id(1), true));
-    assert.match(mount(r, id(14)).html('#actionBox'), /翻牌（免於出局）[\s\S]*不翻牌，出局/);
+    assert.match(mount(r, id(14)).html('#actionBox'), /你被放逐了[\s\S]*翻牌（免於出局）[\s\S]*不翻牌，出局/);
     const f = ok(E.idiotChoose(r, id(14), true));
     assert.equal(f.game.narration.text, fill(says('idiot-1')[0], { N: 14 }));
     no(E.startVote(f), '今天的放逐算完成：不能再投票');
