@@ -331,6 +331,12 @@ const CHECKS = {
     assert.equal(skipped.game.night.seerTarget, null, '跳過＝沒動作');
     const half = act(r, 4, { target: 1 }); // 查了、還沒按知道了
     assert.equal(ok(E.skipStep(half, t0 + 25000, minRand)).game.seerChecks.length, r.game.seerChecks.length + 1, '已經查的照樣記下');
+    // 狼人選好了、還沒按正確就被跳過＝空刀
+    let wv = toNight(night(newGame(B, { police: false })), 'wolf');
+    for (const w of [1, 2, 3]) wv = act(wv, w, { target: 9 });
+    assert.equal(wv.game.night.wolfProposal, 9);
+    wv = ok(E.skipStep(wv, wv.game.night.openedAt + 25000, minRand));
+    assert.equal(wv.game.night.wolfTarget, null, '跳過＝空刀');
     // 女巫兩句各自計時、各自跳過
     const w = toNight(night(newGame(B)), 'witch');
     const w1 = ok(E.skipStep(w, w.game.night.openedAt + 25000, minRand));
@@ -512,6 +518,13 @@ const CHECKS = {
     assert.equal(pb.game.sheriff, 4);
     assert.equal(pb.game.narration.seq, r.game.narration.seq, '移交主機不唸');
     assert.equal(pb.game.log.at(-1).text, '9 號警長把警徽移交給 4 號。', '只寫在紀錄');
+    // 手機沒電：換一支手機接手座位、主機同意後由新手機選
+    const off = new Set([...everyone(r)].filter(c => c !== id(9)).concat('new9'));
+    const req = G.claimSeat(r, 'new9', 9, off);
+    assert.ok(req.ok, req.error);
+    const took = G.approveSeat(req.room, 9, true, off);
+    assert.ok(took.ok, took.error);
+    assert.equal(ok(E.passBadge(took.room, 'new9', 4)).game.sheriff, 4, '新手機接著選');
     const torn = ok(E.passBadge(r, id(9), 0));
     assert.equal(torn.game.sheriff, null);
     assert.equal(torn.game.badgeTorn, true);
@@ -1187,6 +1200,17 @@ test('角色說明頁：秒數跟程式設定一樣；黑夜順序跟 NIGHT_ORDE
   const row = HTML.match(/<div class="order" data-rule-order>([\s\S]*?)<\/div>/)[1];
   const spans = [...row.matchAll(/<span>([^<]+)<\/span>/g)].map(m => m[1]);
   assert.deepEqual(spans, ['天黑請閉眼', ...E.NIGHT_ORDER.map(s => name[s]), '上警（第一晚）', '天亮']);
+  // 「還沒錄音」那行＝頁面台詞用到、但 public/voice/manifest.json 還沒有的片段（錄好之後這行要拿掉）
+  const manifest = JSON.parse(readFileSync(new URL('../public/voice/manifest.json', import.meta.url), 'utf8')).files;
+  const used = new Set();
+  for (const [, s] of HTML.matchAll(/<span class="say">([^<]*)<\/span>/g)) {
+    let rest = s.replaceAll('N 號', '').replaceAll('M 號', '');
+    while (rest) { const k = Object.keys(LINES).filter(x => LINES[x] && rest.startsWith(LINES[x])).sort((a, b) => LINES[b].length - LINES[a].length)[0]; used.add(k); rest = rest.slice(LINES[k].length); }
+  }
+  used.add('wolfBoom'); // 「N 號狼人自爆」寫在 wolf-3 的台詞裡
+  const missing = [...used].filter(k => !['end', 'sep', 'colon', 'comma'].includes(k) && !manifest[k]).sort();
+  const listed = HTML.match(/data-unrecorded="([^"]*)"/)[1].split(',').filter(Boolean).sort();
+  assert.deepEqual(listed, missing, '「還沒錄音」那行要跟音檔清單一致');
   // 每一句台詞（N、M 換成號碼後）都要能用片段表拼出來：拆掉號碼後的每一段都是某個片段的文字
   const pieces = Object.values(LINES).filter(Boolean).sort((a, b) => b.length - a.length);
   for (const [, s] of HTML.matchAll(/<span class="say">([^<]*)<\/span>/g)) {
