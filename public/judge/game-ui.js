@@ -179,7 +179,7 @@ function renderAction() {
       <button class="btn" type="button" data-do="tearBadge">撕掉警徽</button></div>`;
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
-      <p class="hint">帶走一個人，或選擇不發動。按下後主機會公開宣布。</p>
+      <p class="hint">帶走一個人，或選擇不發動。帶人的話主機會公開宣布；不發動主機不唸。</p>
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;

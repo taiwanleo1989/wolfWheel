@@ -440,9 +440,10 @@ function afterDeaths(room, run) {
 /* ───────── 白天 ───────── */
 // 白天沒有任何倒數：開槍、白癡翻牌、騎士決鬥都一直等本人按（Leo 2026-10-10 拿掉 30 秒，10-11 連計時機制一起拆掉）
 
-// 騎士撞到狼王（或白狼王帶走獵人／狼王）那天：最後一槍開完（或放棄）才唸「天黑請閉眼」
+// 騎士撞到狼王（或白狼王帶走獵人／狼王）那天：最後一槍開完（或放棄）才唸「天黑請閉眼」。
+// 自爆、被撞死、被帶走的是警長：也要等他選完移交或撕警徽（2026-10-28 審查：不然大家閉眼了警長還要看手機選）
 function callNightIfReady(room, g, seq0) {
-  if (g.day?.nightCalled && !g.canShoot.length && !winnerOf(g, room.setup.counts, room.setup.rules)) {
+  if (g.day?.nightCalled && !g.canShoot.length && !g.badgePending && !winnerOf(g, room.setup.counts, room.setup.rules)) {
     say(g, [...(g.narration.seq > seq0 ? g.narration.clips : []), 'nightStart']);
   }
 }
@@ -546,7 +547,7 @@ function duelNow(room, seat, target) {
     const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
     g.day.nightCalled = !over;
     g.day.nightReason = 'knight';
-    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over || g.canShoot.length ? [] : ['nightStart'])]);
+    note(g, ['knight', seatKey(seat), 'duelWith', seatKey(target), 'colon', seatKey(target), 'duelWolf', ...(over || g.canShoot.length || g.badgePending ? [] : ['nightStart'])]);
   } else {
     // 撞到好人：騎士出局，白天繼續發言、投票
     kill(g, seat);
@@ -582,7 +583,7 @@ function boomNow(room, seat, role, target) {
   kill(g, seat, { noSkill: true });
   const chain = target ? dayKill(g, target) : [];
   const over = winnerOf(g, room.setup.counts, room.setup.rules) || houseRuleWin(g, room.setup.rules);
-  const night = !over && !g.canShoot.length;
+  const night = !over && !g.canShoot.length && !g.badgePending; // 要開槍、要選警徽：選完才唸天黑（見 callNightIfReady）
   g.day.nightCalled = !over;
   g.day.nightReason = role === 'whiteKing' ? 'boom' : 'wolfBoom';
   const head = role === 'whiteKing'
@@ -650,7 +651,10 @@ export function passBadge(room, clientId, target, now = 0) {
   const g = structuredClone(room.game);
   Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false });
   g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，之後沒有警長。` });
-  return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
+  const seq0 = room.game.narration?.seq;
+  const done = checkWin({ ...room, game: g }, seq0);
+  if (done.phase !== 'ended') callNightIfReady(done, done.game, seq0); // 今天要天黑（自爆、撞到狼）：選完警徽才唸
+  return ok(done);
 }
 
 /* ───────── 投票（玩家在自己手機按號碼，Leo 2026-10-27） ───────── */

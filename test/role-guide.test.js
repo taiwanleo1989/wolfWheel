@@ -436,6 +436,19 @@ const CHECKS = {
     // 被放逐也一樣
     const ex = voteAll(ok(E.setSheriff(night(newGame(B)), 10)), { 1: 10, 2: 10 });
     assert.equal(ex.game.badgePending, true);
+    // 自爆的、被撞死的是警長：選完警徽才唸天黑
+    const bm = ok(E.boom(ok(E.setSheriff(night(newGame(B)), 1)), id(1), 0));
+    assert.ok(!bm.game.narration.text.includes(LINES.nightStart), '還沒唸天黑');
+    no(E.nextNight(bm, 0));
+    const bp = ok(E.passBadge(bm, id(1), 4));
+    assert.equal(bp.game.narration.text, LINES.nightStart, '選完才唸');
+    assert.equal(ok(E.nextNight(bp, 0)).game.narration.seq, bp.game.narration.seq, '進入黑夜不再唸一次');
+    const dk = ok(E.duel(ok(E.setSheriff(night(newGame(B)), 2)), id(8), 2));
+    assert.ok(!dk.game.narration.text.includes(LINES.nightStart));
+    assert.equal(ok(E.passBadge(dk, id(2), 0)).game.narration.text, LINES.nightStart);
+    const wk = ok(E.boom(ok(E.setSheriff(night(newGame(KG)), 8)), id(3), 8));
+    assert.ok(!wk.game.narration.text.includes(LINES.nightStart), '白狼王帶走警長');
+    assert.equal(ok(E.passBadge(wk, id(8), 4)).game.narration.text, LINES.nightStart);
   },
   'day-8': () => {
     const r = play(newGame(B, { police: false }), { wolf: 6 });
@@ -507,6 +520,11 @@ const CHECKS = {
     assert.equal(p.game.narration.text, '昨晚死亡的是 9 號。' + fill(line, { N: 1 }));
     // 投票中也可以
     assert.ok(E.boom(ok(E.startVote(night(newGame(B)))), id(2), 0).ok);
+    // 自己昨晚已經死了：死訊照樣公布、自爆不算
+    const res = E.boom(play(newGame(B), { wolf: 1 }), id(1), 0);
+    assert.equal(res.ok, false);
+    assert.equal(res.room.game.day.pendingDeaths, null);
+    assert.equal(res.room.game.day.nightCalled ?? false, false);
   },
   'wolf-4': () => {
     const r = toNight(night(newGame(F)), 'wolf');
@@ -549,7 +567,10 @@ const CHECKS = {
     assert.ok(ex.game.narration.text.endsWith(fill(skill, { N: 2 })));
     const s = ok(E.shoot(ex, id(2), 8));
     assert.equal(s.game.narration.text, fill(took, { N: 2, M: 8 }));
-    assert.equal(ok(E.shoot(ex, id(2), 0)).game.alive[8], true, '可以不開');
+    const skip = ok(E.shoot(ex, id(2), 0));
+    assert.equal(skip.game.alive[8], true, '可以不開');
+    assert.equal(skip.game.narration.seq, ex.game.narration.seq, '不開槍主機不唸');
+    assert.equal(skip.game.log.length, ex.game.log.length, '紀錄也不寫');
     const hs = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 6, 4: 6 }), id(6), 2));
     assert.deepEqual(hs.game.canShoot, [2], '被獵人的槍帶走');
     assert.deepEqual(ok(E.duel(night(newGame(KG)), id(7), 2)).game.canShoot, [2], '被騎士撞死');
@@ -586,6 +607,9 @@ const CHECKS = {
     assert.equal(t.game.day.nightCalled, true, '今天不放逐');
     assert.equal(ok(E.boom(night(newGame(KG)), id(3), 0)).game.narration.text, fill(none, { N: 3 }));
     assert.ok(E.boom(play(newGame(KG), {}), id(3), 8).ok, '警長競選中');
+    const dead3 = E.boom(play(newGame(KG), { wolf: 8 }), id(3), 8);
+    assert.equal(dead3.ok, false, '對象昨晚已經死了：自爆不算');
+    assert.equal(dead3.room.game.alive[3], true);
     assert.ok(E.boom(ok(E.startVote(night(newGame(KG)))), id(3), 8).ok, '投票中');
   },
   'whiteKing-3': () => {
@@ -702,6 +726,11 @@ const CHECKS = {
     assert.deepEqual(E.killers(r.game), [6, 7]);
     const n = toNight(r, 'wolf');
     assert.ok(pick(n, 6).wolves.some(w => w.seat === 7), '跟石像鬼見面');
+    // 板子上本來就沒有狼隊：第一晚就開始，彼此認得
+    const NP = { hidden: 1, gargoyle: 1, seer: 1, villager: 4 }; // 1 隱狼、2 石像鬼、3 預言家、4–7 平民
+    const np = play(newGame(NP), {}, { step: 'wolf' });
+    assert.deepEqual(E.actors(np.game, 'wolf'), [1, 2]);
+    assert.deepEqual(pick(np, 1).wolves.map(w => w.seat), [1, 2]);
   },
   'hidden-5': () => {
     assert.ok(ok(E.startVote(night(newGame(F)))).game.day.vote.voters.includes(6));
@@ -722,6 +751,8 @@ const CHECKS = {
     const r = withDead(night(newGame(F)), [1, 2, 3, 4, 5]);
     assert.ok(E.killers(r.game).includes(7));
     assert.equal(r.game.alive[6], true, '隱狼還活著也一樣');
+    const solo = play(newGame({ gargoyle: 1, seer: 1, villager: 3 }), {}, { step: 'wolf' });
+    assert.deepEqual(E.actors(solo.game, 'wolf'), [1], '沒有狼隊：第一晚就殺人');
     assert.ok(ok(E.nextNight(r, 0)).game.night.steps.includes('gargoyle'), '查驗照常');
   },
   'gargoyle-3': () => assert.equal(ok(E.boom(night(newGame(F)), id(7), 0)).game.narration.text, '7 號狼人自爆，天黑請閉眼。'),
@@ -804,6 +835,10 @@ const CHECKS = {
     assert.deepEqual(n.game.canShoot, [6], '被刀');
     assert.ok(n.game.narration.text.endsWith(fill(skill, { N: 6 })));
     assert.equal(ok(E.shoot(n, id(6), 9)).game.narration.text, fill(took, { N: 6, M: 9 }));
+    const quiet = ok(E.shoot(n, id(6), 0));
+    assert.equal(quiet.game.narration.seq, n.game.narration.seq, '不開槍主機不唸');
+    assert.equal(quiet.game.log.length, n.game.log.length);
+    assert.match(mount(n, id(6)).html('#actionBox'), /不發動主機不唸/);
     assert.deepEqual(voteAll(night(newGame(B)), { 1: 6, 2: 6 }).game.canShoot, [6], '被放逐');
     const k = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 2, 4: 2 }), id(2), 6));
     assert.deepEqual(k.game.canShoot, [6], '被狼王的槍帶走');
@@ -812,6 +847,9 @@ const CHECKS = {
   'hunter-2': () => {
     const r = play(newGame(B), {}, { step: 'hunter' });
     assert.equal(r.game.narration.text, says('hunter-2')[0]);
+    assert.deepEqual(r.game.night.steps.slice(-2), ['hunter', 'police'], '第一晚獵人後面還有上警');
+    const st = ok(E.nextNight(night(newGame(F)), 0)).game.night.steps;
+    assert.equal(st.indexOf('hunter'), st.indexOf('gravekeeper') + 1, '守墓人之後');
     assert.equal(pick(r, 6).action.canShoot, true);
     const p = play(newGame(B), { poison: 6 }, { step: 'hunter' });
     assert.equal(pick(p, 6).action.canShoot, false, '今晚被毒：👎 今晚不能開槍');
@@ -876,6 +914,14 @@ const CHECKS = {
   'knight-1': () => {
     const p = ok(E.duel(play(newGame(B), { wolf: 9 }), id(8), 1));
     assert.ok(p.game.narration.text.startsWith('昨晚死亡的是 9 號。'), '警長競選中＝先公布死訊');
+    // 對象或騎士自己昨晚已經死了：死訊照樣公布、決鬥不算、沒用掉
+    for (const [knife, target] of [[1, 1], [8, 1]]) {
+      const res = E.duel(play(newGame(B), { wolf: knife }), id(8), target);
+      assert.equal(res.ok, false);
+      assert.equal(res.room.game.day.pendingDeaths, null, '死訊照樣公布');
+      assert.equal(res.room.game.alive[knife], false);
+      assert.equal(res.room.game.knightUsed, false, '沒有用掉');
+    }
     assert.equal(p.game.alive[1], false);
     assert.equal(ok(E.duel(ok(E.startVote(night(newGame(B)))), id(8), 1)).game.day.vote, null, '投票中＝作廢');
     assert.ok(E.duel(voteAll(night(newGame(B)), { 1: 10, 2: 10 }), id(8), 1).ok, '放逐之後也可以');
@@ -898,7 +944,7 @@ const CHECKS = {
     const r = ok(E.duel(night(newGame(B)), id(8), 9));
     assert.equal(r.game.alive[8], false);
     assert.equal(r.game.alive[9], true);
-    assert.ok(r.game.narration.text.endsWith(fill(line, { M: 9 })));
+    assert.equal(r.game.narration.text, fill(line, { N: 8, M: 9 }));
     assert.ok(E.startVote(r).ok, '白天繼續');
     const k = mount(night(newGame(B)), id(8));
     k.click('#myInfo', 'me', 'show');
