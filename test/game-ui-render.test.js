@@ -145,7 +145,7 @@ test('看自己的身分：隱狼看得到狼隊、石像鬼不認得隊友、�
     return h;
   };
   assert.match(show(id(5)), /隱狼[\s\S]*狼隊友：1 號、2 號、3 號、4 號/);
-  assert.match(show(id(6)), /不知道（石像鬼不跟狼隊友見面）/);
+  assert.match(show(id(6)), /沒有（石像鬼只跟還活著、一起殺人的隱狼見面）/);
   assert.match(show(id(6)), /查驗紀錄：第 1 夜 12 號是平民/);
   assert.match(show(id(4)), /目前魅惑：沒有/);
   assert.match(show(id(11)), /守墓紀錄：還沒有/);
