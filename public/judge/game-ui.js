@@ -134,7 +134,7 @@ function renderAction() {
       }
     } else if (a.kind === 'beauty') {
       html = `<h2>請選擇今晚要魅惑的玩家</h2>
-        <p class="hint">你出局時，今晚魅惑的人會跟著殉情出局（不能發動技能）。</p>
+        <p class="hint">你被放逐、被槍帶走、被白狼王帶走時，今晚魅惑的人會跟著殉情出局（不能發動技能）；被騎士撞死、被女巫毒死不會殉情。</p>
         ${a.lastCharm ? `<p class="hint">不能連續兩晚魅惑同一位：昨晚魅惑的是 ${a.lastCharm} 號。</p>` : ''}
         ${picker(aliveSeats({ except: [seat] }).map(n => ({ n, disabled: n === a.lastCharm, note: n === a.lastCharm ? '昨晚魅惑過' : '' })), pick)}
         ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="beauty"${pick ? '' : ' disabled'}>魅惑 ${pick ?? '…'} 號</button>
@@ -389,7 +389,7 @@ function hostPick() {
 function sheriffHTML(g) {
   if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號出局了</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
   const pick = ui.sheriffPick;
-  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票；出局時由他自己選移交或撕警徽）</p>`
+  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（${g.idiotRevealed?.includes(g.sheriff) ? '翻過牌的白癡沒有票，警徽還在他身上' : '投票算 1.5 票'}；出局時由他自己選移交或撕警徽）</p>`
     : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
   const open = ui.sheriffOpen || (g.deathsPending && !g.sheriff && !g.badgeTorn);
   if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '登記錯了，改警長' : '登記警長'}</button></div>`;
@@ -501,7 +501,7 @@ function renderMyInfo() {
   const r = ROLES[role];
   const lines = [];
   if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || (role === 'gargoyle' ? '不知道（石像鬼不跟狼隊友見面）' : '沒有')}`);
-  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼；他們全部出局後，你晚上開始殺人。');
+  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼。晚上你在手機上跟他們一起投刀（不用睜眼，他們看不到你的號碼）；他們全部出局後，你改在「狼人請睜眼」那步殺人。');
   if (me.gargoyleChecks) lines.push(me.gargoyleChecks.length ? '查驗紀錄：' + me.gargoyleChecks.map(x => `第 ${x.day} 夜 ${x.target} 號是${ROLES[x.role].name}`).join('；') : '查驗紀錄：還沒有');
   if (me.graveChecks) lines.push(me.graveChecks.length ? '守墓紀錄：' + me.graveChecks.map(x => `第 ${x.day} 天放逐的 ${x.seat} 號是${x.wolf ? '狼人' : '好人'}`).join('；') : '守墓紀錄：還沒有');
   if (role === 'beauty') lines.push(`目前魅惑：${me.charm ? me.charm + ' 號' : '沒有'}`);
@@ -522,7 +522,7 @@ function daySkill(me) {
   if (c.state.phase !== 'day') return '';
   if (me.canDuel) return ui.duelOpen
     ? `<div class="skill"><h2>騎士決鬥</h2>
-       <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續投票。只能用一次。</p>
+       <p class="hint">選一個人翻牌決鬥：他是狼人就出局，今天直接天黑；不是的話，你出局，白天繼續。只能用一次。</p>
        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="duel"${pick ? '' : ' disabled'}>決鬥 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="duelClose">取消</button></div></div>`
