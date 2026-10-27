@@ -501,7 +501,7 @@ function renderMyInfo() {
   const r = ROLES[role];
   const lines = [];
   if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || (role === 'gargoyle' ? '不知道（石像鬼不跟狼隊友見面）' : '沒有')}`);
-  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼。晚上你在手機上跟他們一起投刀（不用睜眼，他們看不到你的號碼）；他們全部出局後，你改在「狼人請睜眼」那步殺人。');
+  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼。晚上你在手機上跟他們一起投刀（不用睜眼，他們看不到你的號碼）；他們全部出局後，就由你自己決定殺誰（有石像鬼的話跟他一起）。');
   if (me.gargoyleChecks) lines.push(me.gargoyleChecks.length ? '查驗紀錄：' + me.gargoyleChecks.map(x => `第 ${x.day} 夜 ${x.target} 號是${ROLES[x.role].name}`).join('；') : '查驗紀錄：還沒有');
   if (me.graveChecks) lines.push(me.graveChecks.length ? '守墓紀錄：' + me.graveChecks.map(x => `第 ${x.day} 天放逐的 ${x.seat} 號是${x.wolf ? '狼人' : '好人'}`).join('；') : '守墓紀錄：還沒有');
   if (role === 'beauty') lines.push(`目前魅惑：${me.charm ? me.charm + ' 號' : '沒有'}`);
@@ -530,13 +530,13 @@ function daySkill(me) {
   // 自爆：白狼王可以帶人；其他狼人（狼美人除外）2026-10-27 起也能自爆，不帶人
   if (me.canBoom) return ui.boomOpen
     ? (me.boomTake ? `<div class="skill"><h2>白狼王自爆</h2>
-       <p class="hint">自爆後你出局，可以帶走一個人；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
+       <p class="hint">自爆後你出局，可以帶走一個人或不帶；今天不再投票，直接天黑（你是警長的話，先選完警徽才唸天黑）。今天的放逐結果出來之後就不能自爆。</p>
        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`
       : `<div class="skill"><h2>狼人自爆</h2>
-       <p class="hint">自爆後你出局，主機唸「你的號碼狼人自爆，天黑請閉眼」；今天不投票，直接天黑。投票放逐之後就不能自爆。</p>
+       <p class="hint">自爆後你出局，主機唸「你的號碼狼人自爆，天黑請閉眼」；今天不再投票，直接天黑（你是警長的話，先選完警徽才唸天黑）。今天的放逐結果出來之後就不能自爆。</p>
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom0">確定自爆</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`)
     : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（${me.boomTake ? '白狼王技能' : '狼人'}）</button>`;

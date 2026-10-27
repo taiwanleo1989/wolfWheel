@@ -204,6 +204,8 @@ const CHECKS = {
     assert.equal(houseAt(B, [1, 2, 3, 8, 9, 10], { sheriff: 1 }), null, '騎士還沒決鬥');
     assert.equal(houseAt(B, [1, 2, 3, 8, 9, 10], { sheriff: 1, knightUsed: true }), 'bind');
     assert.equal(houseAt(B, [1, 2, 3, 7, 9, 10], { sheriff: 1 }), 'bind', '狼警長：守衛不算');
+    assert.equal(houseAt(B, [1, 2, 3, 9, 10], { sheriff: 1 }), 'bind', '騎士沒決鬥就死了：照樣綁');
+    assert.equal(houseAt(B, [1, 2, 3, 9]), 'bind', '沒有警長、騎士死了');
     // 沒有警長：騎士還沒決鬥 → 不綁；不然要剛好相等＋守衛＋女巫有毒藥
     assert.equal(houseAt(B, [1, 2, 3, 8, 9]), null);
     assert.equal(houseAt(B, [1, 2, 3, 8, 9], { knightUsed: true }), 'bind');
@@ -421,6 +423,9 @@ const CHECKS = {
     const pk = voteAll(voteAll(night(newGame(B)), { 1: 9, 2: 10 }), {}, true);
     assert.deepEqual(pk.game.day.vote.result.top, [], 'PK 那一輪全部棄票');
     assert.equal(ok(E.exile(pk, 0)).game.narration.text, says('day-5')[0]);
+    const ab = voteAll(night(newGame(B)), {});
+    assert.equal(ok(E.exile(ok(E.startVote(ab)), 0)).game.narration.text, says('day-4')[0], '又開了一輪還沒投完');
+    assert.equal(ok(E.exile(ok(E.duel(ab, id(8), 9)), 0)).game.narration.text, says('day-4')[0], '結果被決鬥清掉');
   },
   'day-10': () => {
     const pend = plan => play(newGame(B), plan); // 第一天、死訊還沒公布
@@ -461,6 +466,12 @@ const CHECKS = {
     assert.equal(re.game.badgeTorn, false, '流失後重新登記');
     const passed = ok(E.passBadge(ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)))), id(9), 4));
     assert.equal(ok(E.setSheriff(passed, 5)).game.sheriff, 5, '警長選完後主機也能更正');
+    const h = mount(fix, 'host');
+    assert.match(h.html('#hostCtl'), /登記錯了，改警長/, '白天一般畫面有');
+    h.click('#hostCtl', 'host', 'sheriffOpen');
+    assert.ok(!h.html('#hostCtl').includes('data-host="tear"'), '登記了就沒有警徽流失');
+    assert.ok(!mount(ok(E.boom(fix, id(1), 0)), 'host').html('#hostCtl').includes('改警長'), '今天要天黑：沒有');
+    assert.ok(!mount(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), 'host').html('#hostCtl').includes('登記警長'), '等白癡選：沒有');
   },
   'day-7': () => {
     let r = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9))));
@@ -586,7 +597,9 @@ const CHECKS = {
   },
   'wolf-5': () => {
     const day = night(newGame(B));
-    no(E.boom(voteAll(day, { 4: 9, 5: 9 }), id(1), 0), '放逐之後');
+    const auto = voteAll(day, { 4: 9, 5: 9 });
+    assert.equal(auto.game.day.exileDone, true, '投完票自動放逐');
+    no(E.boom(auto, id(1), 0), '放逐之後');
     no(E.boom(voteAll(day, { 4: 6, 5: 6 }), id(1), 0), '有人要開槍');
     no(E.boom(ok(E.boom(day, id(1), 0)), id(2), 0), '今天已經要天黑');
     no(E.boom(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(1), 0), '白癡在選');
@@ -615,6 +628,8 @@ const CHECKS = {
     const [skill, took] = says('king-2');
     const n = play(newGame(KG, { police: false }), { wolf: 2 });
     assert.deepEqual(n.game.canShoot, [2], '被狼刀');
+    const KGG = { wolf: 1, king: 1, witch: 1, guard: 1, villager: 3 }; // 1 狼人、2 狼王、3 女巫、4 守衛、5–7 平民
+    assert.deepEqual(play(newGame(KGG, { police: false }), { wolf: 2, save: true, guard: 2 }).game.canShoot, [2], '同守同救死也能開槍');
     assert.ok(n.game.narration.text.endsWith(fill(skill, { N: 2 })));
     const ex = voteAll(night(newGame(KG)), { 1: 2, 4: 2 });
     assert.deepEqual(ex.game.canShoot, [2], '被放逐');
@@ -754,7 +769,7 @@ const CHECKS = {
     assert.ok(!pick(r, 1).wolves.some(w => w.seat === 6), '狼隊不知道隱狼');
     const h = mount(r, id(6));
     h.click('#myInfo', 'me', 'show');
-    assert.match(h.html('#myInfo'), /晚上你在手機上跟他們一起投刀/, '「看我的身分」照新規則寫');
+    assert.match(h.html('#myInfo'), /晚上你在手機上跟他們一起投刀[\s\S]*就由你自己決定殺誰/, '「看我的身分」照新規則寫');
   },
   'hidden-2': () => {
     let r = toNight(night(newGame(F)), 'wolf');
@@ -902,6 +917,7 @@ const CHECKS = {
     assert.equal(quiet.game.log.length, n.game.log.length);
     assert.match(mount(n, id(6)).html('#actionBox'), /不發動主機不唸/);
     assert.deepEqual(voteAll(night(newGame(B)), { 1: 6, 2: 6 }).game.canShoot, [6], '被放逐');
+    assert.deepEqual(play(newGame(B, { police: false }), { wolf: 6, guard: 6, save: true }).game.canShoot, [6], '同守同救死也能開槍');
     const k = ok(E.shoot(voteAll(night(newGame(KG)), { 1: 2, 4: 2 }), id(2), 6));
     assert.deepEqual(k.game.canShoot, [6], '被狼王的槍帶走');
     assert.deepEqual(ok(E.boom(night(newGame(KG)), id(3), 6)).game.canShoot, [6], '被白狼王帶走');
