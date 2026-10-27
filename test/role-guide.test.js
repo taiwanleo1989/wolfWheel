@@ -922,6 +922,10 @@ const CHECKS = {
     assert.deepEqual(E.killers(r.game), [6, 7]);
     const n = toNight(r, 'wolf');
     assert.ok(pick(n, 6).wolves.some(w => w.seat === 7), '跟石像鬼見面');
+    const lastDay = ok(E.exile(withDead(night(newGame(F)), [2, 3, 4, 5]), 1)); // 白天放逐最後一隻狼隊
+    assert.equal(lastDay.phase, 'day');
+    assert.deepEqual(pick(lastDay, 6).wolves.filter(w => w.alive).map(w => w.seat), [6, 7], '白天那一刻就互相顯示');
+    assert.ok(pick(lastDay, 7).wolves.some(w => w.seat === 6));
     // 板子上本來就沒有狼隊：第一晚就開始，彼此認得
     const NP = { hidden: 1, gargoyle: 1, seer: 1, villager: 4 }; // 1 隱狼、2 石像鬼、3 預言家、4–7 平民
     const np = play(newGame(NP), {}, { step: 'wolf' });
@@ -964,6 +968,8 @@ const CHECKS = {
   /* 預言家 */
   'seer-1': () => {
     let r = toNight(withDead(night(newGame(B)), [9]), 'seer');
+    assert.equal(r.game.narration.text, says('seer-1')[0]);
+    no(E.nightAction(r, id(4), { done: true }, everyone(r), 0, minRand), '不能不查就按知道了');
     no(E.nightAction(r, id(4), { target: 4 }, everyone(r), 0, minRand), '不能查自己');
     no(E.nightAction(r, id(4), { target: 9 }, everyone(r), 0, minRand), '不能查死人');
     r = act(r, 4, { target: 1 });
@@ -1080,6 +1086,7 @@ const CHECKS = {
   /* 守衛 */
   'guard-1': () => {
     const r = play(newGame(B), {}, { step: 'guard' });
+    assert.equal(r.game.narration.text, says('guard-1')[0]);
     assert.ok(E.nightAction(r, id(7), { target: 7 }, everyone(r), 0, minRand).ok, '可以守自己');
     assert.ok(E.nightAction(r, id(7), { target: 0 }, everyone(r), 0, minRand).ok, '可以空守');
     assert.equal(play(newGame(B, { police: false }), { wolf: 9, guard: 9 }).game.alive[9], true);
@@ -1118,6 +1125,7 @@ const CHECKS = {
     assert.equal(info(ok(E.shoot(voteAll(day(), { 8: 10, 9: 10 }), id(10), 1))).seat, 10, '被槍帶走的不算（看的是被放逐的獵人）');
     assert.equal(info(voteAll(night(newGame(F), { charm: 15 }), { 8: 5, 9: 5 })).seat, 5, '殉情的不算');
     assert.deepEqual(info(ok(E.idiotChoose(voteAll(day(), { 1: 14, 2: 14 }), id(14), false))), { day: 1, seat: 14, wolf: false }, '白癡不翻牌算放逐');
+    assert.deepEqual(info(ok(E.exile(day(), 1))), { day: 1, seat: 1, wolf: true }, '主機手動登記放逐也算');
     const ui = mount(toNight(ok(E.boom(day(), id(1), 0)), 'gravekeeper'), id(12)).html('#actionBox');
     assert.match(ui, /昨天沒有人被投票放逐出局/);
   },
