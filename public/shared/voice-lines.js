@@ -1,6 +1,7 @@
 // 主機台詞的「片段表」：每一句台詞、每個號碼都是一個片段，各自預錄成一個音檔（public/voice/<key>.mp3）。
 // 引擎用片段組句子（例如 ['dawn', 'deathsAre', 'n9', 'end']），畫面上的文字與主機播的聲音都從這張表來，永遠一致。
-// 改了這裡的字，要重錄：npm run voice（見 scripts/record-voice.mjs）。
+// 改了這裡的字，要重錄：Leo 在 ElevenLabs 網頁用 Liu Junnan＋v4 產生 → voice-src/batchN.mp3 → batches.json →
+// npm run voice:split（見 scripts/split-voice.mjs）。npm run voice（record-voice.mjs）走 API，免費方案錄不了 Liu Junnan（402），別用。
 //
 // 文字裡的「——」錄音時會變成停頓；值是空字串的片段（標點）只影響文字、不錄音。
 

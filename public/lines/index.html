@@ -85,8 +85,8 @@
       <li data-clips="wolfClose"><span class="when">狼人確認刀人後。</span></li>
       <li data-clips="beautyOpen"><span class="when">狼人閉眼後，狼美人單獨睜眼。</span></li>
       <li data-clips="beautyClose"><span class="when">狼美人選完。</span></li>
-      <li data-clips="hiddenOpen"><span class="when">隱狼睜眼。其他狼還活著時手機只顯示狼同伴、假等；只剩隱狼時他在手機上刀人（主機不唸要擊殺的目標），太久沒選就重唸這句。</span></li>
-      <li data-clips="hiddenClose"><span class="when">隱狼選完（或假等結束）。</span></li>
+      <li data-clips="hiddenOpen"><span class="when">隱狼睜眼。其他狼還活著時手機只顯示狼同伴，看完按「知道了」；只剩隱狼時他在手機上刀人（主機不唸要擊殺的目標），太久沒選就重唸這句。</span></li>
+      <li data-clips="hiddenClose"><span class="when">隱狼按「知道了」或選完（隱狼已出局時是假等結束）。</span></li>
       <li data-clips="witchSave"><span class="when">女巫睜眼。死亡號碼只出現在女巫手機上，主機不唸號碼。</span></li>
       <li data-clips="witchPoison"><span class="when">女巫決定完解藥。</span></li>
       <li data-clips="witchClose"><span class="when">女巫決定完毒藥。</span></li>
@@ -98,7 +98,7 @@
       <li data-clips="graveClose"><span class="when">守墓人看完。</span></li>
       <li data-clips="hunterOpen"><span class="when">獵人睜眼。能不能開槍只出現在獵人手機上。</span></li>
       <li data-clips="hunterClose"><span class="when">獵人看完。</span></li>
-      <li data-clips="police"><span class="when">第一晚最後（設定可以關掉）。<b data-const="POLICE_MS">5</b> 秒後天亮，主機也可以提早按繼續。</span></li>
+      <li data-clips="police"><span class="when">第一晚最後（設定可以關掉）。<b data-const="POLICE_MS">5</b> 秒後再隨機停 2～5 秒天亮，主機也可以提早按繼續。</span></li>
     </ul>
   </section>
 
@@ -136,7 +136,7 @@
       <li data-clips="n6 shootTook n4 end"><span class="when">開槍帶走人。</span></li>
       <li data-clips="knight n8 duelWith n2 colon n2 duelWolf nightStart"><span class="when">騎士撞到狼：今天不放逐，直接天黑（撞到狼王就等他開完槍再唸天黑）。</span></li>
       <li data-clips="knight n8 duelWith n9 colon n9 duelGood"><span class="when">騎士撞到好人：騎士出局，白天繼續。</span></li>
-      <li data-clips="n3 wolfBoom comma nightStart"><span class="when">狼人陣營自爆（狼美人不能自爆）。不唸是哪種狼。</span></li>
+      <li data-clips="n3 wolfBoom comma nightStart"><span class="when">狼人陣營自爆（狼美人、隱狼不能自爆）。不唸是哪種狼。</span></li>
       <li data-clips="n4 whiteBoom nightStart"><span class="when">白狼王自爆，不帶人。</span></li>
       <li data-clips="n4 whiteBoomTook n6 end nightStart"><span class="when">白狼王自爆帶走一人（帶走的是獵人、狼王就等他開完槍再唸天黑）。</span></li>
     </ul>

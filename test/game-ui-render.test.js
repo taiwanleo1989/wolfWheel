@@ -270,3 +270,12 @@ test('換手機：對局中沒坐下的手機看得到「接手座位」（離�
   } finally { delete globalThis.window; }
   assert.deepEqual(hsent, [{ type: 'approveSeat', seat: 5, yes: true }]);
 });
+
+// 主機畫面自己寫了一份 SKIP_MS（瀏覽器不 import 引擎）：秒數跟伺服器不一樣，按鈕能按的時間就會跟伺服器擋的對不上（2026-10-29 夜班）
+test('主機畫面的跳過秒數跟伺服器 SKIP_MS 一樣', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../public/judge/game-ui.js', import.meta.url), 'utf8');
+  const m = src.match(/const SKIP_MS = (\d+);/);
+  assert.ok(m, 'game-ui.js 找不到 const SKIP_MS');
+  assert.equal(Number(m[1]), E.SKIP_MS);
+});

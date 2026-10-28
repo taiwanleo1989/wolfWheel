@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>狼人殺角色說明</title>
-<meta name="description" content="狼人殺法官工具的角色說明：每個角色的技能、特殊限制，以及投票、警長、勝負的規則。內容跟遊戲實際的判定一致（有自動測試逐條核對）。">
+<meta name="description" content="狼人殺法官工具的角色說明：每個角色的技能、特殊限制，以及投票、警長、勝負的規則。「完整判定」跟遊戲實際的判定一致（有自動測試逐條核對）；攤開的重點是摘要。">
 <meta name="theme-color" content="#0b0f22">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -248,7 +248,7 @@
       <li>不能連續兩晚魅惑同一人。</li>
       <li>被放逐、被槍帶走、被白狼王帶走 → 魅惑的人殉情，不能用技能。</li>
       <li>被騎士撞死、被毒死不殉情；狼隊不能刀她，她也不能自爆。</li>
-      <li>屠邊時剩一狼美、一神、一民，狼美被放逐 → 狼人陣營獲勝。</li>
+      <li>屠邊時剩一狼美、一神、一民，狼美被放逐、魅惑的人還活著 → 狼人陣營獲勝。</li>
     </ol>
     <details class="full">
       <summary>完整判定</summary>
@@ -273,7 +273,7 @@
     <h2>隱狼 <span class="team wolf">狼人陣營</span></h2>
     <ol class="key">
       <li>知道狼隊是誰，狼隊不知道他；跟石像鬼互相不知道。</li>
-      <li>其他狼還活著時不刀人；「隱狼請睜眼」時手機顯示狼同伴是誰，不用動作。</li>
+      <li>其他狼還活著時不刀人；「隱狼請睜眼」時手機顯示狼同伴是誰，看完按「知道了」。</li>
       <li>其他狼都出局、只剩隱狼時，在自己那步用手機刀人；主機只唸睜眼、閉眼。</li>
       <li>預言家、守墓人看他是好人；接手刀人之後是狼人。</li>
       <li>白天可以投票，不能自爆。</li>
@@ -429,7 +429,7 @@
   <section class="panel god" id="knight" data-role="knight">
     <h2>騎士 <span class="team god">神職</span></h2>
     <ol class="key">
-      <li>白天隨時可以決鬥一次；有人在開槍或做選擇時要等。</li>
+      <li>白天隨時可以決鬥一次；有人在開槍或做選擇時要等，今天已經要天黑時不行。</li>
       <li>撞到狼人陣營（隱狼、石像鬼也算）→ 對方出局，今天直接天黑。</li>
       <li>撞到好人 → 騎士自己出局。</li>
       <li>夜裡沒有動作。</li>

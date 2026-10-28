@@ -131,6 +131,12 @@ if (opt('--sample')) {
 mkdirSync(outDir, { recursive: true });
 const voiceName = provider === 'zhiwei' ? 'Microsoft Zhiwei（測試用）' : provider === 'azure' ? AZURE_VOICE : `ElevenLabs ${opt('--voice') ?? { ...devVars(), ...process.env }.ELEVENLABS_VOICE_ID}`;
 let manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { files: {} };
+// 線上的錄音是 Leo 在 ElevenLabs 網頁產生、split-voice 切的（Liu Junnan，免費 API 錄不了）：聲音不一樣就全部重錄＝蓋掉那批，
+// 所以要明講 --replace-voice 才換（2026-10-29 夜班）
+if (manifest.voice && manifest.voice !== voiceName && !args.includes('--replace-voice')) {
+  console.error(`現在的錄音是「${manifest.voice}」，這次是「${voiceName}」：繼續會刪掉全部錄音重錄。真的要換聲音就加 --replace-voice；只是補錄請用 npm run voice:split。`);
+  process.exit(1);
+}
 if (manifest.voice !== voiceName) manifest = { voice: voiceName, files: {} }; // 換聲音就全部重錄
 
 let made = 0, kept = 0;
