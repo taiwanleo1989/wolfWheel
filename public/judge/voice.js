@@ -220,8 +220,9 @@ function playClips(clips) {
   // 唸的期間把背景音樂壓低
   setTimeout(() => { speaking++; duck(); }, Math.max(0, (startAt - actx.currentTime) * 1000));
   // 唸完只拿掉這一句自己的片段：排在後面的下一句要留著，stop() 才停得掉（2026-10-29 夜班：原本整個 playing 一起清掉，
-  // 兩句排隊時按「再唸一次」／直接重開，後一句會照唸、跟新句疊在一起）
-  setTimeout(() => { speaking = Math.max(0, speaking - 1); duck(); playing = playing.filter(s => !mine.includes(s)); }, Math.max(0, (t - actx.currentTime) * 1000));
+  // 兩句排隊時按「再唸一次」／直接重開，後一句會照唸、跟新句疊在一起）。聲音系統被暫停時音訊時鐘停住、這句還沒唸完：
+  // 先留著，主機點螢幕補唸前的 stop() 才停得掉剩下的半句（夜班獨立審查抓到）
+  setTimeout(() => { speaking = Math.max(0, speaking - 1); duck(); if (actx.currentTime >= t) playing = playing.filter(s => !mine.includes(s)); }, Math.max(0, (t - actx.currentTime) * 1000));
 }
 
 function duck() { fadeTo(speaking > 0 ? BGM_DUCK : BGM_VOL); }

@@ -250,6 +250,7 @@ export function nightAction(room, clientId, payload, online, now, rand) {
   const g = structuredClone(room.game);
   const night = g.night;
   const target = Number(payload?.target ?? 0);
+  if (!Number.isInteger(target)) return fail('號碼不對'); // 亂碼不能當成「空守」「不魅惑」（2026-10-29 夜班；白天的開槍等同一套）
   const aliveTarget = t => Number.isInteger(t) && g.alive[t] === true;
 
   if (hiddenWatching(g, step)) {

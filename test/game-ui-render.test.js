@@ -287,3 +287,12 @@ test('主機登記警長：翻過牌的白癡不在選單裡（伺服器會擋�
   assert.match(html, /data-sheriff-pick="12"/);
   assert.doesNotMatch(html, /data-sheriff-pick="13"/);
 });
+
+test('夜裡守衛、狼美人送來不是號碼的值：擋下，不能當成「空守」「不魅惑」（2026-10-29 夜班獨立審查）', () => {
+  for (const [step, seat] of [['guard', 10], ['beauty', 4]]) {
+    const r = toStep(newGame(), step);
+    const bad = E.nightAction(r, id(seat), { target: 'abc' }, everyone(r), 0, minRand);
+    assert.equal(bad.ok, false, step);
+    assert.equal(E.nightAction(r, id(seat), { target: 0 }, everyone(r), 0, minRand).ok, true, step + ' 正常的「不選」照樣可以');
+  }
+});
