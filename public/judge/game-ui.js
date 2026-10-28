@@ -309,7 +309,7 @@ function renderHost() {
       <p class="hint">${step ? `現在輪到：<b>${STEP_NAME[step]}</b>` : '過場中…'}　手機會自動唸台詞、自動往下走。</p>
       <div class="row-gap"><button class="btn small" type="button" data-host="replay">再唸一次</button>${bgm}</div>
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
-        <p class="hint center">不按的話，大約 8～11 秒後會自動天亮。</p>` : skipBox(g.night)}`;
+        <p class="hint center">不按的話，大約 7～10 秒後會自動天亮。</p>` : skipBox(g.night)}`;
   } else if (phase === 'day') {
     const pick = hostPick();
     if (g.deathsPending) {

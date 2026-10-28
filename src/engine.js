@@ -50,7 +50,7 @@ export function scriptFor(step, counts) {
 
 export const INTRO_MS = 5000;   // 「天黑請閉眼」之後，等大家閉好眼
 export const CLOSE_MS = 4000;   // 「X 請閉眼」之後，到下一個角色睜眼
-export const POLICE_MS = 6000;  // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）；Leo 2026-10-17 嫌長，12 → 6 秒
+export const POLICE_MS = 5000;  // 「要上警的玩家請起立」之後等大家起立（主機可以提早按繼續）；Leo 2026-10-17 嫌長，12 → 6 秒；2026-10-28 再改 5 秒
 export const PAUSE_MS = [2000, 5000]; // 每句台詞的動作完成後，隨機停一下才唸下一句
 export const SKIP_MS = 25000;   // 夜裡角色睜眼這麼久之後，主機才能按「跳過」（防手機沒電卡死）；Leo 2026-10-27 夜裡等太久，30 → 25 秒
 // 白天的被動技能（獵人／狼王開槍、白癡翻牌、騎士決鬥）一律不限時、沒有任何倒數（Leo 2026-10-10、10-11）

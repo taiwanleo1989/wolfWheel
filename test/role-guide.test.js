@@ -339,7 +339,7 @@ const CHECKS = {
   },
   'night-4': () => {
     assert.equal(E.SKIP_MS, 25000);
-    assert.equal(E.POLICE_MS, 6000);
+    assert.equal(E.POLICE_MS, 5000);
     const r = toNight(night(newGame(B)), 'seer');
     const t0 = r.game.night.openedAt;
     const early = E.skipStep(r, t0 + 24999, minRand);
@@ -362,14 +362,14 @@ const CHECKS = {
     assert.equal(w2.game.night.beat, 1, '跳過解藥，毒藥那句照樣開始');
     no(E.skipStep(w2, w2.game.night.openedAt + 24999, minRand), '毒藥那句重新算 25 秒');
     const p = play(newGame(B), {}, { step: 'police' });
-    assert.equal(p.game.timer.at - p.game.night.openedAt, 6000, '上警 6 秒自動天亮');
+    assert.equal(p.game.timer.at - p.game.night.openedAt, 5000, '上警 5 秒自動天亮');
     ok(E.skipStep(p, p.game.night.openedAt, minRand));
     // 上警時間到（或按了）之後還會再停 2～5 秒才天亮
     const pa = E.advance(p, p.game.timer.at, maxRand).room;
     assert.equal(pa.game.night.stage, 'pause');
     assert.equal(pa.game.timer.at - p.game.timer.at, 5000, '最長再停 5 秒（6＋5＝11）');
     assert.equal(E.advance(p, p.game.timer.at, minRand).room.game.timer.at - p.game.timer.at, 2000, '最短再停 2 秒（6＋2＝8）');
-    assert.match(mount(p, 'host').html('#hostCtl'), /大約 8～11 秒後會自動天亮/);
+    assert.match(mount(p, 'host').html('#hostCtl'), /大約 7～10 秒後會自動天亮/);
   },
   'night-5': () => {
     const at = plan => play(newGame(B, { police: false }), plan);
