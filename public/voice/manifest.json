@@ -6,7 +6,8 @@
     "batch3.mp3.mp3",
     "batch4.mp3",
     "batch5.mp3",
-    "batch6.mp3"
+    "batch6.mp3",
+    "batch7.mp3"
   ],
   "files": {
     "checkRole": {
@@ -133,6 +134,10 @@
       "file": "tie.mp3",
       "text": "平票，今天沒有人出局。"
     },
+    "noExile": {
+      "file": "noExile.mp3",
+      "text": "今天沒有人出局。"
+    },
     "idiotFlip": {
       "file": "idiotFlip.mp3",
       "text": "翻牌，是白癡，免於出局，但之後不能投票。"
@@ -164,6 +169,14 @@
     "whiteBoomTook": {
       "file": "whiteBoomTook.mp3",
       "text": "白狼王自爆，帶走了"
+    },
+    "wolfBoom": {
+      "file": "wolfBoom.mp3",
+      "text": "狼人自爆"
+    },
+    "voteStart": {
+      "file": "voteStart.mp3",
+      "text": "請大家進行投票。"
     },
     "charmDied": {
       "file": "charmDied.mp3",

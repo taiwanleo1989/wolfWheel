@@ -1322,7 +1322,7 @@ test('角色說明頁：秒數跟程式設定一樣；黑夜順序跟 NIGHT_ORDE
   }
   used.add('wolfBoom'); // 「N 號狼人自爆」寫在 wolf-3 的台詞裡
   const missing = [...used].filter(k => !['end', 'sep', 'colon', 'comma'].includes(k) && !manifest[k]).sort();
-  const listed = HTML.match(/data-unrecorded="([^"]*)"/)[1].split(',').filter(Boolean).sort();
+  const listed = (HTML.match(/data-unrecorded="([^"]*)"/)?.[1] ?? '').split(',').filter(Boolean).sort(); // 全部錄好就沒有這一行
   assert.deepEqual(listed, missing, '「還沒錄音」那行要跟音檔清單一致');
   // 每一句台詞（N、M 換成號碼後）都要能用片段表拼出來：拆掉號碼後的每一段都是某個片段的文字
   const pieces = Object.values(LINES).filter(Boolean).sort((a, b) => b.length - a.length);
