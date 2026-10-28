@@ -1284,7 +1284,7 @@ test('角色說明頁：每一條規則都有檢查、每個檢查都在頁面�
 test('角色說明頁：14 個角色都有一張卡，名字、陣營、遊戲裡的簡介都跟 roles.js 一字不差；目錄連得到', () => {
   const teamLabel = { wolf: '狼人陣營', god: '神職', villager: '平民' };
   for (const r of R.ROLE_ORDER) {
-    const m = HTML.match(new RegExp(`<section class="panel (\\w+)" id="${r}" data-role="${r}">\\s*<h2>([^<]+) <span class="team (\\w+)">([^<]+)</span></h2>\\s*<p class="blurb" data-desc="${r}">([^<]*)</p>`));
+    const m = HTML.match(new RegExp(`<section class="panel (\\w+)" id="${r}" data-role="${r}">\\s*<h2>([^<]+) <span class="team (\\w+)">([^<]+)</span></h2>\\s*<ol class="key">[\\s\\S]*?</ol>\\s*<details class="full">\\s*<summary>完整判定</summary>\\s*<p class="blurb" data-desc="${r}">([^<]*)</p>`));
     assert.ok(m, `沒有 ${r} 的角色卡`);
     const [, cls, name, teamCls, team, desc] = m;
     assert.equal(name, R.ROLES[r].name);
@@ -1334,6 +1334,23 @@ test('角色說明頁：秒數跟程式設定一樣；黑夜順序跟 NIGHT_ORDE
       rest = rest.slice(p.length);
     }
   }
+});
+
+// Leo 2026-10-28：每段攤開 2～5 條重點（1. 2. 3.），細節收在「完整判定」；畫面上不出現 wolf-3 這種編號
+test('角色說明頁：每段都有 2～5 條重點、完整判定收起來；畫面文字沒有規則編號', () => {
+  const sections = [...HTML.matchAll(/<section class="panel[^"]*" id="(\w+)"[^>]*>([\s\S]*?)<\/section>/g)];
+  assert.equal(sections.length, 3 + R.ROLE_ORDER.length);
+  for (const [, id, inner] of sections) {
+    const key = inner.match(/<ol class="key">([\s\S]*?)<\/ol>/);
+    assert.ok(key, `${id} 沒有重點`);
+    const n = [...key[1].matchAll(/<li>/g)].length;
+    assert.ok(n >= 2 && n <= 5, `${id} 重點 ${n} 條`);
+    assert.ok(!/data-|class="say"/.test(key[1]), `${id} 的重點不放台詞、秒數（那些在完整判定裡核對）`);
+    assert.ok(inner.indexOf('<details class="full">') > inner.indexOf('<ol class="key">'), `${id} 的完整判定要收在重點後面`);
+    assert.ok(!/<details class="full" open/.test(inner));
+  }
+  const visible = HTML.replace(/<(style|script)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '');
+  assert.deepEqual(visible.match(/\b[a-zA-Z]+-\d+\b/g) ?? [], []);
 });
 
 for (const [rule, check] of Object.entries(CHECKS)) {
