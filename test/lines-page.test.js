@@ -93,9 +93,9 @@ test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () =>
   // A：狼人、狼美人、白狼王、預言家、女巫、獵人、守衛、守墓人、騎士、白癡、平民
   const A = { wolf: 2, whiteKing: 1, beauty: 1, seer: 1, witch: 1, hunter: 1, guard: 1, gravekeeper: 1, knight: 1, idiot: 1, villager: 3 };
   const v = i => s => seat(s, 'villager', i);
-  { // 第一天警長競選：天亮只唸天亮 → 公布死訊；放逐、狼美人殉情、白癡翻牌、平票、全部棄票、第二天天亮
+  { // 第一天警長競選：天亮只唸天亮 → 登記警長＝「N 號當選警長。」接著死訊；放逐、狼美人殉情、白癡翻牌、平票、全部棄票、第二天天亮
     let r = night(newGame(A), { wolf: R.totalOf(A) }); // 最後一位平民
-    r = announce(r);
+    r = must(E.setSheriff(r, seat(r, 'seer')));
     r = voteFor(r, seat(r, 'idiot')); r = must(E.idiotChoose(r, id(seat(r, 'idiot')), true));
     r = toNight(r);
     r = must(E.startVote(r)); for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), 0)); r = must(E.exile(r, 0));
@@ -119,8 +119,8 @@ test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () =>
     r = toNight(r);
     r = must(E.boom(r, id(seat(r, 'whiteKing')), 0));
   }
-  {
-    let r = announce(night(newGame(A)));
+  { // 第一天沒人當選：按「警徽流失」直接公布死訊
+    let r = must(E.tearBadge(night(newGame(A), { wolf: R.totalOf(A) })));
     r = must(E.boom(r, id(seat(r, 'whiteKing')), v(0)(r)));
   }
   { // 一晚死兩個：狼刀一個、女巫毒一個

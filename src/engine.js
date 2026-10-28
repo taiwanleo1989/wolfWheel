@@ -647,11 +647,13 @@ export function setSheriff(room, seat, now = 0) {
   const g = structuredClone(g0);
   const passed = g.badgePending;
   Object.assign(g, { sheriff: seat, badgeTorn: false, badgePending: false });
-  g.log.push({ day: g.dayNo, text: passed ? `警徽移交給 ${seat} 號。` : `${seat} 號當上警長。` });
+  // 第一天警長競選完：直接唸「3 號當選警長。」接著昨晚死訊，主機不用再按「公布」（Leo 2026-10-28）
+  if (g.day?.pendingDeaths) note(g, [seatKey(seat), 'sheriffElected', ...flushPending(g)]);
+  else g.log.push({ day: g.dayNo, text: passed ? `警徽移交給 ${seat} 號。` : `${seat} 號當上警長。` });
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
 }
 
-// 主機：警徽流失（沒人當選），現在沒有警長（之後主機還能重新登記）
+// 主機：警徽流失（沒人當選），現在沒有警長（之後主機還能重新登記）；第一天死訊還沒公布＝接著公布
 export function tearBadge(room, now = 0) {
   if (room.phase !== 'day') return fail('白天才能撕警徽');
   const g0 = room.game;
@@ -663,6 +665,7 @@ export function tearBadge(room, now = 0) {
   const g = structuredClone(g0);
   Object.assign(g, { sheriff: null, badgeTorn: true, badgePending: false });
   g.log.push({ day: g.dayNo, text: '警徽流失，現在沒有警長。' });
+  if (g.day?.pendingDeaths) note(g, flushPending(g)); // 第一天沒人當選：接著直接公布昨晚死訊（Leo 2026-10-28）
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));
 }
 

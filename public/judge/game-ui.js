@@ -313,12 +313,11 @@ function renderHost() {
   } else if (phase === 'day') {
     const pick = hostPick();
     if (g.deathsPending) {
-      // 第一天：先選警長（口頭競選、主機登記），選完才公布昨晚死訊
+      // 第一天：先選警長（口頭競選、主機登記）；登記完（或警徽流失）就直接唸「N 號當選警長。」接著昨晚死訊（Leo 2026-10-28）
       html = `<h2>警長競選</h2>
-        <p class="hint">請上警的玩家依序發言，其他人口頭（或舉手）選出警長，選好在下面登記。選完後再公布昨晚的死訊。</p>
+        <p class="hint">請上警的玩家依序發言，其他人口頭（或舉手）選出警長，選好在下面登記。登記完會直接唸「N 號當選警長」，接著公布昨晚的死訊；沒人當選就按「警徽流失」，也會直接公布。</p>
         ${sheriffHTML(g)}
-        <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>
-        <button class="btn primary big" type="button" data-host="announce">警長選好了，公布昨晚死訊</button>`;
+        <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>`;
       done(html);
       return;
     }
@@ -437,7 +436,6 @@ function onHost(e) {
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'policeDone': send({ type: 'skip' }); break;
     case 'skip': if (confirm('跳過這一步？這一步當作沒有動作。')) send({ type: 'skip' }); break;
-    case 'announce': if (confirm('公布昨晚的死訊？')) send({ type: 'announce' }); break;
     case 'exile': { const n = hostPick(); if (n && confirm(`登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n }); break; }
     case 'startVote': send({ type: 'startVote' }); break;
     case 'exileTop': {
@@ -451,10 +449,10 @@ function onHost(e) {
     case 'sheriffClose': ui.sheriffOpen = false; ui.sheriffPick = null; c.render(); break;
     case 'sheriff': {
       const n = ui.sheriffPick; if (!n) break;
-      if (confirm(`登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
+      if (confirm(state.game.deathsPending ? `登記 ${n} 號當警長？接著會公布昨晚的死訊。` : `登記 ${n} 號當警長？`)) { send({ type: 'sheriff', seat: n }); ui.sheriffOpen = false; ui.sheriffPick = null; }
       break;
     }
-    case 'tear': if (confirm('警徽流失？現在沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
+    case 'tear': if (confirm(state.game.deathsPending ? '警徽流失？現在沒有警長，接著會公布昨晚的死訊。' : '警徽流失？現在沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
     case 'manualExile': ui.manualExile = !ui.manualExile; c.render(); break;
     case 'exile0': if (confirm('登記「今天沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':

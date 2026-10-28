@@ -253,9 +253,9 @@ test('警長：主機登記（警長競選時就能登記）、座位表公開�
   assert.ok(r.game.day.pendingDeaths);
   r = ok(E.setSheriff(r, 9)); // 9 號昨晚死了，但死訊還沒公布：照規則可以當選
   assert.equal(E.publicGame(r).sheriff, 9);
-  assert.equal(r.game.log.at(-1).text, '9 號當上警長。');
+  // 登記就唸「9 號當選警長。」接著公布昨晚死訊（Leo 2026-10-28）
+  assert.equal(r.game.log.at(-1).text, '9 號當選警長。昨晚死亡的是 9 號。');
   assert.equal(E.setSheriff(r, 9).ok, false, '已經是警長');
-  r = ok(E.announceDeaths(r));
   assert.equal(r.game.alive[9], false);
   assert.equal(E.publicGame(r).badgePending, true, '警長出局，等移交');
   assert.equal(E.startVote(r).ok, false);
@@ -515,12 +515,12 @@ test('畫面：主機登記警長；警長出局由他自己的手機選移交�
   let r = play(newGame(B), { wolf: 9 });
   const host = mount(r, 'host');
   assert.match(host.html('#hostCtl'), /警長競選[\s\S]*data-sheriff-pick="4"[\s\S]*警長是 … 號[\s\S]*警徽流失/);
+  assert.ok(!host.html('#hostCtl').includes('data-host="announce"'), '沒有「公布昨晚死訊」按鈕：登記警長就公布（Leo 2026-10-28）');
   host.click('#hostCtl', 'sheriff-pick', '4');
   host.click('#hostCtl', 'host', 'sheriff');
   assert.deepEqual(host.sent.at(-1), { type: 'sheriff', seat: 4 });
-  r = ok(E.setSheriff(r, 4));
+  r = ok(E.setSheriff(r, 4)); // 第一天登記警長＝順便公布昨晚死訊（Leo 2026-10-28）
   assert.match(mount(r, id(1)).html('#boardSeats'), /<span class="n">4<\/span><span class="tag">警長<\/span>/);
-  r = ok(E.announceDeaths(r));
   r = ok(E.exile(r, 4));
   const h2 = mount(r, 'host');
   assert.match(h2.html('#hostCtl'), /警長 4 號出局了[\s\S]*等他在自己的手機上選/);

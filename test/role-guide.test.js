@@ -408,7 +408,7 @@ const CHECKS = {
     assert.equal(s.game.sheriff, 8);
     // 翻過牌的白癡不能接警徽、不能被登記成警長
     no(E.setSheriff(ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true)), 14), '翻過牌的白癡不能當警長');
-    const s9 = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(F), { wolf: 15 }), 15))));
+    const s9 = ok(E.setSheriff(play(newGame(F), { wolf: 15 }), 15));
     const fl = setG(s9, { idiotRevealed: [14] });
     no(E.passBadge(fl, id(15), 14), '不能把警徽交給翻過牌的白癡');
     assert.ok(!pick(fl, 15).passBadge.candidates.includes(14));
@@ -519,11 +519,13 @@ const CHECKS = {
     assert.ok(E.duel(ok(E.shoot(h, id(6), 0)), id(8), 1).ok, '開完可以再按');
     const hb = bad(E.boom(pend({ wolf: 6 }), id(1), 0), '自爆：獵人要開槍');
     assert.ok(E.boom(ok(E.shoot(hb, id(6), 0)), id(1), 0).ok);
-    // 昨晚死的是剛登記的警長：先等他選警徽
-    const s = bad(E.duel(ok(E.setSheriff(pend({ wolf: 9 }), 9)), id(8), 1), '警長要選警徽');
+    // 昨晚死的是剛登記的警長：登記那一下就公布死訊（Leo 2026-10-28），先等他選警徽
+    const s = ok(E.setSheriff(pend({ wolf: 9 }), 9));
+    assert.equal(s.game.day.pendingDeaths, null, '登記警長就公布死訊');
     assert.equal(s.game.badgePending, true);
+    no(E.duel(s, id(8), 1), '警長要選警徽');
     assert.ok(E.duel(ok(E.passBadge(s, id(9), 4)), id(8), 1).ok, '選完可以再按');
-    bad(E.boom(ok(E.setSheriff(pend({ wolf: 9 }), 9)), id(1), 0), '自爆：警長要選警徽');
+    no(E.boom(s, id(1), 0), '自爆：警長要選警徽');
     // 公布死訊這一下遊戲就結束：技能不發動
     const over = E.boom(play(newGame({ wolf: 1, seer: 1, villager: 3 }), { wolf: 2 }), id(1), 0); // 刀死唯一的神
     assert.equal(over.ok, false);
@@ -546,15 +548,23 @@ const CHECKS = {
     no(E.setSheriff(withDead(night(newGame(B)), [4]), 4), '只能登記活著的人');
     const pd = play(newGame(B), { wolf: 9 });
     no(E.exile(pd, 1), '死訊公布前不能放逐'); no(E.nextNight(pd, 0), '死訊公布前不能天黑');
+    // 第一天登記警長＝唸「N 號當選警長。」接著公布昨晚死訊；警徽流失＝直接公布；之後改警長不出聲（Leo 2026-10-28）
+    const el = ok(E.setSheriff(pd, 4));
+    assert.equal(el.game.narration.text, '4 號當選警長。昨晚死亡的是 9 號。');
+    assert.deepEqual(el.game.narration.clips, ['n4', 'sheriffElected', 'deathsAre', 'n9', 'end']);
+    assert.equal(el.game.day.pendingDeaths, null);
+    assert.equal(el.game.alive[9], false);
+    assert.equal(ok(E.tearBadge(pd)).game.narration.text, '昨晚死亡的是 9 號。');
+    assert.equal(ok(E.setSheriff(el, 5)).game.narration.seq, el.game.narration.seq, '之後改警長不出聲');
     // 主機改錯：任何時候都能改、流失之後能重新登記
     const fix = ok(E.setSheriff(ok(E.setSheriff(night(newGame(B)), 4)), 5));
     assert.equal(fix.game.sheriff, 5, '登記錯了，改警長');
     const re = ok(E.setSheriff(lost, 6));
     assert.equal(re.game.sheriff, 6);
     assert.equal(re.game.badgeTorn, false, '流失後重新登記');
-    const passed = ok(E.passBadge(ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)))), id(9), 4));
+    const passed = ok(E.passBadge(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)), id(9), 4));
     no(E.setSheriff(passed, 5), '警長自己選過之後主機不能再改（Leo 2026-10-28）');
-    const torn9 = ok(E.passBadge(ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)))), id(9), 0));
+    const torn9 = ok(E.passBadge(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)), id(9), 0));
     no(E.setSheriff(torn9, 5), '警長自己撕掉之後主機不能重新登記');
     no(E.tearBadge(torn9), '也不能按警徽流失');
     assert.match(mount(passed, 'host').html('#hostCtl'), /警徽已經由警長自己處理過，主機不能再改/);
@@ -570,7 +580,7 @@ const CHECKS = {
     assert.ok(!mount(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), 'host').html('#hostCtl').includes('登記警長'), '等白癡選：沒有');
   },
   'day-7': () => {
-    let r = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9))));
+    let r = ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9));
     assert.equal(r.game.badgePending, true, '警長出局');
     no(E.setSheriff(r, 4), '主機不能代替移交');
     no(E.tearBadge(r), '主機不能代替撕');
@@ -740,7 +750,7 @@ const CHECKS = {
     no(E.boom(voteAll(day, { 4: 6, 5: 6 }), id(1), 0), '有人要開槍');
     no(E.boom(ok(E.boom(day, id(1), 0)), id(2), 0), '今天已經要天黑');
     no(E.boom(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(1), 0), '白癡在選');
-    const sp = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9))));
+    const sp = ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9));
     no(E.boom(sp, id(1), 0), '警長在選');
     const bm = mount(night(newGame(B)), id(1));
     bm.click('#myInfo', 'me', 'show');
