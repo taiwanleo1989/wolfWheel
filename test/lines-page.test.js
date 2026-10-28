@@ -88,6 +88,16 @@ function night(r, plan = {}) {
 const announce = r => (r.game.day?.pendingDeaths ? must(E.announceDeaths(r)) : r);
 const voteFor = (r, target) => { r = must(E.startVote(r)); for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), s === target ? 0 : target)); return r; };
 const toNight = (r, plan) => { r = must(E.nextNight(r, 0)); return night(r, plan); };
+// 全部棄票：自動「今天沒有人出局。天黑請閉眼。」（Leo 2026-10-28：主機不登記放逐）
+const abstainAll = r => { r = must(E.startVote(r)); for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), 0)); return r; };
+// a、b 互投平票 → 自動 PK →（警長以外）一人投 a、一人投 b、其他棄票 → PK 又平票＝天黑
+const tieVote = (r, a, b) => {
+  r = must(E.startVote(r));
+  for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), s === a ? b : s === b ? a : 0));
+  const [c, d] = r.game.day.vote.voters.filter(s => s !== r.game.sheriff);
+  for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), s === c ? a : s === d ? b : 0));
+  return r;
+};
 
 test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () => {
   // A：狼人、狼美人、白狼王、預言家、女巫、獵人、守衛、守墓人、騎士、白癡、平民
@@ -98,15 +108,15 @@ test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () =>
     r = must(E.setSheriff(r, seat(r, 'seer')));
     r = voteFor(r, seat(r, 'idiot')); r = must(E.idiotChoose(r, id(seat(r, 'idiot')), true));
     r = toNight(r);
-    r = must(E.startVote(r)); for (const s of r.game.day.vote.voters) r = must(E.castVote(r, id(s), 0)); r = must(E.exile(r, 0));
+    r = abstainAll(r);
     r = toNight(r, { charm: seat(r, 'hunter') });
     r = voteFor(r, seat(r, 'beauty'));
     r = toNight(r, { wolf: v(1)(r) });
-    r = must(E.exile(r, 0));
+    r = tieVote(r, v(0)(r), seat(r, 'knight'));
   }
   { // 第二天沒人死；放逐普通人；騎士撞好人、撞狼；獵人出局開槍；狼人自爆；白狼王自爆（帶人、不帶人）
     let r = announce(night(newGame(A)));
-    r = must(E.exile(r, v(0)(r)));
+    r = voteFor(r, v(0)(r));
     r = toNight(r);
     r = must(E.duel(r, id(seat(r, 'knight')), v(1)(r)));
     r = voteFor(r, seat(r, 'hunter')); r = must(E.shoot(r, id(seat(r, 'hunter')), v(2)(r)));
@@ -125,7 +135,7 @@ test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () =>
   }
   { // 一晚死兩個：狼刀一個、女巫毒一個
     let r = announce(night(newGame(A)));
-    r = must(E.exile(r, 0));
+    r = abstainAll(r);
     r = toNight(r, { wolf: v(1)(r), poison: v(2)(r) });
   }
   const norm = clips => clips.map(k => (isSeat(k) ? 'n' : k)).join(' ');

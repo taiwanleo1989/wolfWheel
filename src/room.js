@@ -99,7 +99,7 @@ export class Room extends DurableObject {
       case 'act': result = E.nightAction(this.room, me.clientId, msg.payload, online, now, rand); break;
       case 'skip': result = E.skipStep(this.room, now, rand); break;
       case 'shoot': result = E.shoot(this.room, me.clientId, msg.target, now); break;
-      case 'exile': result = E.exile(this.room, msg.target, now); break;
+      case 'exile': result = { ok: false, error: '放逐由大家用手機投票決定，主機不能登記（Leo 2026-10-28）' }; break; // 舊網頁的手動放逐鈕
       case 'duel': result = E.duel(this.room, me.clientId, msg.target, now); break;
       case 'boom': result = E.boom(this.room, me.clientId, msg.target, now); break;
       case 'idiot': result = E.idiotChoose(this.room, me.clientId, msg.flip, now); break;
@@ -107,7 +107,7 @@ export class Room extends DurableObject {
       case 'announce': result = E.announceDeaths(this.room, now); break;
       // 投票、警長（Leo 2026-10-27）
       case 'vote': result = E.castVote(this.room, me.clientId, msg.target, now); break;
-      case 'startVote': result = E.startVote(this.room, msg.pk === true, now); break;
+      case 'startVote': result = E.startVote(this.room, false, now); break; // 平票 PK 由伺服器自動開（Leo 2026-10-28），主機只能開第一輪
       case 'endVote': result = E.endVote(this.room, now); break;
       case 'sheriff': result = E.setSheriff(this.room, msg.seat, now); break;
       case 'tearBadge': result = E.tearBadge(this.room, now); break;

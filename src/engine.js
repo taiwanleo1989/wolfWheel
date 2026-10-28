@@ -460,7 +460,6 @@ export function shoot(room, clientId, target, now = 0) {
   const seat = L.seatOf(room, clientId);
   if (!seat || !room.game.canShoot.includes(seat)) return fail('你現在不能開槍');
   if (room.game.day?.idiotChoice) return fail('請等被放逐的玩家選擇'); // 有槍時不能放逐（見 exile），照理到不了這裡
-  if (room.game.badgePending && room.game.sheriff === seat) return fail('請先選要移交還是撕掉警徽'); // 出局的警長：先選警徽再開槍
   const g = structuredClone(room.game);
   g.canShoot = g.canShoot.filter(s => s !== seat);
   target = Number(target ?? 0);
@@ -674,6 +673,8 @@ export function passBadge(room, clientId, target, now = 0) {
   if (room.phase !== 'day' || !room.game.badgePending) return fail('現在不用移交警徽');
   const seat = L.seatOf(room, clientId);
   if (!seat || seat !== room.game.sheriff) return fail('只有警長能選');
+  // 警長同時能開槍（獵人、狼王）：先開槍（或不發動），再選警徽（Leo 2026-10-28，取代 10-28 上午「先選警徽再開槍」）
+  if (room.game.canShoot.includes(seat)) return fail('請先發動技能（或選不發動），再處理警徽');
   target = Number(target ?? 0);
   if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
   if (target === seat) return fail('不能移交給自己'); // 翻牌的白癡警長還活著（Leo 2026-10-28）
@@ -714,21 +715,31 @@ export function startVote(room, pk = false, now = 0) {
   if (!voters.length) return fail('沒有人可以投票');
   const g = structuredClone(g0);
   g.day.vote = { round: (g0.day.vote?.round ?? 0) + 1, pk: Boolean(pk), open: true, candidates, voters, ballots: {}, result: null };
-  say(g, ['voteStart']); // 主機唸「請大家進行投票。」（Leo 2026-10-27）
+  if (pk) g.day.vote.prev = g0.day.vote.result; // PK 中每支手機還看得到上一輪的統計
+  // 主機唸「請大家進行投票。」（Leo 2026-10-27）；PK 唸「3 號、5 號平票，請其他玩家進行投票。」（Leo 2026-10-28：平票自動 PK）
+  say(g, pk ? [...candidates.flatMap((s, i) => (i ? ['sep', seatKey(s)] : [seatKey(s)])), 'pkVote'] : ['voteStart']);
   g.log.push({ day: g.dayNo, text: pk ? `平票 PK：${candidates.join('、')} 號，其他人重新投票。` : '開始投票。' });
   return ok({ ...room, game: g });
 }
 
 // 投票結束（全部投完或主機按結束）：只有一個最高票就直接放逐，主機馬上唸「N 號被放逐出局。」
 // （獵人／狼王接「N 號，請啟動角色技能。」；白癡等他自己選翻不翻，先不唸）（Leo 2026-10-27）。
-// 平票、全部棄票由主機選（PK／沒人出局／重新投票）；放逐被擋住（例如還有人要開槍）就留給主機按
+// 主機不選放逐對象，全部照投票走（Leo 2026-10-28）：
+//   平票 → 自動 PK，平票以外的活人投（startVote pk）；PK 又平票（或沒人能投 PK）→「平票，今天沒有人出局。天黑請閉眼。」
+//   全部棄票（第一輪、PK 都一樣）→「今天沒有人出局。天黑請閉眼。」
+// 放逐被擋住（例如還有人要開槍，照理到不了）就停在統計畫面
 function finishVote(room, now) {
-  const top = room.game.day.vote.result.top;
+  const { top, pk } = room.game.day.vote.result;
   if (top.length === 1) {
     const r = exile(room, top[0], now);
+    return r.ok ? r : ok(room);
+  }
+  if (top.length > 1 && !pk) {
+    const r = startVote(room, true, now);
     if (r.ok) return r;
   }
-  return ok(room);
+  const r = exile(room, 0, now);
+  return r.ok ? r : ok(room);
 }
 
 // 玩家投票：target＝號碼，0＝棄票；投了不能改。全部投完自動結束、公布統計
@@ -769,13 +780,15 @@ function closeVote(g) {
   g.log.push({ day: g.dayNo, text: voteText(v.result) });
 }
 
-// 「投票結果：3 號 2.5 票（警長1、4 號）；5 號 1 票（2 號）；棄票 6 號。最高票 3 號。」
+// 全場紀錄的投票紀錄：每個人投誰（照號碼排），警長寫出 1.5 票（Leo 2026-10-28）
+// 「第 1 輪投票：1 號（警長 1.5 票）投 3 號、2 號投 5 號、4 號投 3 號、6 號棄票。統計：3 號 2.5 票、5 號 1 票。最高票 3 號。」
 export function voteText(r) {
-  const who = list => list.map(s => (s === r.sheriff ? `警長${s}` : `${s}`)).join('、') + ' 號';
-  const parts = r.rows.map(x => `${x.target} 號 ${x.score} 票（${who(x.voters)}）`);
-  if (r.abstain.length) parts.push(`棄票 ${who(r.abstain)}`);
-  const end = !r.top.length ? '沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號。` : `最高票 ${r.top[0]} 號。`;
-  return `${r.pk ? 'PK ' : ''}投票結果：${parts.join('；') || '全部棄票'}。${end}`;
+  const tag = s => (s === r.sheriff ? `${s} 號（警長 1.5 票）` : `${s} 號`);
+  const each = [...r.rows.flatMap(x => x.voters.map(s => [s, x.target])), ...r.abstain.map(s => [s, 0])]
+    .sort((a, b) => a[0] - b[0]).map(([s, t]) => `${tag(s)}${t ? `投 ${t} 號` : '棄票'}`);
+  const tally = r.rows.map(x => `${x.target} 號 ${x.score} 票`).join('、');
+  const end = !r.top.length ? '全部棄票，沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號。` : `最高票 ${r.top[0]} 號。`;
+  return `第 ${r.round ?? 1} 輪${r.pk ? ' PK ' : ''}投票：${each.join('、') || '沒有人投票'}。${tally ? `統計：${tally}。` : ''}${end}`;
 }
 
 /* ───────── 勝負 ───────── */
@@ -904,7 +917,7 @@ export function publicGame(room) {
     alive: g.alive,
     idiotRevealed: g.idiotRevealed,
     narration: g.narration ?? null,
-    log: g.log.slice(-30),
+    log: g.log.slice(-200), // 整局的紀錄（每輪投票誰投誰都在這裡，Leo 2026-10-28）；200 行約一局 20 天，上限防房間無限長大
     winner: g.winner,
     exileDone: g.day?.exileDone ?? false,
     deathsPending: Boolean(g.day?.pendingDeaths),
@@ -952,7 +965,7 @@ export function privateGame(room, seat) {
   }
   // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
   // 出局的警長：自己選移交給誰或撕警徽（Leo 2026-10-27）
-  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s] && s !== seat && !g.idiotRevealed.includes(s)) }; // 翻牌的白癡警長還活著：不能交給自己
+  if (room.phase === 'day' && g.badgePending && seat === g.sheriff && !g.canShoot.includes(seat)) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s] && s !== seat && !g.idiotRevealed.includes(s)) }; // 翻牌的白癡警長還活著：不能交給自己
   // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
   if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;

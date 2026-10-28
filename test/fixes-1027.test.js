@@ -78,7 +78,8 @@ test('投票：主機開始 → 每個人在手機上點號碼 → 全部投完�
   assert.deepEqual(res.rows.map(x => [x.target, x.score]), [[1, 5], [4, 4.5]], '警長 9 號投 4 號算 1.5 票');
   assert.deepEqual(res.abstain, [7, 10]);
   assert.deepEqual(res.top, [1]);
-  assert.equal(r.game.log.at(-2).text, '投票結果：1 號 5 票（4、5、6、8、11 號）；4 號 4.5 票（1、2、3、警長9 號）；棄票 7、10 號。最高票 1 號。');
+  // 全場紀錄：每個人投誰、警長寫 1.5 票（Leo 2026-10-28）
+  assert.equal(r.game.log.at(-2).text, '第 1 輪投票：1 號投 4 號、2 號投 4 號、3 號投 4 號、4 號投 1 號、5 號投 1 號、6 號投 1 號、7 號棄票、8 號投 1 號、9 號（警長 1.5 票）投 4 號、10 號棄票、11 號投 1 號。統計：1 號 5 票、4 號 4.5 票。最高票 1 號。');
   assert.deepEqual(E.publicGame(r).vote.result, res, '統計每支手機一樣');
   // 只有一個最高票：投完直接放逐、唸出局（Leo 2026-10-27）
   assert.equal(r.game.alive[1], false);
@@ -124,17 +125,47 @@ test('投完票：只有一個最高票就唸「N 號被放逐出局。」；能
   assert.equal(w.game.narration.text, '1 號被放逐出局。遊戲結束，好人陣營獲勝！');
 });
 
-test('投完票：狼王被投出去也喊「請啟動角色技能」；平票、全部棄票不自動放逐', () => {
+test('投完票：狼王被投出去也喊「請啟動角色技能」；平票自動 PK（Leo 2026-10-28：主機不選）', () => {
   const K = { wolf: 2, king: 1, seer: 1, witch: 1, hunter: 1, villager: 3 };
   let r = night(newGame(K));
   r = voteAll(r, { 1: 3, 2: 3, 4: 3 });
   assert.equal(r.game.roles[3], 'king');
   assert.equal(r.game.narration.text, '3 號被放逐出局。3 號，請啟動角色技能。');
-  // 平票：主機選 PK 或沒人出局
+  // 平票：自動 PK，平票以外的人投（Leo 2026-10-28）
   let t = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
-  assert.deepEqual(t.game.day.vote.result.top, [9, 10]);
   assert.equal(t.game.day.exileDone, false);
-  assert.equal(ok(E.exile(t, 0)).game.narration.text, '平票，今天沒有人出局。天黑請閉眼。', 'Leo 2026-10-28：接著天黑');
+  assert.equal(t.game.day.vote.open, true);
+  assert.equal(t.game.day.vote.pk, true);
+  assert.deepEqual(t.game.day.vote.candidates, [9, 10]);
+  assert.equal(t.game.narration.text, '9 號、10 號平票，請其他玩家進行投票。');
+  assert.deepEqual(t.game.narration.clips, ['n9', 'sep', 'n10', 'pkVote']);
+  assert.match(t.game.log.at(-2).text, /^第 1 輪投票：1 號投 9 號、2 號投 10 號、3 號棄票[\s\S]*平票：9、10 號。$/);
+  assert.equal(t.game.log.at(-1).text, '平票 PK：9、10 號，其他人重新投票。');
+});
+
+test('平票 PK 又平票＝今天沒人出局、直接天黑；PK 全部棄票＝「今天沒有人出局。」；大家都平票、沒人能投 PK＝直接天黑（Leo 2026-10-28）', () => {
+  // PK 又平票
+  let t = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
+  t = ok(E.castVote(t, id(1), 9));
+  t = ok(E.castVote(t, id(2), 10));
+  t = ok(E.endVote(t));
+  assert.equal(t.game.narration.text, '平票，今天沒有人出局。天黑請閉眼。');
+  assert.equal(t.game.day.exileDone, true);
+  assert.equal(t.game.day.nightCalled, true);
+  assert.match(t.game.log.at(-2).text, /^第 2 輪 PK 投票：1 號投 9 號、2 號投 10 號、3 號棄票[\s\S]*平票：9、10 號。$/);
+  assert.equal(t.game.log.at(-1).text, '平票，今天沒有人出局。天黑請閉眼。');
+  assert.equal(E.startVote(t).ok, false, '今天結束，不能再投');
+  assert.equal(ok(E.nextNight(t, 0)).phase, 'night');
+  // PK 全部棄票
+  let a = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
+  a = ok(E.endVote(a));
+  assert.equal(a.game.narration.text, '今天沒有人出局。天黑請閉眼。');
+  // 只剩 1 狼、6 獵人、7 守衛、9 平民，四個人各一票平手：沒人能投 PK → 直接天黑
+  let z = withDead(night(newGame(B)), [2, 3, 4, 5, 8, 10, 11]);
+  z = voteAll(z, { 1: 6, 6: 7, 7: 9, 9: 1 });
+  assert.equal(z.phase, 'day');
+  assert.equal(z.game.day.nightCalled, true);
+  assert.equal(z.game.narration.text, '平票，今天沒有人出局。天黑請閉眼。');
 });
 
 test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的人；全部棄票＝唸「今天沒有人出局。」（不是平票）', () => {
@@ -154,22 +185,21 @@ test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的
   const res = r.game.day.vote.result;
   assert.deepEqual(res.abstain, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   assert.deepEqual(res.top, []);
-  assert.equal(r.game.day.exileDone, false, '全部棄票不自動放逐，主機選');
-  assert.equal(r.game.log.at(-1).text, '投票結果：棄票 1、2、3、4、5、6、7、8、9、10、11 號。沒有人得票。');
+  // 全部棄票：自動「今天沒有人出局。天黑請閉眼。」（Leo 2026-10-28：主機不選）
+  assert.equal(r.game.day.exileDone, true);
+  assert.equal(r.game.log.at(-2).text, '第 1 輪投票：1 號棄票、2 號棄票、3 號棄票、4 號棄票、5 號棄票、6 號棄票、7 號棄票、8 號棄票、9 號棄票、10 號棄票、11 號棄票。全部棄票，沒有人得票。');
   const host = mount(r, 'host');
-  assert.match(host.html('#hostCtl'), /全部棄票，沒人出局/);
+  assert.match(host.html('#hostCtl'), /今天沒有人出局[\s\S]*進入黑夜/);
   assert.match(host.html('#voteBox'), /棄票[\s\S]*1、2、3/);
-  const out = ok(E.exile(r, 0));
-  assert.equal(out.game.narration.text, '今天沒有人出局。天黑請閉眼。');
-  assert.deepEqual(out.game.narration.clips, ['noExile', 'nightStart']);
+  assert.equal(r.game.narration.text, '今天沒有人出局。天黑請閉眼。');
+  assert.deepEqual(r.game.narration.clips, ['noExile', 'nightStart']);
 });
 
 test('平票 PK（Leo 2026-10-27）：10 人、1 號 2 號 PK，只有 3～10 號能投；PK 的人手機顯示不能投；投完照樣自動放逐', () => {
   let r = night(newGame(H)); // 平安夜：10 人都活著
   assert.equal(Object.values(r.game.alive).filter(Boolean).length, 10);
   r = voteAll(r, { 3: 1, 4: 1, 5: 2, 6: 2 });
-  assert.deepEqual(r.game.day.vote.result.top, [1, 2]);
-  r = ok(E.startVote(r, true));
+  assert.equal(r.game.narration.text, '1 號、2 號平票，請其他玩家進行投票。', '平票自動 PK（Leo 2026-10-28）');
   const v = r.game.day.vote;
   assert.deepEqual(v.candidates, [1, 2]);
   assert.deepEqual(v.voters, [3, 4, 5, 6, 7, 8, 9, 10], '只有 3～10 號投票');
@@ -197,10 +227,8 @@ test('投票：平票可以 PK（平手的人不投、其他人只能投他們�
   for (const s of [1, 2, 3, 4]) r = ok(E.castVote(r, id(s), 9));
   for (const s of [5, 6, 7, 8]) r = ok(E.castVote(r, id(s), 10));
   r = ok(E.endVote(r));
-  assert.deepEqual(r.game.day.vote.result.top, [9, 10]);
-  assert.deepEqual(r.game.day.vote.result.abstain, [9, 10, 11]);
-  assert.match(r.game.log.at(-1).text, /平票：9、10 號。$/);
-  r = ok(E.startVote(r, true));
+  assert.match(r.game.log.at(-2).text, /9 號棄票、10 號棄票、11 號棄票。統計：9 號 4 票、10 號 4 票。平票：9、10 號。$/);
+  assert.equal(r.game.day.vote.pk, true, '平票自動 PK');
   assert.deepEqual(r.game.day.vote.candidates, [9, 10]);
   assert.deepEqual(r.game.day.vote.voters, [1, 2, 3, 4, 5, 6, 7, 8, 11]);
   assert.equal(E.castVote(r, id(9), 10).ok, false, 'PK 的人不投');
@@ -488,27 +516,19 @@ test('畫面：主機按「進行投票」→ 唸「請大家進行投票。」�
   assert.equal(r.game.narration.text, '9 號被放逐出局。');
   const h2 = mount(r, 'host');
   assert.match(h2.html('#hostCtl'), /✓ 今天的放逐已登記/);
-  assert.ok(!h2.html('#hostCtl').includes('照投票結果'));
-  // 「照投票結果：放逐」只在自動放逐被擋住時出現（例如舊房間）：照樣送放逐
-  const blocked = { ...r, game: { ...r.game, alive: { ...r.game.alive, 9: true }, day: { ...r.game.day, exileDone: false } } };
-  const hb = mount(blocked, 'host');
-  assert.match(hb.html('#hostCtl'), /照投票結果：放逐 9 號/);
-  hb.click('#hostCtl', 'host', 'exileTop');
-  assert.deepEqual(hb.sent.at(-1), { type: 'exile', target: 9 });
-  // 手動登記還在（沒投票時用）
-  const h3 = mount(night(newGame(B)), 'host');
-  h3.click('#hostCtl', 'host', 'manualExile');
-  assert.match(h3.html('#hostCtl'), /手動登記被放逐的人[\s\S]*data-host-pick="1"/);
-  // 平票：主機看到 PK 鈕
+  // 主機不選放逐對象（Leo 2026-10-28）：沒有手動放逐、照投票結果、PK、沒人出局、重新投票的按鈕
+  for (const btn of ['exileTop', 'manualExile', 'exile0', 'pk', 'data-host-pick']) assert.ok(!h2.html('#hostCtl').includes(btn), btn);
+  const h3 = mount(night(newGame(B)), 'host').html('#hostCtl');
+  for (const btn of ['manualExile', 'exile0', 'data-host-pick']) assert.ok(!h3.includes(btn), btn);
+  // 平票：自動 PK，主機只看到投票中、可以提早結束
   let t = night(newGame(B));
   t = ok(E.startVote(t));
   for (let s = 1; s <= 11; s++) t = ok(E.castVote(t, id(s), s <= 5 || s === 9 ? (s === 9 ? 10 : 9) : s === 10 ? 0 : 10));
   const ht = mount(t, 'host');
-  assert.match(ht.html('#hostCtl'), /平票 PK（9、10 號）[\s\S]*平票，沒人出局/);
-  assert.ok(!ht.html('#hostCtl').includes('照投票結果'), '平票不自動放逐');
-  ht.click('#hostCtl', 'host', 'pk');
-  assert.deepEqual(ht.sent.at(-1), { type: 'startVote', pk: true });
-  assert.equal(ok(E.startVote(t, true)).game.narration.text, '請大家進行投票。', 'PK 也唸');
+  assert.match(ht.html('#hostCtl'), /平票 PK（9、10 號）中：已投 0／9 人[\s\S]*data-host="endVote"/);
+  assert.ok(!ht.html('#hostCtl').includes('data-host="pk"'));
+  assert.match(ht.html('#voteBox'), /平票 PK 投票中/);
+  assert.match(ht.html('#logList'), /平票 PK：9、10 號[\s\S]*第 1 輪投票：[\s\S]*9 號（警長 1.5 票）|平票 PK：9、10 號[\s\S]*第 1 輪投票：/, '紀錄有第一輪誰投誰');
 });
 
 test('畫面：主機登記警長；警長出局由他自己的手機選移交或撕警徽（主機只能等）；座位表標「警長」；狼美人不能刀、昨晚魅惑過的不能選', () => {
@@ -548,4 +568,23 @@ test('畫面：主機登記警長；警長出局由他自己的手機選移交�
     else w = E.advance(w, w.game.timer.at, minRand).room;
   }
   assert.match(mount(w, id(3)).html('#actionBox'), /昨晚魅惑的是 6 號[\s\S]*data-pick="6" disabled[\s\S]*昨晚魅惑過/);
+});
+
+test('警長是狼王、被騎士撞死：先開槍、再選警徽，都處理完才唸「天黑請閉眼」（Leo 2026-10-28）', () => {
+  const KK = { wolf: 2, king: 1, seer: 1, hunter: 1, knight: 1, villager: 3 };
+  let r = night(newGame(KK));
+  const seatOf = role => Object.keys(r.game.roles).map(Number).find(s => r.game.roles[s] === role);
+  const king = seatOf('king'), knight = seatOf('knight'), v = seatOf('villager');
+  r = ok(E.setSheriff(r, king));
+  r = ok(E.duel(r, id(knight), king));
+  assert.ok(r.game.canShoot.includes(king) && r.game.badgePending);
+  assert.ok(!r.game.narration.text.includes('天黑請閉眼'), '還沒唸天黑');
+  assert.equal(E.privateGame(r, king).passBadge, undefined, '先開槍');
+  assert.equal(E.passBadge(r, id(king), v).ok, false);
+  r = ok(E.shoot(r, id(king), v));
+  assert.ok(!r.game.narration.text.includes('天黑請閉眼'), '開完槍還要選警徽，先不唸天黑');
+  assert.ok(E.privateGame(r, king).passBadge, '開完才選警徽');
+  r = ok(E.passBadge(r, id(king), 0));
+  assert.equal(r.game.narration.text, '天黑請閉眼。', '警徽處理完才唸天黑');
+  assert.equal(ok(E.nextNight(r, 0)).phase, 'night');
 });

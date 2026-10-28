@@ -6,7 +6,7 @@ const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 20
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', hidden: '隱狼', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
-const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null, manualExile: false };
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null };
 const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
@@ -196,6 +196,7 @@ function renderAction() {
   } else if (phase === 'day' && me.canShoot) {
     html = `<h2>你可以發動技能</h2>
       <p class="hint">帶走一個人，或選擇不發動。帶人的話主機會公開宣布；不發動主機不唸。</p>
+      ${g.badgePending && g.sheriff === seat ? '<p class="hint">你是警長：先處理技能，接著再選要移交還是撕掉警徽（Leo 2026-10-28）。</p>' : ''}
       ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick)}
       <div class="row-gap"><button class="btn primary" type="button" data-do="shoot"${pick ? '' : ' disabled'}>帶走 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="shoot0">不發動</button></div>`;
@@ -297,9 +298,6 @@ function renderHost() {
   if (!isHost) return;
   const done = h => setHTML(box, seatRequestsHTML(state.seatRequests) + h + restartRow(phase)); // 最上面是換手機的申請；每個畫面最下面都有「直接重開」
 
-  // 新的投票統計出來時也重來：放逐的號碼改跟著最高票
-  const key = `${phase}|${g.dayNo}|${g.vote?.round ?? 0}|${g.vote?.open ? 1 : 0}`;
-  if (key !== ui.hostKey) { ui.hostKey = key; ui.hostPick = null; }
   const bgm = `<button class="btn small" type="button" data-host="bgm">背景音樂：${voice.bgmOn ? '開' : '關'}</button>
     <button class="btn small" type="button" data-host="voice">主持聲音：${voice.voiceName}</button>`;
   let html = '';
@@ -311,7 +309,6 @@ function renderHost() {
       ${step === 'police' ? `<button class="btn primary big" type="button" data-host="policeDone">大家都起立好了，天亮</button>
         <p class="hint center">不按的話，大約 7～10 秒後會自動天亮。</p>` : skipBox(g.night)}`;
   } else if (phase === 'day') {
-    const pick = hostPick();
     if (g.deathsPending) {
       // 第一天：先選警長（口頭競選、主機登記）；登記完（或警徽流失）就直接唸「N 號玩家當選警長。」接著昨晚死訊（Leo 2026-10-28）
       html = `<h2>警長競選</h2>
@@ -337,29 +334,16 @@ function renderHost() {
       done(html);
       return;
     }
-    const v = g.vote, res = v && !v.open ? v.result : null;
-    // 投票（Leo 2026-10-27）：主機按「進行投票」→ 唸「請大家進行投票。」→ 每個人在手機上選 → 選完每支手機顯示結果 → 主機照結果放逐。
-    // 手動點號碼放逐收在「手動登記」（有人手機沒電、沒投票時用）
-    const top1 = res?.top.length === 1 && g.alive[res.top[0]] ? res.top[0] : null;
-    const manual = ui.manualExile ? `
-        <h3>手動登記被放逐的人</h3>
-        ${picker(aliveSeats().map(n => ({ n })), pick, 'data-host-pick')}
-        <div class="row-gap"><button class="btn primary" type="button" data-host="exile"${pick ? '' : ' disabled'}>放逐 ${pick ?? '…'} 號</button>
-        <button class="btn" type="button" data-host="exile0">平票／沒人出局</button>
-        <button class="btn small" type="button" data-host="manualExile">收起</button></div>`
-      : '<div class="row-gap"><button class="btn small" type="button" data-host="manualExile">手動登記放逐（沒投票時）</button></div>';
+    const v = g.vote;
+    // 投票（Leo 2026-10-27；10-28 起主機不選放逐對象）：主機只按「進行投票」→ 每個活人在手機上投 → 投完自動：
+    // 單一最高票放逐、平票自動 PK（平票以外的人投）、PK 又平票或全部棄票＝今天沒人出局、直接天黑
     html = `<h2>白天</h2>
       ${sheriffHTML(g)}
-      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，每個人在自己手機上選（可以棄票）；全部選完，每支手機都會顯示投票結果，只有一個最高票就直接放逐、唸出局（被投的是還沒翻牌的白癡，就等他自己選）。</p>
+      <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，活著的玩家在自己手機上投（可以棄票）。投完自動處理：只有一個最高票就放逐、唸出局；平票就自動 PK（平票以外的人再投一次）；PK 又平票或全部棄票＝今天沒人出局、直接天黑。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
-        <p class="done">投票中：已投 ${v.voted}／${v.voters.length} 人</p>
+        <p class="done">${v.pk ? `平票 PK（${v.candidates.join('、')} 號）` : '投票'}中：已投 ${v.voted}／${v.voters.length} 人</p>
         <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
-        ${top1 ? `<div class="row-gap"><button class="btn primary big" type="button" data-host="exileTop">照投票結果：放逐 ${top1} 號</button></div>` : ''}
-        ${res?.top.length > 1 ? `<div class="row-gap"><button class="btn primary" type="button" data-host="pk">平票 PK（${res.top.join('、')} 號）：其他人再投一次</button>
-          <button class="btn" type="button" data-host="exile0">平票，沒人出局</button></div>` : ''}
-        ${res && !res.top.length ? '<div class="row-gap"><button class="btn" type="button" data-host="exile0">全部棄票，沒人出局</button></div>' : ''}
-        <div class="row-gap"><button class="btn ${res ? '' : 'primary big'}" type="button" data-host="startVote">${res ? '重新投票' : '進行投票'}</button></div>
-        ${manual}`}
+        <div class="row-gap"><button class="btn primary big" type="button" data-host="startVote">進行投票</button></div>`}
       <div class="row-gap"><button class="btn primary big" type="button" data-host="night">天黑請閉眼</button></div>
       <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a>${bgm}</div>`;
   } else if (phase === 'ended') {
@@ -393,16 +377,9 @@ function skipBox(night) {
 
 const NIGHT_REASON = { knight: '騎士撞到狼人', boom: '白狼王自爆', wolfBoom: '狼人自爆', noExile: '今天沒有人出局' };
 
-// 主機要放逐的號碼：主機自己點的（0＝點掉了）；沒點過就照投票統計的最高票（只有一個最高票時）
-function hostPick() {
-  const g = c.state.game, res = g.vote && !g.vote.open ? g.vote.result : null;
-  if (ui.hostPick !== null) return ui.hostPick || null;
-  return res?.top.length === 1 && g.alive[res.top[0]] ? res.top[0] : null;
-}
-
 // 警長（Leo 2026-10-27）：主機登記誰當警長、警長出局移交警徽、撕警徽。全場都看得到（座位表標「警長」、紀錄寫一行）
 function sheriffHTML(g) {
-  if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號${g.alive[g.sheriff] ? '翻牌了（失去投票權，要交出警徽）' : '出局了'}</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
+  if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號${g.alive[g.sheriff] ? '翻牌了（失去投票權，要交出警徽）' : '出局了'}</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽（能開槍的警長先開槍、再選警徽）……</p></div>`;
   const pick = ui.sheriffPick;
   const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（${g.idiotRevealed?.includes(g.sheriff) ? '翻過牌的白癡沒有票（更新前開的房間才會這樣）' : '投票算 1.5 票'}；出局時由他自己選移交或撕警徽）</p>`
     : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
@@ -418,8 +395,6 @@ function sheriffHTML(g) {
 }
 
 function onHost(e) {
-  const hp = e.target.closest('[data-host-pick]');
-  if (hp) { const n = Number(hp.dataset.hostPick); ui.hostPick = hostPick() === n ? 0 : n; c.render(); return; }
   const sp = e.target.closest('[data-sheriff-pick]');
   if (sp) { const n = Number(sp.dataset.sheriffPick); ui.sheriffPick = ui.sheriffPick === n ? null : n; c.render(); return; }
   if (approveFromClick(e, msg => { c.voice.unlock(); c.send(msg); })) return;
@@ -436,14 +411,7 @@ function onHost(e) {
     case 'bgm': voice.toggleBgm(); voice.setNight(state.phase === 'night'); c.render(); break;
     case 'policeDone': send({ type: 'skip' }); break;
     case 'skip': if (confirm('跳過這一步？這一步當作沒有動作。')) send({ type: 'skip' }); break;
-    case 'exile': { const n = hostPick(); if (n && confirm(`登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n }); break; }
     case 'startVote': send({ type: 'startVote' }); break;
-    case 'exileTop': {
-      const r = state.game.vote?.result, n = r?.top.length === 1 ? r.top[0] : null;
-      if (n && confirm(`照投票結果，登記 ${n} 號被放逐？`)) send({ type: 'exile', target: n });
-      break;
-    }
-    case 'pk': send({ type: 'startVote', pk: true }); break;
     case 'endVote': if (confirm('結束投票？還沒投的人算棄票。')) send({ type: 'endVote' }); break;
     case 'sheriffOpen': ui.sheriffOpen = true; c.render(); break;
     case 'sheriffClose': ui.sheriffOpen = false; ui.sheriffPick = null; c.render(); break;
@@ -453,10 +421,8 @@ function onHost(e) {
       break;
     }
     case 'tear': if (confirm(state.game.deathsPending ? '警徽流失？現在沒有警長，接著會公布昨晚的死訊。' : '警徽流失？現在沒有警長。')) { send({ type: 'tearBadge' }); ui.sheriffOpen = false; ui.sheriffPick = null; } break;
-    case 'manualExile': ui.manualExile = !ui.manualExile; c.render(); break;
-    case 'exile0': if (confirm('登記「今天沒人出局」？')) send({ type: 'exile', target: 0 }); break;
     case 'night':
-      if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒登記放逐結果，確定直接天黑？')) return;
+      if (!state.game.exileDone && !state.game.nightCalled && !confirm('今天還沒投票放逐，確定直接天黑？')) return;
       send({ type: 'nextNight' }); break;
     case 'restart':
       if (state.phase !== 'ended' && !confirm('直接重開？這局作廢，座位和板子不變，馬上重新發牌（每個人身分都會換）。')) return;
@@ -477,12 +443,13 @@ function renderVote() {
   box.hidden = !v;
   if (!v) return;
   if (v.open) {
-    const pkLine = v.pk ? `<p class="hint">PK：${v.candidates.join('、')} 號（這輪不投票）；投票的人：${v.voters.join('、')} 號。</p>` : '';
+    const prev = v.pk && v.prev ? `<p class="hint">上一輪：${v.prev.rows.map(x => `${x.target} 號 ${x.score} 票`).join('、')}（誰投誰見下面全場紀錄）。</p>` : ''; // 平票自動 PK（Leo 2026-10-28）
+    const pkLine = v.pk ? `<p class="hint">PK：${v.candidates.join('、')} 號（這輪不投票）；投票的人：${v.voters.join('、')} 號。</p>${prev}` : '';
     setHTML(box, `<h2>${v.pk ? '平票 PK 投票中' : '投票中'}</h2>${pkLine}<p class="hint">已投 ${v.voted}／${v.voters.length} 人。投完後每支手機同時出現統計。</p>`);
     return;
   }
   const r = v.result;
-  const who = list => list.map(s => (s === r.sheriff ? `${s}（警長）` : `${s}`)).join('、');
+  const who = list => list.map(s => (s === r.sheriff ? `${s}（警長 1.5 票）` : `${s}`)).join('、');
   setHTML(box, `<h2>${r.pk ? '平票 PK ' : ''}投票統計</h2>
     <ul class="tally">${r.rows.map(x => `<li${r.top.includes(x.target) ? ' class="top"' : ''}><b class="digits">${x.target} 號</b><span class="score">${x.score} 票</span><span class="by">${who(x.voters)} 號投</span></li>`).join('')}
       ${r.abstain.length ? `<li><b>棄票</b><span class="score"></span><span class="by">${who(r.abstain)} 號</span></li>` : ''}</ul>
@@ -546,13 +513,13 @@ function daySkill(me) {
   // 自爆：白狼王可以帶人；其他狼人（狼美人除外）2026-10-27 起也能自爆，不帶人
   if (me.canBoom) return ui.boomOpen
     ? (me.boomTake ? `<div class="skill"><h2>白狼王自爆</h2>
-       <p class="hint">自爆後你出局，可以帶走一個人或不帶；今天不再投票，直接天黑（被帶走的人要開槍、或你／被帶走的人是警長要選警徽，都等處理完才唸天黑）。今天的放逐登記之後就不能自爆（平票、全部棄票要等主機按「沒人出局」才算）。</p>
+       <p class="hint">自爆後你出局，可以帶走一個人或不帶；今天不再投票，直接天黑（被帶走的人要開槍、或你／被帶走的人是警長要選警徽，都等處理完才唸天黑）。今天的放逐登記之後就不能自爆（平票會自動 PK，PK 中還能自爆；PK 又平票、全部棄票＝今天沒人出局，就不能了）。</p>
        ${picker(aliveSeats({ except: [seat] }).map(n => ({ n })), pick, 'data-skill-pick')}
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom"${pick ? '' : ' disabled'}>自爆，帶走 ${pick ?? '…'} 號</button>
        <button class="btn" type="button" data-do="boom0">自爆，不帶人</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`
       : `<div class="skill"><h2>狼人自爆</h2>
-       <p class="hint">自爆後你出局，主機唸「你的號碼狼人自爆，天黑請閉眼」；今天不再投票，直接天黑（你是警長的話，先選完警徽才唸天黑）。今天的放逐登記之後就不能自爆（平票、全部棄票要等主機按「沒人出局」才算）。</p>
+       <p class="hint">自爆後你出局，主機唸「你的號碼狼人自爆，天黑請閉眼」；今天不再投票，直接天黑（你是警長的話，先選完警徽才唸天黑）。今天的放逐登記之後就不能自爆（平票會自動 PK，PK 中還能自爆；PK 又平票、全部棄票＝今天沒人出局，就不能了）。</p>
        <div class="row-gap"><button class="btn primary" type="button" data-do="boom0">確定自爆</button>
        <button class="btn" type="button" data-do="boomClose">取消</button></div></div>`)
     : `<button class="btn big" type="button" data-do="boomOpen">💥 自爆（${me.boomTake ? '白狼王技能' : '狼人'}）</button>`;

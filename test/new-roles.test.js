@@ -613,7 +613,8 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       }
       const must = (res, why) => { assert.ok(res.ok, `seed ${seed} ${why}：${res.error}`); r = res.room; };
       // 警長：主機登記（警長競選時、或隨便哪天）、警長出局就移交或撕掉
-      if (g.badgePending) { // 出局的警長自己選（主機不能代按）
+      if (g.badgePending && g.canShoot.includes(g.sheriff)) rejected(E.passBadge(r, id(g.sheriff), 0), '警長能開槍：先開槍再選警徽（Leo 2026-10-28）');
+      if (g.badgePending && !g.canShoot.includes(g.sheriff)) { // 出局的警長自己選（主機不能代按）
         rejected(E.setSheriff(r, pickAlive()), '主機代替警長移交');
         rejected(E.tearBadge(r), '主機代替警長撕警徽');
         const heirs = aliveList().filter(s => s !== g.sheriff && !g.idiotRevealed.includes(s)); // 不能交給自己、翻過牌的白癡（Leo 2026-10-28）
@@ -636,7 +637,8 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       if (deadKn && rnd(4) === 0) { const res = E.duel(r, id(deadKn), aliveList().find(s => s !== deadKn)); assert.equal(res.ok, false, `seed ${seed} 死掉的騎士決鬥成功了`); r = res.room; assert.equal(r.game.knightUsed, false); continue; }
       if (g.day.pendingDeaths) { r = E.announceDeaths(r).room; continue; }
       if (g.day.idiotChoice) { r = E.idiotChoose(r, id(g.day.idiotChoice), rnd(2) === 0).room; continue; }
-      if (g.canShoot.length && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了
+      if (g.canShoot.length && g.badgePending) rejected(E.nextNight(r, now), '警長還沒開槍、選警徽就天黑'); // 出局的警長：先開槍再選警徽，選完才能天黑（Leo 2026-10-28）
+      if (g.canShoot.length && !g.badgePending && rnd(8) === 0) { r = E.nextNight(r, now).room; continue; } // 主機太快按天黑，這槍沒了
       if (g.canShoot.length) { const s = g.canShoot[0]; const t = rnd(2) ? pickAlive() : 0; const res = E.shoot(r, id(s), t === s ? 0 : t); assert.ok(res.ok, res.error); r = res.room; continue; }
       if (wk0 && !g.day.exileDone && !g.day.nightCalled && rnd(6) === 0) {
         const t = g.roles[wk0] === 'whiteKing' ? pickAlive() : 0;
@@ -655,12 +657,21 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
             const c = v.candidates.filter(x => x !== s);
             must(E.castVote(r, id(s), rnd(4) && c.length ? c[rnd(c.length)] : 0), '投票');
           }
-          if (r.game.day.vote.open) must(E.endVote(r), '結束投票');
-          const res0 = r.game.day.vote.result;
+          if (r.game.day.vote.open && !r.game.day.vote.pk) must(E.endVote(r), '結束投票'); // 第一輪還沒投完；已經自動進 PK 的不算
+          // 平票自動進 PK（Leo 2026-10-28）：第一輪的結果留在 vote.prev
+          const v1 = r.game.day.vote, res0 = v1.open ? v1.prev : v1.result;
           const weight = s => (s === r.game.sheriff ? 1.5 : 1);
           const total = res0.rows.reduce((a, x) => a + x.score, 0) + res0.abstain.reduce((a, s) => a + weight(s), 0);
-          assert.equal(total, r.game.day.vote.voters.reduce((a, s) => a + weight(s), 0), `seed ${seed} 票數對不起來`);
-          if (res0.top.length > 1 && rnd(2)) { const pk = E.startVote(r, true); if (pk.ok) { r = pk.room; for (const s of r.game.day.vote.voters) must(E.castVote(r, id(s), r.game.day.vote.candidates[rnd(r.game.day.vote.candidates.length)]), 'PK 投票'); } }
+          assert.equal(total, v.voters.reduce((a, s) => a + weight(s), 0), `seed ${seed} 票數對不起來`);
+          assert.ok(!v1.open || res0.top.length > 1, `seed ${seed} 平票才會自動 PK`);
+          // 平票卻沒進 PK：只有「有票的人全都在平票裡、沒人能投 PK」這一種（直接天黑）
+          if (!v1.open && res0.top.length > 1) assert.ok(r.phase === 'ended' || v.voters.every(s => res0.top.includes(s) || !r.game.alive[s] || r.game.idiotRevealed.includes(s)), `seed ${seed} 平票沒進 PK`);
+          if (v1.open) {
+            assert.ok(v1.pk && v1.candidates.every(s => res0.top.includes(s)) && v1.voters.every(s => !res0.top.includes(s)), `seed ${seed} PK 的人不投`);
+            rejected(E.startVote(r, true), 'PK 中再開 PK');
+            for (const s of v1.voters) { if (rnd(8) === 0) continue; must(E.castVote(r, id(s), rnd(5) ? v1.candidates[rnd(v1.candidates.length)] : 0), 'PK 投票'); }
+            if (r.game.day.vote.open) must(E.endVote(r), '結束 PK');
+          }
           const top = r.game.day.vote?.result?.top ?? [];
           // 只有一個最高票：投完已經自動放逐（Leo 2026-10-27）；白癡等他自己選、其他人唸「N 號被放逐出局。」
           if (top.length === 1) {
@@ -668,7 +679,9 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
             if (!r.game.day.idiotChoice) assert.ok(r.game.log.some(e => e.text.startsWith(`${top[0]} 號被放逐出局。`)), `seed ${seed} 沒唸出局`);
             continue;
           }
-          must(E.exile(r, 0), '平票／全部棄票：沒人出局'); continue;
+          // 平票（PK 又平）、全部棄票：自動「今天沒有人出局」接天黑（Leo 2026-10-28），主機不用按
+          assert.ok(r.phase === 'ended' || (r.game.day.exileDone && r.game.day.nightCalled), `seed ${seed} 沒人出局沒自動天黑`);
+          continue;
         }
         must(E.exile(r, rnd(4) ? pickAlive() : 0), '放逐'); continue;
       }
