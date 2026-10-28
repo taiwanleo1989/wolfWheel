@@ -262,6 +262,20 @@ test('狼美人不能被自刀、不能自爆；被女巫毒死不殉情（技�
   assert.equal(E.boom(d, id(4), 0).ok, false, '狼美人不能自爆');
 });
 
+test('狼美人夜裡誰都刀不到，白天可以用手機投票票走（Leo 2026-10-28 核對）', () => {
+  let r = night(newGame(FULL, { police: false }), { charm: 9 });
+  assert.equal(r.game.alive[4], true);
+  r = E.startVote(r).room;
+  assert.ok(r.game.day.vote.candidates.includes(4), '狼美人在投票名單上');
+  for (const s of r.game.day.vote.voters) {
+    const res = E.castVote(r, id(s), s === 4 ? 0 : 4);
+    assert.equal(res.ok, true, res.error);
+    r = res.room;
+  }
+  assert.equal(r.game.alive[4], false, '狼美人被票走');
+  assert.equal(said(r), '4 號被放逐出局。9 號殉情出局。');
+});
+
 test('狼美人白天出局（放逐、被槍帶走）：魅惑的人殉情、技能被悶，台詞接著唸「N 號殉情出局。」；被騎士撞死不殉情', () => {
   let r = night(newGame(FULL), { charm: 9 });
   assert.equal(E.privateGame(r, 4).charm, 9, '狼美人看得到現在魅惑誰');
