@@ -400,7 +400,7 @@ function sheriffHTML(g) {
   const open = ui.sheriffOpen || (g.deathsPending && !g.sheriff && !g.badgeTorn);
   if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '登記錯了，改警長' : '登記警長'}</button></div>`;
   return `<div class="sheriff"><h3>登記警長</h3>${status}
-    ${picker(aliveSeats({ except: [g.sheriff] }).map(n => ({ n })), pick, 'data-sheriff-pick')}
+    ${picker(aliveSeats({ except: [g.sheriff, ...(g.idiotRevealed ?? [])] }).map(n => ({ n })), pick, 'data-sheriff-pick')}
     <div class="row-gap"><button class="btn primary small" type="button" data-host="sheriff"${pick ? '' : ' disabled'}>警長是 ${pick ?? '…'} 號</button>
     ${!g.sheriff && !g.badgeTorn ? '<button class="btn small" type="button" data-host="tear">警徽流失（沒有警長）</button>' : ''}
     <button class="btn small" type="button" data-host="sheriffClose">收起</button></div></div>`;

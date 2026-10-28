@@ -279,3 +279,11 @@ test('主機畫面的跳過秒數跟伺服器 SKIP_MS 一樣', async () => {
   assert.ok(m, 'game-ui.js 找不到 const SKIP_MS');
   assert.equal(Number(m[1]), E.SKIP_MS);
 });
+
+test('主機登記警長：翻過牌的白癡不在選單裡（伺服器會擋「翻過牌的白癡不能當警長」，2026-10-29 夜班）', () => {
+  const r = toStep(newGame(), 'none'); // 第一天、死訊還沒公布：登記警長那格自動打開
+  const g = { ...r.game, idiotRevealed: [13] };
+  const html = mount({ ...r, game: g }, 'host').html('#hostCtl');
+  assert.match(html, /data-sheriff-pick="12"/);
+  assert.doesNotMatch(html, /data-sheriff-pick="13"/);
+});

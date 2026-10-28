@@ -205,6 +205,7 @@ function keepAlive() {
 function playClips(clips) {
   let t = Math.max(actx.currentTime + 0.05, playingUntil);
   const startAt = t;
+  const mine = [];
   for (const k of clips) {
     if (k in GAP) { t += GAP[k]; continue; }
     const src = actx.createBufferSource();
@@ -212,13 +213,15 @@ function playClips(clips) {
     if (CLIP_GAIN[k]) { const g = actx.createGain(); g.gain.value = CLIP_GAIN[k]; src.connect(g).connect(voiceGain); }
     else src.connect(voiceGain);
     src.start(t);
-    playing.push(src);
+    playing.push(src); mine.push(src);
     t += buffers[k].duration + 0.04;
   }
   playingUntil = t;
   // 唸的期間把背景音樂壓低
   setTimeout(() => { speaking++; duck(); }, Math.max(0, (startAt - actx.currentTime) * 1000));
-  setTimeout(() => { speaking = Math.max(0, speaking - 1); duck(); playing = playing.filter(s => s.buffer && actx.currentTime < t); }, Math.max(0, (t - actx.currentTime) * 1000));
+  // 唸完只拿掉這一句自己的片段：排在後面的下一句要留著，stop() 才停得掉（2026-10-29 夜班：原本整個 playing 一起清掉，
+  // 兩句排隊時按「再唸一次」／直接重開，後一句會照唸、跟新句疊在一起）
+  setTimeout(() => { speaking = Math.max(0, speaking - 1); duck(); playing = playing.filter(s => !mine.includes(s)); }, Math.max(0, (t - actx.currentTime) * 1000));
 }
 
 function duck() { fadeTo(speaking > 0 ? BGM_DUCK : BGM_VOL); }

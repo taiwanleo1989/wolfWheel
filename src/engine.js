@@ -2,9 +2,9 @@
 // 時間相關的動作（假等、停頓）用 game.timer = { at } 交給房間的鬧鐘，到時呼叫 advance()。
 //
 // 黑夜照 Leo 的手稿（2026-10-08）：守衛 → 狼人 → 女巫（解藥、毒藥兩段）→ 預言家 → 獵人 →（第一晚）上警 → 天亮。
-// 2026-10-13 加五個角色，插進手稿的順序：狼人之後狼美人、預言家之後石像鬼、守墓人（第二晚起）；白狼王、隱狼沒有自己的一步。
+// 2026-10-13 加五個角色，插進手稿的順序：狼人之後狼美人、預言家之後石像鬼、守墓人（第二晚起）；白狼王沒有自己的一步（隱狼 2026-10-28 起有，見下）。
 // 2026-10-17 獵人之後加狼王的帶槍手勢；2026-10-27 Leo 拿掉（狼王夜裡不再有帶槍手勢這一步，scriptFor 的 'king' 留給舊房間）。
-// 2026-10-28 隱狼有自己的一步（狼美人之後、女巫之前）：其他狼都出局、只剩隱狼時，他在這一步單獨刀人；不然假等（見 actors）。
+// 2026-10-28 隱狼有自己的一步（狼美人之後、女巫之前）：其他狼都出局、只剩隱狼時，他在這一步單獨刀人；不然看狼同伴、按「知道了」（2026-10-28 晚取代假等）；隱狼已出局才假等（見 actors）。
 // 每個角色＝一段「劇本」：幾句台詞（beat），每句台詞配一個要等的動作，最後一句閉眼。
 // 主機只唸台詞，絕不唸號碼——手稿裡「上帝手比號碼」的部分只出現在當事人的手機上。
 //
@@ -15,8 +15,10 @@
 //   charm（狼美人最近一晚魅惑的座位）, graveInfo{day,seat,wolf}（最近一次投票放逐出局的人）,
 //   canShoot[], knightUsed, log[{day,text}], narration{seq,text},
 //   night{steps,idx,beat,stage,next,openedAt,wolfVotes,wolfProposal,wolfTarget,guardTarget,witchSave,witchPoison,seerTarget,charmTarget,gargoyleTarget},
-//   day{exileDone,pendingDeaths,noSkill[],nightCalled,nightReason,vote}, winner, timer{at},
-//   sheriff（警長座位，主機登記）, badgeTorn（警徽撕掉了）, badgePending（警長出局、等主機移交或撕掉警徽）
+//   night 另有 wait（'people'｜'fake'｜'police'）、fakeEnd、fakeLeft（死掉的角色假等）、repeatPaused（主機離線停重唸）,
+//   day{exileDone,pendingDeaths,noSkill[],nightCalled,nightReason,vote,bindCheck,idiotChoice,skillAsked}, winner, timer{at},
+//   sheriff（警長座位，主機登記）, badgeTorn（警徽撕掉了）, badgePending（警長出局、等他自己移交或撕掉警徽）,
+//   badgeChosen（警長自己選過，主機不能再改）
 //   day.vote{round,open,candidates[],voters[],ballots{座位:目標,0＝棄票},result}（玩家在手機上按號碼投票，2026-10-27）
 import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
@@ -399,7 +401,7 @@ function dawn(room, now, seq0) {
   g.timer = null;
   g.day = { exileDone: false, pendingDeaths: null, noSkill: [...noSkill] };
   if (police) {
-    // 第一天：先競選警長（口頭），主機按「公布昨晚死訊」才宣布——在那之前座位表也不會顯示誰死
+    // 第一天：先競選警長（口頭），主機登記警長（或按「警徽流失」）那一下才宣布（Leo 2026-10-28）——在那之前座位表也不會顯示誰死
     g.day.pendingDeaths = list;
     g.log.push({ day: g.dayNo, text: '天亮請睜眼。請上警的玩家發言、選出警長，之後由主機公布昨晚死訊。' });
     say(g, ['dawn']);
@@ -411,7 +413,7 @@ function dawn(room, now, seq0) {
   return checkWin({ ...room, phase: 'day', game: g }, seq0);
 }
 
-// 套用第一天還沒公布的死訊（主機按「公布昨晚死訊」；或警長競選中騎士撞到狼、狼人自爆，今天直接天黑時順便公布）。
+// 套用第一天還沒公布的死訊（主機登記警長、警徽流失；舊網頁的「公布昨晚死訊」；或警長競選中騎士撞到狼、狼人自爆，今天直接天黑時順便公布）。
 // 回傳「昨晚死亡的是 9 號。」的片段
 function flushPending(g) {
   const list = g.day.pendingDeaths;
@@ -423,7 +425,7 @@ function flushPending(g) {
   return deathClips(list);
 }
 
-// 主機：警長選完了，公布昨晚死訊
+// 主機：警長選完了，公布昨晚死訊（2026-10-28 起畫面沒有這個鈕，改由 setSheriff／tearBadge 一起公布；留給沒重新整理的舊網頁）
 export function announceDeaths(room, now = 0) {
   if (room.phase !== 'day' || !room.game.day?.pendingDeaths) return fail('現在沒有要公布的死訊');
   const g = structuredClone(room.game);
@@ -431,7 +433,7 @@ export function announceDeaths(room, now = 0) {
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
-// 等某個人選擇的那一下（白癡翻不翻、警長出局後主機移交或撕掉警徽）：放逐、投票、技能都先等
+// 等某個人選擇的那一下（白癡翻不翻、警長出局後自己移交或撕掉警徽）：放逐、投票、技能都先等
 const waitBlock = room => (room.game.day?.idiotChoice ? fail('請等被放逐的玩家選擇')
   : room.game.badgePending ? fail('請先移交或撕掉警徽') : null);
 const pendingBlock = room => (room.game.day?.pendingDeaths ? fail('請先公布昨晚死訊') : waitBlock(room));
@@ -470,6 +472,7 @@ export function shoot(room, clientId, target, now = 0) {
   const g = structuredClone(room.game);
   g.canShoot = g.canShoot.filter(s => s !== seat);
   target = Number(target ?? 0);
+  if (!Number.isInteger(target)) return fail('號碼不對'); // 亂碼不能當成「不發動」把槍用掉（2026-10-29 夜班）
   if (target) {
     if (!g.alive[target] || target === seat) return fail('只能帶走活著的其他玩家');
     const chain = dayKill(g, target); // 被槍帶走的獵人／狼王也可以再開槍
@@ -493,8 +496,8 @@ export function exile(room, target, now = 0) {
   target = Number(target ?? 0);
   g.day.exileDone = true;
   g.day.bindCheck = false; // 已經進到投票，「天亮睜眼」的綁票檢查結束（投完票改看「一狼一神一民」，見 checkWin）
-  if (g.day.vote?.open) g.day.vote = null; // 還在投票主機就直接登記（例如有人手機沒電）：這輪作廢
-  // 沒人出局：上一輪全部棄票＝「今天沒有人出局。」；其他（平票、主機手動）照舊唸「平票，今天沒有人出局。」。
+  if (g.day.vote?.open) g.day.vote = null; // 照理不會：2026-10-28 晚起 exile 只由 finishVote 呼叫（投票已結束）；留著防呆
+  // 沒人出局：上一輪全部棄票＝「今天沒有人出局。」；其他（平票）照舊唸「平票，今天沒有人出局。」。
   // 唸完接著「天黑請閉眼。」，今天到此結束（Leo 2026-10-28）；這一下就分出勝負（例如一狼一神一民）就不唸天黑
   if (!target) {
     const seq0 = room.game.narration?.seq;
@@ -601,6 +604,7 @@ function boomNow(room, seat, role, target) {
   if (g0.day.exileDone) return fail('投票放逐之後不能自爆');
   if (g0.canShoot.length) return fail('請等開槍的玩家先選');
   target = Number(target ?? 0);
+  if (!Number.isInteger(target)) return fail('號碼不對');
   if (target && role !== 'whiteKing') return fail('只有白狼王自爆能帶走人');
   if (target && (g0.alive[target] !== true || target === seat)) return fail('只能帶走活著的其他玩家');
   const g = structuredClone(g0);
@@ -637,7 +641,7 @@ export function nextNight(room, now) {
 }
 
 /* ───────── 警長（主機登記，Leo 2026-10-27） ───────── */
-// 主機：登記誰當警長（競選完），或警長出局後移交警徽。警長投票算 1.5 票，綁票也看警徽在哪一邊（見 houseRuleWin）。
+// 主機：登記誰當警長（競選完）、或登記錯了改警長；警長出局後的移交由他自己選（passBadge）。警長投票算 1.5 票，綁票也看警徽在哪一邊（見 houseRuleWin）。
 // 第一天死訊還沒公布時，昨晚死的人也能當選（死訊本來就是警長選完才公布），所以只看座位表上的活人
 export function setSheriff(room, seat, now = 0) {
   if (room.phase !== 'day') return fail('白天才能登記警長');
@@ -683,6 +687,7 @@ export function passBadge(room, clientId, target, now = 0) {
   // 警長同時能開槍（獵人、狼王）：先開槍（或不發動），再選警徽（Leo 2026-10-28，取代 10-28 上午「先選警徽再開槍」）
   if (room.game.canShoot.includes(seat)) return fail('請先發動技能（或選不發動），再處理警徽');
   target = Number(target ?? 0);
+  if (!Number.isInteger(target)) return fail('號碼不對'); // 亂碼不能當成「撕掉警徽」（2026-10-29 夜班）
   if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
   if (target === seat) return fail('不能移交給自己'); // 翻牌的白癡警長還活著（Leo 2026-10-28）
   if (target && room.game.idiotRevealed.includes(target)) return fail('翻過牌的白癡不能接警徽'); // 被公投出局、失去投票權
@@ -702,7 +707,7 @@ export function passBadge(room, clientId, target, now = 0) {
 const hasVote = (g, s) => g.alive[s] === true && !g.idiotRevealed.includes(s);
 const voteWeight = (g, s) => (s === g.sheriff ? 1.5 : 1);
 
-// 主機：開始投票。大家投完（或主機按結束）後，每支手機同時出現投票統計；主機再照統計登記放逐。
+// 主機：開始投票。大家投完（或主機按結束）後，每支手機同時出現投票統計，照統計自動放逐或平票 PK（finishVote；2026-10-28 晚起主機不登記放逐）。
 // pk＝上一輪最高票平手：平手的人不投票（例如 10 人 1、2 號 PK，只有 3～10 號投），其他人只能投他們
 export function startVote(room, pk = false, now = 0) {
   if (room.phase !== 'day') return fail('現在不是白天');

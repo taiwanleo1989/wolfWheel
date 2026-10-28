@@ -607,3 +607,20 @@ test('主機看得到誰投了、誰還沒投（看不到投給誰）；全部�
   assert.equal(r.game.day.vote.open, false, '最後一個人投完就自動結算');
   assert.equal(r.game.alive[9], false);
 });
+
+test('開槍、自爆、移交警徽送來不是號碼的值：擋下，不能當成「不發動」「撕警徽」（2026-10-29 夜班）', () => {
+  let r = play(newGame(B), { wolf: 6 }); // 6 號獵人昨晚被刀
+  assert.equal(r.game.roles[6], 'hunter');
+  r = ok(E.setSheriff(r, 6)); // 當選警長又昨晚死：要開槍、也要選警徽
+  assert.deepEqual([r.game.canShoot, r.game.badgePending], [[6], true]);
+  assert.equal(E.shoot(r, id(6), 'abc').ok, false);
+  r = ok(E.shoot(r, id(6), 0)); // 正常的「不發動」照樣可以
+  assert.equal(E.passBadge(r, id(6), 'xyz').ok, false);
+  assert.equal(r.game.sheriff, 6, '警徽還在');
+  r = ok(E.passBadge(r, id(6), 0));
+  assert.equal(r.game.badgeTorn, true);
+
+  const d = night(newGame(B));
+  assert.equal(E.boom(d, id(1), 'abc').ok, false);
+  assert.equal(E.boom(d, id(1), 0).ok, true);
+});
