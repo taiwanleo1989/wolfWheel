@@ -58,6 +58,9 @@ function aliveSeats({ except = [] } = {}) {
   return Object.keys(g.alive).map(Number).sort((a, b) => a - b).filter(s => g.alive[s] && !except.includes(s));
 }
 
+// 隱狼看到的狼同伴（狼隊，不含石像鬼）：出局的標出來
+const hiddenMatesLine = (me, seat) => `<p class="witch-info">狼同伴：${me.wolves.filter(w => w.seat !== seat).map(w => `<b class="digits">${w.seat}</b> 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || '沒有'}</p>`;
+
 /* ───────── 自己的動作 ───────── */
 function renderAction() {
   const { state, $, setHTML } = c;
@@ -93,7 +96,8 @@ function renderAction() {
       // 隱狼那步（只剩隱狼）：主機只唸「隱狼請睜眼」，要做什麼寫在手機上（Leo 2026-10-28）
       html = a.hiddenAlone
         ? `<h2>隱狼：請選擇今晚要擊殺的玩家</h2>
-          <p class="hint">其他狼都出局了，現在由你刀人。主機不會唸出來，直接在手機上選；選好按「正確」就閉眼。</p>`
+          <p class="hint">其他狼都出局了，現在由你刀人。主機不會唸出來，直接在手機上選；選好按「正確」就閉眼。</p>
+          ${hiddenMatesLine(me, seat)}`
         : `<h2>今晚要擊殺的目標是？</h2>
           <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}</p>`;
       html += `
@@ -105,6 +109,11 @@ function renderAction() {
             ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.join(' ') }; }), myVote || null)}
             <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
             ${a.hiddenAlone ? '' : `<ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${voteText(a.votes[w.seat])}</li>`).join('')}</ul>`}`}`;
+    } else if (a.kind === 'hiddenMates') {
+      // 隱狼睜眼看狼同伴（Leo 2026-10-28）：其他狼還活著，今晚他們刀，隱狼不用動作
+      html = `<h2>隱狼：你的狼同伴</h2>
+        ${hiddenMatesLine(me, seat)}
+        <p class="hint">其他狼還活著，今晚由他們刀人，你不用動作。主機唸「隱狼請閉眼」就閉眼。</p>`;
     } else if (a.kind === 'witchSave') {
       const info = a.saveUsedUp ? '解藥已經用掉了，不會告知今晚死亡的玩家。'
         : a.victim ? `今晚死亡的玩家是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人死亡。';

@@ -26,5 +26,9 @@
   {
     "order": "order-7.json",
     "audio": "batch7.mp3"
+  },
+  {
+    "order": "order-8.json",
+    "audio": "batch8.mp3"
   }
 ]

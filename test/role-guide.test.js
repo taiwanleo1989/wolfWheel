@@ -935,6 +935,15 @@ const CHECKS = {
     no(E.nightAction(r, id(6), { target: 15 }, everyone(r), 0, minRand));
     for (const w of [1, 2, 3, 4, 5]) r = act(r, w, { target: 15 });
     assert.equal(r.game.night.wolfProposal, 15, '狼隊自己一致就確定');
+    // 隱狼請睜眼：看得到狼同伴，不用動作、照樣假等
+    let h = toNight(withDead(night(newGame(F)), [2]), 'hidden');
+    assert.equal(h.game.night.wait, 'fake');
+    assert.deepEqual(pick(h, 6).action, { kind: 'hiddenMates' });
+    no(E.nightAction(h, id(6), { target: 15 }, everyone(h), 0, minRand));
+    const view = mount(h, id(6)).html('#actionBox');
+    assert.match(view, /隱狼：你的狼同伴/);
+    assert.match(view, /狼同伴：<b class="digits">1<\/b> 號、<b class="digits">2<\/b> 號（已出局）、<b class="digits">3<\/b> 號（狼王）、<b class="digits">4<\/b> 號、<b class="digits">5<\/b> 號/);
+    assert.ok(!view.includes('7</b> 號'), '石像鬼不在名單');
   },
   'hidden-3': () => {
     assert.equal(play(newGame(F), { seer: 6 }).game.seerChecks[0].wolf, false, '預言家查是好人');

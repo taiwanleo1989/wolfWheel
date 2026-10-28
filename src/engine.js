@@ -976,5 +976,8 @@ export function privateGame(room, seat) {
     // 帶槍手勢（獵人、狼王同一套）：被毒、或今晚會殉情（狼美人今晚死、魅惑的是你）都不能開槍
     if (act === 'hunter' || act === 'king') me.action = { kind: act, canShoot: !nightDeaths(g, n).noSkill.has(seat) };
   }
+  // 隱狼那步、其他狼還活著（假等）：隱狼睜眼看得到狼同伴是誰（me.wolves），不用動作；這一步照樣假等，聽不出差別（Leo 2026-10-28）
+  if (room.phase === 'night' && n?.stage === 'acting' && curStep(n) === 'hidden' && role === 'hidden' && g.alive[seat]
+    && !actors(g, 'hidden').includes(seat)) me.action = { kind: 'hiddenMates' };
   return me;
 }

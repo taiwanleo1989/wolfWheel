@@ -7,7 +7,8 @@
     "batch4.mp3",
     "batch5.mp3",
     "batch6.mp3",
-    "batch7.mp3"
+    "batch7.mp3",
+    "batch8.mp3"
   ],
   "files": {
     "checkRole": {
@@ -49,6 +50,14 @@
     "beautyClose": {
       "file": "beautyClose.mp3",
       "text": "狼美人請閉眼。"
+    },
+    "hiddenOpen": {
+      "file": "hiddenOpen.mp3",
+      "text": "隱狼請睜眼。"
+    },
+    "hiddenClose": {
+      "file": "hiddenClose.mp3",
+      "text": "隱狼請閉眼。"
     },
     "witchSave": {
       "file": "witchSave.mp3",

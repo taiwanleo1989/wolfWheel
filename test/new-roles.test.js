@@ -142,7 +142,10 @@ test('隱狼：單向認得狼隊；狼隊還活著時不參與狼刀、自己�
   assert.equal(said(r), '隱狼請睜眼。');
   assert.equal(r.game.night.wait, 'fake');
   assert.deepEqual(E.actors(r.game, 'hidden'), []);
-  assert.equal(E.privateGame(r, 5).action, undefined);
+  assert.deepEqual(E.privateGame(r, 5).action, { kind: 'hiddenMates' }, '睜眼看得到狼同伴（Leo 2026-10-28）');
+  assert.deepEqual(E.privateGame(r, 5).wolves.map(w => w.seat), [1, 2, 3, 4, 5]);
+  assert.equal(E.nightAction(r, id(5), { target: 12 }, everyone(r), 0, minRand).ok, false, '看得到但不能刀');
+  assert.equal(E.privateGame(r, 1).action, undefined, '狼隊那時閉眼');
   const seq = r.game.narration.seq;
   r = runUntil(r, x => x.game.night.stage === 'closed');
   assert.equal(said(r), '隱狼請閉眼。');
