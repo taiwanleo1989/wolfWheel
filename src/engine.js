@@ -682,6 +682,8 @@ export function passBadge(room, clientId, target, now = 0) {
   const g = structuredClone(room.game);
   Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false, badgeChosen: true });
   g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，不交給任何人。` });
+  // 主機唸出來（Leo 2026-10-28：警長換人會改變誰算 1.5 票，大家要聽到）；今天要天黑就接「天黑請閉眼。」（見 callNightIfReady）
+  say(g, target ? ['badgePassTo', seatKey(target), 'end'] : ['badgeTear']);
   const seq0 = room.game.narration?.seq;
   const done = checkWin({ ...room, game: g }, seq0);
   if (done.phase !== 'ended') callNightIfReady(done, done.game, seq0); // 今天要天黑（自爆、撞到狼）：選完警徽才唸

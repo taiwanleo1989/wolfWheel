@@ -124,7 +124,7 @@ await until(() => p(HUNTER).state.you.game.passBadge, 10000, '開完槍出現選
 check(`開槍帶走 ${W1} 號後才出現選警徽`, host.state.game.alive[W1] === false);
 send('p' + HUNTER, { type: 'passBadge', target: SEER });
 await until(() => host.state.game.sheriff === SEER && !host.state.game.badgePending, 10000, '移交警徽');
-check(`警徽移交給 ${SEER} 號`, logText().includes(`${HUNTER} 號警長把警徽移交給 ${SEER} 號。`));
+check(`警徽移交給 ${SEER} 號：主機唸「警徽移交給 ${SEER} 號。」、紀錄寫一行`, logText().includes(`${HUNTER} 號警長把警徽移交給 ${SEER} 號。`) && host.narr.at(-1) === `警徽移交給 ${SEER} 號。`, host.narr.at(-1));
 send('host', { type: 'startVote' });
 const alive = Object.keys(host.state.game.alive).map(Number).filter(s => host.state.game.alive[s]);
 await voteRound(Object.fromEntries(alive.filter(s => s !== W2).map(s => [s, W2])));

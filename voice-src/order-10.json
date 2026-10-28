@@ -6,5 +6,21 @@
   {
     "key": null,
     "text": "……。"
+  },
+  {
+    "key": "badgePassTo",
+    "text": "警徽移交給"
+  },
+  {
+    "key": null,
+    "text": "……。"
+  },
+  {
+    "key": "badgeTear",
+    "text": "警長撕掉警徽。"
+  },
+  {
+    "key": null,
+    "text": "……。"
   }
 ]

@@ -598,7 +598,8 @@ const CHECKS = {
     no(E.passBadge(r, id(9), 9), '不能移交給死人');
     const pb = ok(E.passBadge(r, id(9), 4));
     assert.equal(pb.game.sheriff, 4);
-    assert.equal(pb.game.narration.seq, r.game.narration.seq, '移交主機不唸');
+    const [passSay, tearSay] = says('day-7');
+    assert.equal(pb.game.narration.text, fill(passSay, { N: 4 }), '移交主機唸出來（Leo 2026-10-28）');
     assert.equal(pb.game.log.at(-1).text, '9 號警長把警徽移交給 4 號。', '只寫在紀錄');
     // 手機沒電：換一支手機接手座位、主機同意後由新手機選
     const off = new Set([...everyone(r)].filter(c => c !== id(9)).concat('new9'));
@@ -608,6 +609,7 @@ const CHECKS = {
     assert.ok(took.ok, took.error);
     assert.equal(ok(E.passBadge(took.room, 'new9', 4)).game.sheriff, 4, '新手機接著選');
     const torn = ok(E.passBadge(r, id(9), 0));
+    assert.equal(torn.game.narration.text, tearSay);
     assert.equal(torn.game.sheriff, null);
     assert.equal(torn.game.badgeTorn, true);
     // 被放逐也一樣
@@ -639,14 +641,14 @@ const CHECKS = {
     assert.ok(!bm.game.narration.text.includes(LINES.nightStart), '還沒唸天黑');
     no(E.nextNight(bm, 0));
     const bp = ok(E.passBadge(bm, id(1), 4));
-    assert.equal(bp.game.narration.text, LINES.nightStart, '選完才唸');
+    assert.equal(bp.game.narration.text, fill(passSay, { N: 4 }) + LINES.nightStart, '選完才唸，接在移交後面');
     assert.equal(ok(E.nextNight(bp, 0)).game.narration.seq, bp.game.narration.seq, '進入黑夜不再唸一次');
     const dk = ok(E.duel(ok(E.setSheriff(night(newGame(B)), 2)), id(8), 2));
     assert.ok(!dk.game.narration.text.includes(LINES.nightStart));
-    assert.equal(ok(E.passBadge(dk, id(2), 0)).game.narration.text, LINES.nightStart);
+    assert.equal(ok(E.passBadge(dk, id(2), 0)).game.narration.text, tearSay + LINES.nightStart);
     const wk = ok(E.boom(ok(E.setSheriff(night(newGame(KG)), 8)), id(3), 8));
     assert.ok(!wk.game.narration.text.includes(LINES.nightStart), '白狼王帶走警長');
-    assert.equal(ok(E.passBadge(wk, id(8), 4)).game.narration.text, LINES.nightStart);
+    assert.equal(ok(E.passBadge(wk, id(8), 4)).game.narration.text, fill(passSay, { N: 4 }) + LINES.nightStart);
   },
   'day-8': () => {
     const r = play(newGame(B, { police: false }), { wolf: 6 });

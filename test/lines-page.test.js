@@ -133,6 +133,12 @@ test('主持台詞頁：有號碼的組合句都是引擎真的會唸的', () =>
     let r = must(E.tearBadge(night(newGame(A), { wolf: R.totalOf(A) })));
     r = must(E.boom(r, id(seat(r, 'whiteKing')), v(0)(r)));
   }
+  { // 警長被放逐：自己選移交（Leo 2026-10-28 起主機唸出來）
+    let r = announce(night(newGame(A)));
+    r = must(E.setSheriff(r, v(0)(r)));
+    r = voteFor(r, v(0)(r));
+    r = must(E.passBadge(r, id(v(0)(r)), seat(r, 'seer')));
+  }
   { // 一晚死兩個：狼刀一個、女巫毒一個
     let r = announce(night(newGame(A)));
     r = abstainAll(r);

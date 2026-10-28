@@ -585,7 +585,7 @@ test('警長是狼王、被騎士撞死：先開槍、再選警徽，都處理�
   assert.ok(!r.game.narration.text.includes('天黑請閉眼'), '開完槍還要選警徽，先不唸天黑');
   assert.ok(E.privateGame(r, king).passBadge, '開完才選警徽');
   r = ok(E.passBadge(r, id(king), 0));
-  assert.equal(r.game.narration.text, '天黑請閉眼。', '警徽處理完才唸天黑');
+  assert.equal(r.game.narration.text, '警長撕掉警徽。天黑請閉眼。', '警徽處理完才唸天黑');
   assert.equal(ok(E.nextNight(r, 0)).phase, 'night');
 });
 
