@@ -47,7 +47,15 @@ export class Room extends DurableObject {
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
+  // 訊息處理丟例外（例如自己改封包送 {"toString":1} 這種 Number() 轉不了的值）：回錯給那支手機，房間照舊（2026-10-29 夜班）
   async webSocketMessage(ws, data) {
+    try { await this.handleMessage(ws, data); } catch (e) {
+      console.error('webSocketMessage', e);
+      this.send(ws, { type: 'error', error: '訊息格式不對' });
+    }
+  }
+
+  async handleMessage(ws, data) {
     if (!this.room) { ws.close(4004, '房間已關閉'); return; }
     let msg;
     try { msg = JSON.parse(data); } catch { return; }

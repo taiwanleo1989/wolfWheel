@@ -265,6 +265,7 @@ function connect() {
     if (e.code === 4001) { setStatus('bad', '這支手機在別的分頁開了房間'); return; }
     if (retry >= 2) {   // 連不上兩次以上：確認房間還在不在
       const info = await fetch(`/api/rooms/${session.code}`).then(r => r.json()).catch(() => null);
+      if (ws !== sock || leaving) return; // 等回應的空檔按了離開（session 已清掉），別再重連（2026-10-29 夜班）
       if (info && !info.exists) { roomGone(); return; }
     }
     retry++;

@@ -931,7 +931,7 @@ export function publicGame(room) {
     alive: g.alive,
     idiotRevealed: g.idiotRevealed,
     narration: g.narration ?? null,
-    log: g.log.slice(-200), // 整局的紀錄（每輪投票誰投誰都在這裡，Leo 2026-10-28）；200 行約一局 20 天，上限防房間無限長大
+    log: g.log.slice(-200), // 整局的紀錄（每輪投票誰投誰都在這裡，Leo 2026-10-28）；200 行約一局 20 天，只剪送出去的這份（存檔的 g.log 沒剪，一局的量不大）
     winner: g.winner,
     exileDone: g.day?.exileDone ?? false,
     deathsPending: Boolean(g.day?.pendingDeaths),

@@ -18,8 +18,8 @@ export default {
 
     // 開新房間
     if (url.pathname === '/api/rooms' && request.method === 'POST') {
-      const body = await request.json().catch(() => ({}));
-      const clientId = String(body.clientId ?? '').slice(0, 64);
+      const body = (await request.json().catch(() => null)) ?? {}; // body 是 null（合法 JSON）原本會 500
+      const clientId = typeof body.clientId === 'string' ? body.clientId.slice(0, 64) : ''; // 網頁送的一定是字串
       if (!clientId) return json({ error: '缺少 clientId' }, 400);
       for (let i = 0; i < 20; i++) {
         const code = randomCode();
