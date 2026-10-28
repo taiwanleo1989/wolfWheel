@@ -393,7 +393,7 @@ function hostPick() {
 function sheriffHTML(g) {
   if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號${g.alive[g.sheriff] ? '翻牌了（失去投票權，要交出警徽）' : '出局了'}</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
   const pick = ui.sheriffPick;
-  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票；出局時由他自己選移交或撕警徽）</p>`
+  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（${g.idiotRevealed?.includes(g.sheriff) ? '翻過牌的白癡沒有票（更新前開的房間才會這樣）' : '投票算 1.5 票'}；出局時由他自己選移交或撕警徽）</p>`
     : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
   if (g.vote?.open) return `<div class="sheriff">${status}</div>`; // 投票中不能換警長（伺服器也擋；2026-10-28 審查：按鈕在卻按不動）
   if (g.badgeChosen) return `<div class="sheriff">${status}<p class="hint">警徽已經由警長自己處理過，主機不能再改。</p></div>`; // Leo 2026-10-28

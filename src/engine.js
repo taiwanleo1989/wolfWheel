@@ -491,6 +491,7 @@ export function exile(room, target, now = 0) {
     if (done.phase !== 'ended') {
       Object.assign(done.game.day, { nightCalled: true, nightReason: 'noExile' });
       say(done.game, [...done.game.narration.clips, 'nightStart']);
+      done.game.log.at(-1).text += lineText(['nightStart']); // 紀錄也寫「天黑請閉眼。」（跟騎士撞狼、自爆一樣接在同一行）
     }
     return ok(done);
   } else {
@@ -634,6 +635,7 @@ export function setSheriff(room, seat, now = 0) {
   if (g0.badgeChosen) return fail('警徽已經由警長自己處理過，主機不能再改'); // Leo 2026-10-28
   seat = Number(seat);
   if (g0.alive[seat] !== true) return fail('只能選活著的人');
+  if (g0.idiotRevealed.includes(seat)) return fail('翻過牌的白癡不能當警長'); // 被公投出局、失去投票權（Leo 2026-10-28）
   if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
   if (g0.day?.vote?.open) return fail('投票中不能換警長（警長那票的票數會跟著變）'); // 2026-10-27 審查
   const g = structuredClone(g0);
@@ -666,6 +668,7 @@ export function passBadge(room, clientId, target, now = 0) {
   target = Number(target ?? 0);
   if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
   if (target === seat) return fail('不能移交給自己'); // 翻牌的白癡警長還活著（Leo 2026-10-28）
+  if (target && room.game.idiotRevealed.includes(target)) return fail('翻過牌的白癡不能接警徽'); // 被公投出局、失去投票權
   const g = structuredClone(room.game);
   Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false, badgeChosen: true });
   g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，不交給任何人。` });
@@ -949,7 +952,7 @@ export function privateGame(room, seat) {
   }
   // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
   // 出局的警長：自己選移交給誰或撕警徽（Leo 2026-10-27）
-  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s] && s !== seat) }; // 翻牌的白癡警長還活著：不能交給自己
+  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s] && s !== seat && !g.idiotRevealed.includes(s)) }; // 翻牌的白癡警長還活著：不能交給自己
   // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
   if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;

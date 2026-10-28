@@ -576,12 +576,15 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       if (g.badgePending) { // 出局的警長自己選（主機不能代按）
         rejected(E.setSheriff(r, pickAlive()), '主機代替警長移交');
         rejected(E.tearBadge(r), '主機代替警長撕警徽');
-        const heirs = aliveList().filter(s => s !== g.sheriff); // 翻牌的白癡警長還活著：不能交給自己（Leo 2026-10-28）
+        const heirs = aliveList().filter(s => s !== g.sheriff && !g.idiotRevealed.includes(s)); // 不能交給自己、翻過牌的白癡（Leo 2026-10-28）
         must(E.passBadge(r, id(g.sheriff), rnd(3) && heirs.length ? heirs[rnd(heirs.length)] : 0), '警長處理警徽'); continue;
       }
       if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) {
         if (g.day.idiotChoice) { rejected(E.setSheriff(r, pickAlive()), '白癡選擇中登記警長'); } // 跟主機畫面一致（2026-10-28）
-        else { must(E.setSheriff(r, pickAlive()), '登記警長'); continue; }
+        else {
+          const ok4 = aliveList().filter(s => !g.idiotRevealed.includes(s)); // 翻過牌的白癡不能當警長（Leo 2026-10-28）
+          if (ok4.length) { must(E.setSheriff(r, ok4[rnd(ok4.length)]), '登記警長'); continue; }
+        }
       }
       // 警長競選中：騎士決鬥、狼人自爆也可以（之後順便公布死訊）
       // （按了一定先公布死訊；動作可能因為有人要開槍而不算，但房間照樣往下走）

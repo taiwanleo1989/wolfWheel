@@ -404,6 +404,12 @@ const CHECKS = {
     assert.match(mount(s, 'host').html('#hostCtl'), /警長 14 號翻牌了/);
     s = ok(E.passBadge(s, id(14), 8));
     assert.equal(s.game.sheriff, 8);
+    // 翻過牌的白癡不能接警徽、不能被登記成警長
+    no(E.setSheriff(ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true)), 14), '翻過牌的白癡不能當警長');
+    const s9 = ok(E.announceDeaths(ok(E.setSheriff(play(newGame(F), { wolf: 15 }), 15))));
+    const fl = setG(s9, { idiotRevealed: [14] });
+    no(E.passBadge(fl, id(15), 14), '不能把警徽交給翻過牌的白癡');
+    assert.ok(!pick(fl, 15).passBadge.candidates.includes(14));
     s = nextDay(s, {});
     assert.ok(!ok(E.startVote(s)).game.day.vote.voters.includes(14));
   },
@@ -455,6 +461,7 @@ const CHECKS = {
     const no4 = ok(E.exile(r, 0));
     assert.equal(no4.game.narration.text, says('day-4')[0]);
     assert.equal(no4.game.day.nightCalled, true, '唸完今天就結束');
+    assert.equal(no4.game.log.at(-1).text, '平票，今天沒有人出局。天黑請閉眼。', '紀錄也寫天黑');
     no(E.duel(no4, id(8), 1), '之後不能再決鬥');
     const nn = ok(E.nextNight(no4, 0));
     assert.equal(nn.game.narration.seq, no4.game.narration.seq, '進入黑夜不再唸一次天黑');
