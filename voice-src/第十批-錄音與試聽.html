@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第十批錄音與試聽</title>
+<style>
+  :root{--ink:#0d0b12;--night:#0b0f22;--paper:#f3ead2;--blood:#c4202f;--muted:#6d5f52;--bone:#efe3c8}
+  body{margin:0;background:var(--night);color:var(--bone);font-family:system-ui,"Noto Sans TC",sans-serif}
+  main{max-width:760px;margin:0 auto;padding:16px}
+  h1{font-size:24px;margin:8px 0}
+  h2{font-size:19px;margin:0 0 8px}
+  p,li{line-height:1.7}
+  .card{background:var(--paper);color:var(--ink);border:3px solid var(--ink);box-shadow:5px 5px 0 #000;padding:14px;margin:18px 0}
+  .card p,.card li{color:var(--ink)}
+  ol{padding-left:22px;margin:6px 0}
+  code,.path{font-family:ui-monospace,Consolas,monospace;background:#fff;border:1px solid #cdbf9f;padding:1px 6px;word-break:break-all}
+  .script{font-size:20px;font-weight:700;background:#fff;border:2px dashed var(--muted);padding:10px;margin:8px 0;word-break:break-all}
+  button{font:inherit;font-weight:700;padding:8px 14px;border:3px solid var(--ink);background:var(--blood);color:#fff;box-shadow:3px 3px 0 #000;cursor:pointer}
+  button.grey{background:#555}
+  table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;color:var(--ink)}
+  td{padding:8px;border-bottom:1px solid #cdbf9f;vertical-align:middle}
+  td.n{font-weight:900;font-size:18px;width:34px;text-align:center;color:var(--blood)}
+  td.t{font-weight:700}
+  td.t small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+  audio{width:200px;display:block;margin:2px 0}
+  tr.on{background:#fff2a8}
+  .status{font-weight:700;padding:8px 10px;border:2px solid var(--ink);margin:8px 0}
+  .ok{background:#d8f5d0}.wait{background:#ffe3a8}
+  @media(max-width:560px){audio{width:150px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>主持聲音第十批：錄音與試聽</h1>
+  <p>這批補 1 句「平票，請其他玩家進行投票。」（Leo 2026-10-28：最高票平手自動 PK，主機唸「3 號、5 號平票，請其他玩家進行投票。」）。錄好之前，主機遇到這幾句會整句改用手機內建語音（聲音跟其他句不一樣）。</p>
+
+  <section class="card">
+    <h2>① 貼到 ElevenLabs 的文字</h2>
+    <div class="script" id="script">平票，請其他玩家進行投票。……。</div>
+    <button id="copy" type="button">複製這段文字</button> <span id="copied"></span>
+    <p>同一段文字也在檔案：<span class="path">wolfWheel\voice-src\第十批-貼到ElevenLabs.txt</span></p>
+    <p>後面的「……」是讓句尾有停頓、好切開，照原樣貼上就好，不要刪。</p>
+  </section>
+
+  <section class="card">
+    <h2>② 在 ElevenLabs 網頁上產生（跟前七批一樣）</h2>
+    <ol>
+      <li>打開 ElevenLabs 的 Text to Speech 網頁。</li>
+      <li>聲音選 <b>Liu Junnan</b>，模型選 <b>v4</b>。</li>
+      <li>設定照前七批：速度 <b>1.00</b>、穩定度 <b>33%</b>、相似度 <b>75%</b>（這是從第一批檔名 <code>…_pvc_sp100_s33_sb75_v4.mp3</code> 讀出來的；如果網頁上的名稱不一樣，照著對應就好）。</li>
+      <li>貼上 ① 的文字，按產生，先聽一次：「平票，請其他玩家進行投票」有唸完整、沒有唸錯就下載 mp3。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>③ 下載的檔案放這裡</h2>
+    <p>把下載的 mp3 改名、放到：</p>
+    <div class="script path">C:\Users\Leo\claudeCode workspase\wolfWheel\voice-src\batch10.mp3</div>
+    <p>檔名一定要是 <code>batch10.mp3</code>（前九批也是 batch2～batch9 這樣排）。放好之後跟 Claude 說「第十批錄好了」，Claude 會：</p>
+    <ol>
+      <li>把這批登記進 <code>voice-src/batches.json</code>。</li>
+      <li>跑 <code>npm run voice:split</code>：用 ElevenLabs 的強制對齊切成 <code>public/voice/pkVote.mp3</code>。</li>
+      <li>把角色說明頁、主持台詞頁上「還沒錄音」那行拿掉（自動測試會核對）。</li>
+      <li>重新整理這一頁，在下面 ④ 試聽；你聽過 OK 再一起部署。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>④ 試聽（切好之後才有聲音）</h2>
+    <div class="status wait" id="status">檢查中……</div>
+    <p>1–2 是這批新錄的；3 是夜裡實際接起來的樣子（前一句是之前錄好的「狼美人請閉眼」）。哪一段不對（字被切掉、多了別句的尾巴）跟 Claude 說號碼。</p>
+    <button id="all" type="button">▶ 從頭連續播放</button> <button id="stop" class="grey" type="button">■ 停止</button>
+    <table>
+      <tr><td class="n">1</td><td class="t">平票，請其他玩家進行投票。<small>新錄｜pkVote</small></td><td><audio controls preload="none" src="../public/voice/pkVote.mp3"></audio></td></tr>
+      <tr><td class="n">2</td><td class="t">3 號、5 號平票，請其他玩家進行投票。<small>接起來：n3、sep、n5（舊錄音）→ pkVote</small></td><td><audio controls preload="none" src="../public/voice/n3.mp3"></audio><audio controls preload="none" src="../public/voice/n5.mp3"></audio><audio controls preload="none" src="../public/voice/pkVote.mp3"></audio></td></tr>
+    </table>
+  </section>
+</main>
+<script>
+  document.getElementById('copy').onclick = async () => {
+    const t = document.getElementById('script').textContent;
+    try { await navigator.clipboard.writeText(t); document.getElementById('copied').textContent = '已複製'; }
+    catch { document.getElementById('copied').textContent = '複製失敗，請手動選取上面那段文字'; }
+  };
+  // 新錄的三句切好了沒
+  (async () => {
+    const keys = ['pkVote'];
+    const have = await Promise.all(keys.map(k => fetch(`../public/voice/${k}.mp3`, { method: 'HEAD', cache: 'no-store' }).then(r => r.ok).catch(() => false)));
+    const el = document.getElementById('status');
+    const missing = keys.filter((k, i) => !have[i]);
+    if (missing.length) { el.className = 'status wait'; el.textContent = `還沒切好：${missing.join('、')}。先完成 ①～③，再請 Claude 切片。`; }
+    else { el.className = 'status ok'; el.textContent = '切好了，可以試聽。'; }
+  })();
+  const as = [...document.querySelectorAll('audio')];
+  let i = -1, go = false;
+  function next() {
+    document.querySelectorAll('tr.on').forEach(r => r.classList.remove('on'));
+    i++;
+    if (!go || i >= as.length) { go = false; return; }
+    const a = as[i];
+    a.closest('tr').classList.add('on');
+    a.closest('tr').scrollIntoView({ block: 'center' });
+    a.currentTime = 0;
+    a.play().catch(() => setTimeout(next, 300));
+    a.onended = () => setTimeout(next, a.nextElementSibling ? 150 : 600);
+  }
+  document.getElementById('all').onclick = () => { go = true; i = -1; as.forEach(a => a.pause()); next(); };
+  document.getElementById('stop').onclick = () => { go = false; as.forEach(a => a.pause()); };
+</script>
+</body>
+</html>
