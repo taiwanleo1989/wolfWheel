@@ -296,3 +296,14 @@ test('夜裡守衛、狼美人送來不是號碼的值：擋下，不能當成�
     assert.equal(E.nightAction(r, id(seat), { target: 0 }, everyone(r), 0, minRand).ok, true, step + ' 正常的「不選」照樣可以');
   }
 });
+
+test('「看我的身分」打開後，換階段（天黑、天亮）就自動蓋起來；同一個階段裡照樣開著（夜班菜單 4A）', () => {
+  const day = E.announceDeaths(toStep(newGame(), 'none')).room;
+  const m = mount(day, id(12));
+  m.click('#myInfo', 'me', 'show');
+  assert.match(m.html('#myInfo'), /蓋起來/);
+  assert.match(mount(day, id(12)).html('#myInfo'), /蓋起來/, '同一個階段重畫照樣開著');
+  const night = E.nextNight(E.exile(day, 1).room, 1e6).room;
+  assert.equal(night.phase, 'night');
+  assert.match(mount(night, id(12)).html('#myInfo'), /看我的身分/, '天黑自動蓋起來');
+});

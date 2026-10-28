@@ -6,7 +6,7 @@ const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 20
 const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', hidden: '隱狼', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
-const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null };
+const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, meKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null };
 const ui = { ...FRESH, dealNo: null };
 
 export function renderGame(ctx) {
@@ -496,6 +496,9 @@ function renderMyInfo() {
   const role = state.you.role, me = state.you.game;
   box.hidden = !role || !me;
   if (box.hidden) return;
+  // 換階段（天黑、天亮）就自動蓋起來：手機放桌上時打開的身分不會一直露著（夜班菜單 4A）
+  const phaseKey = `${state.phase}|${state.game?.dayNo}`;
+  if (phaseKey !== ui.meKey) { ui.meKey = phaseKey; ui.showMe = false; }
   if (!ui.showMe) { setHTML(box, `<button class="btn big" type="button" data-me="show">看我的身分（先確定旁人看不到）</button>`); return; }
   const r = ROLES[role];
   const lines = [];
