@@ -342,6 +342,7 @@ function renderHost() {
       <p class="hint">請大家依序發言，發言完按「進行投票」：主機唸「請大家進行投票」，活著的玩家在自己手機上投（可以棄票）。投完自動處理：只有一個最高票就放逐、唸出局；平票就自動 PK（平票以外的人再投一次）；PK 又平票或全部棄票＝今天沒人出局、直接天黑。</p>
       ${g.exileDone ? '<p class="done">✓ 今天的放逐已登記</p>' : v?.open ? `
         <p class="done">${v.pk ? `平票 PK（${v.candidates.join('、')} 號）` : '投票'}中：已投 ${v.voted}／${v.voters.length} 人</p>
+        ${votedLine(v)}
         <div class="row-gap"><button class="btn" type="button" data-host="endVote">結束投票（沒投的算棄票）</button></div>` : `
         <div class="row-gap"><button class="btn primary big" type="button" data-host="startVote">進行投票</button></div>`}
       <div class="row-gap"><button class="btn primary big" type="button" data-host="night">天黑請閉眼</button></div>
@@ -373,6 +374,12 @@ function skipBox(night) {
   if (left > 0) ui.skipTimer = setTimeout(() => c.render(), left + 100);
   return `<div class="row-gap"><button class="btn" type="button" data-host="skip"${left > 0 ? ' disabled' : ''}>跳過（睜眼 ${SKIP_MS / 1000} 秒後可按）</button></div>
     <p class="hint center">手機沒電、沒辦法操作時才按：這一步當作沒有動作。</p>`;
+}
+
+// 主機看誰投了、誰還沒投（只有號碼，看不到投給誰；Leo 2026-10-28）。全部投完會自動結算，不會停在這裡
+function votedLine(v) {
+  const done = v.votedSeats ?? [], wait = v.voters.filter(s => !done.includes(s));
+  return `<p class="hint">已投：${done.length ? done.join('、') + ' 號' : '還沒有人'}<br>還沒投：<b>${wait.length ? wait.join('、') + ' 號' : '沒有'}</b></p>`;
 }
 
 const NIGHT_REASON = { knight: '騎士撞到狼人', boom: '白狼王自爆', wolfBoom: '狼人自爆', noExile: '今天沒有人出局' };

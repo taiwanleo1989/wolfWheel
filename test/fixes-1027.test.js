@@ -588,3 +588,19 @@ test('警長是狼王、被騎士撞死：先開槍、再選警徽，都處理�
   assert.equal(r.game.narration.text, '天黑請閉眼。', '警徽處理完才唸天黑');
   assert.equal(ok(E.nextNight(r, 0)).phase, 'night');
 });
+
+test('主機看得到誰投了、誰還沒投（看不到投給誰）；全部投完自動結算（Leo 2026-10-28）', () => {
+  let r = ok(E.startVote(night(newGame(B))));
+  r = ok(E.castVote(r, id(3), 9));
+  r = ok(E.castVote(r, id(1), 0));
+  assert.deepEqual(E.publicGame(r).vote.votedSeats, [1, 3]);
+  assert.equal(JSON.stringify(E.publicGame(r)).includes('"ballots"'), false, '投給誰還是保密');
+  const h = mount(r, 'host').html('#hostCtl');
+  assert.match(h, /已投：1、3 號<br>還沒投：<b>2、4、5、6、7、8、9、10、11 號<\/b>/);
+  for (const s of [2, 4, 5, 6, 7, 8, 10, 11]) r = ok(E.castVote(r, id(s), 9));
+  assert.equal(r.game.day.vote.open, true, '還有 9 號沒投');
+  assert.match(mount(r, 'host').html('#hostCtl'), /還沒投：<b>9 號<\/b>/);
+  r = ok(E.castVote(r, id(9), 0));
+  assert.equal(r.game.day.vote.open, false, '最後一個人投完就自動結算');
+  assert.equal(r.game.alive[9], false);
+});

@@ -927,7 +927,8 @@ export function publicGame(room) {
     // 警長（主機登記，公開）：badgePending＝警長出局、等他自己選移交或撕掉警徽
     sheriff: g.sheriff ?? null, badgeTorn: Boolean(g.badgeTorn), badgePending: Boolean(g.badgePending), badgeChosen: Boolean(g.badgeChosen),
     // 投票：投完才公布誰投誰（result）；投票中只公開投了幾票
-    vote: g.day?.vote ? (({ ballots, ...v }) => ({ ...v, voted: Object.keys(ballots).length }))(g.day.vote) : null,
+    // votedSeats：誰已經投了（不含投給誰），主機畫面列出誰還沒投（Leo 2026-10-28）
+    vote: g.day?.vote ? (({ ballots, ...v }) => ({ ...v, voted: Object.keys(ballots).length, votedSeats: Object.keys(ballots).map(Number).sort((a, b) => a - b) }))(g.day.vote) : null,
     // 夜裡只公開「現在輪到哪個角色、第幾句台詞」（本來就唸出來了），不公開死活與進度
     // eyesOpen：這句台詞唸出後到「X 請閉眼」之前（動作中＋做完後的停頓都算，免得從按鈕消失的時間看出角色做完了）
     night: g.night ? { step: curStep(g.night) ?? null, beat: g.night.beat, openedAt: g.night.openedAt, eyesOpen: ['acting', 'pause'].includes(g.night.stage) } : null,
