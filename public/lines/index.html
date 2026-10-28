@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>狼人殺主持台詞</title>
+<meta name="description" content="狼人殺法官工具的主機台詞：遊戲裡每一句會唸的話、什麼時候唸，每一句都能按下去聽實際的錄音。">
+<meta name="theme-color" content="#0b0f22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Noto+Sans+TC:wght@500;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../judge/style.css">
+<style>
+  /* 這一頁自己的版面；顏色、面板、標題沿用法官工具的 style.css（跟角色說明頁同一套） */
+  main{max-width:760px}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+  .toc a{display:inline-block;background:#fff2c4;color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:4px 10px;font-weight:900;text-decoration:none;font-size:14px}
+  .panel{scroll-margin-top:12px}
+  .panel h2{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .playall{font:inherit;font-size:14px;font-weight:900;background:#fff2c4;color:var(--ink);border:2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);padding:3px 10px;cursor:pointer}
+  ul.lines{margin:8px 0 0;padding:0;list-style:none}
+  ul.lines li{display:grid;grid-template-columns:44px 1fr;gap:2px 10px;align-items:start;padding:9px 0;border-top:1px solid #d9cdb2}
+  ul.lines li:first-child{border-top:none}
+  ul.lines li.on{background:#fff6d1}
+  .play{grid-row:span 2;width:40px;height:40px;border-radius:50%;border:3px solid var(--ink);background:#fff;box-shadow:2px 2px 0 var(--ink);font-size:15px;cursor:pointer;color:var(--ink)}
+  li.on .play{background:#ffd23f}
+  .text{font-weight:900;color:#1b2550;font-size:18px;line-height:1.55}
+  .when{color:var(--muted);font-size:14px;line-height:1.6}
+  .order{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 4px;font-weight:900;font-size:14px}
+  .order span{background:#fff;border:2px solid var(--ink);padding:2px 8px}
+  .order i{font-style:normal;color:var(--muted)}
+  .nums{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;margin:10px 0 0}
+  .nums button{font:inherit;font-weight:900;font-size:16px;padding:8px 0;background:#fff;color:var(--ink);border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);cursor:pointer}
+  .nums button.on{background:#ffd23f}
+  .note{color:#cfd6ff;font-size:14px;line-height:1.7;margin:10px 2px 0}
+  .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:10px;justify-content:center;align-items:center;margin:14px 0 0;padding:8px;background:rgba(11,15,34,.92)}
+  .bar button{font:inherit;font-weight:900;font-size:15px;padding:6px 14px;border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);cursor:pointer;background:var(--paper);color:var(--ink)}
+  .bar .status{color:#cfd6ff;font-size:14px}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<main>
+  <header class="hero">
+    <div class="kicker">主機會說的話</div>
+    <h1>主持<span>台詞</span></h1>
+    <p class="sub">遊戲裡每一句會唸的話、什麼時候唸，按 ▶ 聽實際的錄音</p>
+  </header>
+
+  <p class="note">每一句的文字和聲音都直接讀遊戲用的同一份台詞表和錄音，停頓也一樣，所以這裡聽到的就是主機手機會唸的。句子裡的號碼只是舉例，遊戲裡會換成實際的號碼。</p>
+
+  <nav class="toc" aria-label="目錄">
+    <a href="#deal">發牌</a>
+    <a href="#night">黑夜</a>
+    <a href="#dawn">天亮</a>
+    <a href="#vote">投票與放逐</a>
+    <a href="#skill">白天技能</a>
+    <a href="#end">遊戲結束</a>
+    <a href="#numbers">號碼</a>
+  </nav>
+
+  <div class="bar">
+    <button type="button" id="stop">■ 停止</button>
+    <span class="status" id="status">按 ▶ 開始聽</span>
+  </div>
+
+  <section class="panel" id="deal">
+    <h2>發牌 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <ul class="lines">
+      <li data-clips="checkRole"><span class="when">發牌、重新發牌、直接重開時。大家看完自己的身分按確認，主機才開始。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="night">
+    <h2>黑夜 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <div class="order" data-night-order><span>天黑</span><i>→</i><span>守衛</span><i>→</i><span>狼人</span><i>→</i><span>狼美人</span><i>→</i><span>女巫</span><i>→</i><span>預言家</span><i>→</i><span>石像鬼</span><i>→</i><span>守墓人</span><i>→</i><span>獵人</span><i>→</i><span>上警（第一晚）</span></div>
+    <p class="hint">板子上沒有的角色不唸。角色睜眼後 <b data-const="REPEAT_MS">25</b> 秒還沒操作，主機會把那句再唸一次；死掉的角色照樣唸睜眼、閉眼，但不會重唸。</p>
+    <ul class="lines">
+      <li data-clips="nightStart"><span class="when">每晚開始。這句音量放大一倍，大家還在聊天也聽得到。</span></li>
+      <li data-clips="guardOpen"><span class="when">守衛睜眼。</span></li>
+      <li data-clips="guardClose"><span class="when">守衛選完。</span></li>
+      <li data-clips="wolfOpen"><span class="when">狼人睜眼（板子上沒有狼王）。</span></li>
+      <li data-clips="wolfOpenKing"><span class="when">狼人睜眼（板子上有狼王）。</span></li>
+      <li data-clips="wolfAsk"><span class="when">狼人太久沒選好時只重唸這句。</span></li>
+      <li data-clips="wolfClose"><span class="when">狼人確認刀人後。</span></li>
+      <li data-clips="beautyOpen"><span class="when">狼人閉眼後，狼美人單獨睜眼。</span></li>
+      <li data-clips="beautyClose"><span class="when">狼美人選完。</span></li>
+      <li data-clips="witchSave"><span class="when">女巫睜眼。死亡號碼只出現在女巫手機上，主機不唸號碼。</span></li>
+      <li data-clips="witchPoison"><span class="when">女巫決定完解藥。</span></li>
+      <li data-clips="witchClose"><span class="when">女巫決定完毒藥。</span></li>
+      <li data-clips="seerOpen"><span class="when">預言家睜眼。</span></li>
+      <li data-clips="seerClose"><span class="when">預言家看完結果。</span></li>
+      <li data-clips="gargoyleOpen"><span class="when">石像鬼睜眼。</span></li>
+      <li data-clips="gargoyleClose"><span class="when">石像鬼看完結果。</span></li>
+      <li data-clips="graveOpen"><span class="when">守墓人睜眼（第二晚起）。結果只出現在守墓人手機上。</span></li>
+      <li data-clips="graveClose"><span class="when">守墓人看完。</span></li>
+      <li data-clips="hunterOpen"><span class="when">獵人睜眼。能不能開槍只出現在獵人手機上。</span></li>
+      <li data-clips="hunterClose"><span class="when">獵人看完。</span></li>
+      <li data-clips="police"><span class="when">第一晚最後（設定可以關掉）。<b data-const="POLICE_MS">6</b> 秒後天亮，主機也可以提早按繼續。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="dawn">
+    <h2>天亮 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <ul class="lines">
+      <li data-clips="dawn deathsAre n9 sep n10 end"><span class="when">第二天起：天亮同時公布昨晚誰死。</span></li>
+      <li data-clips="dawn peace"><span class="when">第二天起：昨晚沒有人死。</span></li>
+      <li data-clips="dawn"><span class="when">第一天：先只唸天亮，大家競選警長。</span></li>
+      <li data-clips="deathsAre n9 end"><span class="when">第一天：警長選完，主機按「公布昨晚死訊」。</span></li>
+      <li data-clips="peace"><span class="when">第一天：公布死訊時昨晚沒有人死。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="vote">
+    <h2>投票與放逐 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <ul class="lines">
+      <li data-clips="voteStart"><span class="when">主機按「進行投票」（平票 PK 也唸）。</span></li>
+      <li data-clips="n3 exiled"><span class="when">只有一個最高票，自動放逐；主機手動登記放逐也唸這句。</span></li>
+      <li data-clips="n2 exiled n8 charmDied"><span class="when">被放逐（或被槍、被白狼王帶走）的是狼美人：她魅惑的人跟著殉情。</span></li>
+      <li data-clips="n5 idiotFlip"><span class="when">被放逐的白癡選擇翻牌。</span></li>
+      <li data-clips="tie nightStart"><span class="when">平票，主機選「沒人出局」。唸完今天就結束。</span></li>
+      <li data-clips="noExile nightStart"><span class="when">全部棄票，主機選「沒人出局」。唸完今天就結束。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="skill">
+    <h2>白天技能 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <ul class="lines">
+      <li data-clips="n6 comma skillOn"><span class="when">能開槍的獵人、狼王出局時（被毒、殉情、自爆的不能開槍，不唸）。</span></li>
+      <li data-clips="n6 shootTook n4 end"><span class="when">開槍帶走人。</span></li>
+      <li data-clips="knight n8 duelWith n2 colon n2 duelWolf nightStart"><span class="when">騎士撞到狼：今天不放逐，直接天黑（撞到狼王就等他開完槍再唸天黑）。</span></li>
+      <li data-clips="knight n8 duelWith n9 colon n9 duelGood"><span class="when">騎士撞到好人：騎士出局，白天繼續。</span></li>
+      <li data-clips="n3 wolfBoom comma nightStart"><span class="when">狼人陣營自爆（狼美人不能自爆）。不唸是哪種狼。</span></li>
+      <li data-clips="n4 whiteBoom nightStart"><span class="when">白狼王自爆，不帶人。</span></li>
+      <li data-clips="n4 whiteBoomTook n6 end nightStart"><span class="when">白狼王自爆帶走一人（帶走的是獵人、狼王就等他開完槍再唸天黑）。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="end">
+    <h2>遊戲結束 <button class="playall" type="button">▶ 整段聽</button></h2>
+    <ul class="lines">
+      <li data-clips="goodWin"><span class="when">狼人陣營全部出局。</span></li>
+      <li data-clips="wolfWin"><span class="when">屠邊或屠城達成，或綁票、只剩一狼一神一民等提早獲勝。</span></li>
+    </ul>
+  </section>
+
+  <section class="panel" id="numbers">
+    <h2>號碼</h2>
+    <p class="hint">號碼是一個一個分開錄的，接在台詞前後唸。點一下聽。</p>
+    <div class="nums" id="nums"></div>
+  </section>
+
+  <p class="note">已經不用、所以沒列的：狼王的帶槍手勢（2026-10-27 取消）、只唸到「發動技能」的舊版開槍句。</p>
+
+  <p class="foot"><a href="../judge/">← 回法官工具</a>　<a href="../roles/">角色說明</a>　<a href="../">發言順序轉盤</a></p>
+</main>
+
+<script type="module">
+  // 文字從遊戲的台詞表組（跟主機畫面同一份），聲音播 ../voice/<片段>.mp3，停頓照主機的 GAP——三樣都不另外抄
+  import { LINES, lineText } from '../shared/voice-lines.js';
+  import { GAP, CLIP_GAIN, VOICE_VOL } from '../judge/voice.js';
+
+  const $ = s => document.querySelector(s);
+  const status = $('#status');
+  for (let n = 1; n <= 20; n++) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.clips = 'n' + n; b.textContent = n + ' 號';
+    $('#nums').append(b);
+  }
+  for (const li of document.querySelectorAll('li[data-clips]')) {
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = lineText(li.dataset.clips.split(' '));
+    const btn = document.createElement('button');
+    btn.className = 'play'; btn.type = 'button'; btn.textContent = '▶';
+    btn.setAttribute('aria-label', '播放：' + text.textContent);
+    li.prepend(btn, text);
+  }
+
+  let actx = null, out = null, manifest = null, run = 0, sources = [];
+  const buffers = {};
+  async function ready() {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      out = actx.createGain(); out.gain.value = VOICE_VOL;
+      const limit = actx.createDynamicsCompressor(); // 跟主機一樣：放大的片段後面接限幅器
+      limit.threshold.value = -1; limit.ratio.value = 20;
+      out.connect(limit).connect(actx.destination);
+    }
+    if (actx.state === 'suspended') await actx.resume();
+    manifest ??= await fetch('../voice/manifest.json', { cache: 'no-cache' }).then(r => r.json());
+  }
+  async function load(k) {
+    if (!buffers[k]) {
+      const f = manifest.files[k];
+      if (!f) throw new Error(`${k} 沒有錄音`);
+      const data = await fetch('../voice/' + f.file).then(r => r.arrayBuffer());
+      buffers[k] = await new Promise((ok, bad) => actx.decodeAudioData(data, ok, bad));
+    }
+    return buffers[k];
+  }
+  function stop() {
+    run++;
+    for (const s of sources) try { s.stop(); } catch {}
+    sources = [];
+    document.querySelectorAll('.on').forEach(e => e.classList.remove('on'));
+  }
+  // 播一個元素的台詞；回傳播完的 Promise（被停止就提早結束）
+  async function play(el, my) {
+    const clips = el.dataset.clips.split(' ');
+    await Promise.all(clips.filter(k => !(k in GAP)).map(load));
+    if (my !== run) return;
+    el.classList.add('on');
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    let t = actx.currentTime + 0.05;
+    for (const k of clips) {
+      if (k in GAP) { t += GAP[k]; continue; }
+      const src = actx.createBufferSource();
+      src.buffer = buffers[k];
+      if (CLIP_GAIN[k]) { const g = actx.createGain(); g.gain.value = CLIP_GAIN[k]; src.connect(g).connect(out); } else src.connect(out);
+      src.start(t);
+      sources.push(src);
+      t += buffers[k].duration + 0.04;
+    }
+    await new Promise(ok => setTimeout(ok, (t - actx.currentTime) * 1000));
+    el.classList.remove('on');
+  }
+  async function playList(els, label) {
+    stop();
+    const my = run;
+    try {
+      await ready();
+      status.textContent = '播放中：' + label;
+      for (const el of els) {
+        if (my !== run) return;
+        await play(el, my);
+        await new Promise(ok => setTimeout(ok, 500));
+      }
+      if (my === run) status.textContent = '播完了';
+    } catch (e) { status.textContent = '播不出來：' + e.message; }
+  }
+  document.addEventListener('click', e => {
+    const one = e.target.closest('.play, .nums button');
+    if (one) { const el = one.closest('li') ?? one; playList([el], lineText(el.dataset.clips.split(' '))); return; }
+    const all = e.target.closest('.playall');
+    if (all) { const sec = all.closest('section'); playList([...sec.querySelectorAll('li[data-clips]')], sec.querySelector('h2').firstChild.textContent.trim()); return; }
+    if (e.target.closest('#stop')) { stop(); status.textContent = '已停止'; }
+  });
+</script>
+</body>
+</html>
