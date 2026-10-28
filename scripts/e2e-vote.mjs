@@ -122,7 +122,8 @@ await until(() => p(HUNTER).errors.length > e1, 5000, '選警徽被擋');
 check('還沒開槍就選警徽：伺服器擋', /先發動技能/.test(p(HUNTER).errors.at(-1)), p(HUNTER).errors.at(-1));
 send('p' + HUNTER, { type: 'shoot', target: W1 });
 await until(() => p(HUNTER).state.you.game.passBadge, 10000, '開完槍出現選警徽');
-check(`開槍帶走 ${W1} 號後才出現選警徽`, host.state.game.alive[W1] === false);
+await until(() => host.state.game.alive[W1] === false, 5000, '主機收到開槍結果'); // 每支手機各自收廣播，主機那份可能晚幾毫秒
+check(`開槍帶走 ${W1} 號後才出現選警徽`, host.state.game.alive[W1] === false && p(HUNTER).state.game.alive[W1] === false);
 send('p' + HUNTER, { type: 'passBadge', target: SEER });
 await until(() => host.state.game.sheriff === SEER && !host.state.game.badgePending, 10000, '移交警徽');
 check(`警徽移交給 ${SEER} 號：主機唸「警徽移交給 ${SEER} 號。」、紀錄寫一行`, logText().includes(`${HUNTER} 號警長把警徽移交給 ${SEER} 號。`) && host.narr.at(-1) === `警徽移交給 ${SEER} 號。`, host.narr.at(-1));
