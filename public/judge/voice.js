@@ -5,6 +5,7 @@
 // 夜裡放背景音樂、唸台詞時自動降低音量。
 // 瀏覽器規定「使用者點過之後」才能出聲，所以要先 unlock()：主機點螢幕任何地方都會呼叫 tapped()（見 app.js）。
 // Leo 2026-10-17：拿掉「點這裡開啟主持語音」那條，該講話就直接講；聲音被暫停時漏掉的那句，主機下次點螢幕就補唸。
+import { sayAs } from '../shared/voice-lines.js';
 
 const BGM_VOL = 0.18, BGM_DUCK = 0.05;
 // 主持人講話的音量（錄音與手機內建語音都用這個）：Leo 2026-10-17 實玩嫌太大聲，1 → 0.6（約 -4.4 dB）；背景音樂不變
@@ -130,7 +131,8 @@ export const voice = {
 
   say(text) {
     if (!unlocked || !synth || !text) return;
-    const u = new SpeechSynthesisUtterance(text);
+    // 破音字照錄音一樣換寫法（「角色」唸 ㄐㄧㄠˇ，Leo 2026-10-17）；畫面文字不變
+    const u = new SpeechSynthesisUtterance(sayAs(text));
     u.lang = 'zh-TW';
     if (zhVoice) u.voice = zhVoice;
     u.rate = 0.92;
