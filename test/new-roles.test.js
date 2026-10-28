@@ -113,53 +113,43 @@ test('新台詞：每一步的劇本片段都在台詞表；主機台詞不唸�
 });
 
 /* ───────── 夜晚順序 ───────── */
-test('夜晚順序：守衛→狼人→狼美人→女巫→預言家→石像鬼→守墓人（第二晚起）→獵人', () => {
+test('夜晚順序：守衛→狼人→狼美人→隱狼→女巫→預言家→石像鬼→守墓人（第二晚起）→獵人', () => {
   const r = newGame(FULL);
-  assert.deepEqual(r.game.night.steps, ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'hunter', 'police']);
-  assert.deepEqual(nextNight(night(r)).game.night.steps, ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter']);
-  assert.deepEqual(newGame({ whiteKing: 1, hidden: 1, seer: 1, villager: 3 }).game.night.steps, ['wolf', 'seer', 'police'], '白狼王、隱狼沒有自己的一步');
+  assert.deepEqual(r.game.night.steps, ['guard', 'wolf', 'beauty', 'hidden', 'witch', 'seer', 'gargoyle', 'hunter', 'police']);
+  assert.deepEqual(nextNight(night(r)).game.night.steps, ['guard', 'wolf', 'beauty', 'hidden', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter']);
+  assert.deepEqual(newGame({ whiteKing: 1, hidden: 1, seer: 1, villager: 3 }).game.night.steps, ['wolf', 'hidden', 'seer', 'police'], '白狼王沒有自己的一步；隱狼有（Leo 2026-10-28）');
+  assert.deepEqual(newGame({ hidden: 1, seer: 1, villager: 3 }).game.night.steps, ['hidden', 'seer', 'police'], '狼只有隱狼：不唸「狼人請睜眼」');
+  assert.deepEqual(E.scriptFor('hidden', FULL), { beats: [{ say: ['hiddenOpen'], act: 'wolf' }], close: ['hiddenClose'] }, '主機只唸睜眼、閉眼');
 });
 
-/* ───────── 隱狼、石像鬼 ───────── */
-test('隱狼：單向認得狼隊、夜裡一起投刀但狼隊看不到他的號碼（Leo 2026-10-27）；預言家看是好人；石像鬼不見狼隊、查具體身分', () => {
+/* ───────── 隱狼、石像鬼（Leo 2026-10-28：隱狼不參與狼刀、不能自爆；其他狼都出局才在自己那步刀人） ───────── */
+test('隱狼：單向認得狼隊；狼隊還活著時不參與狼刀、自己那步只假等；預言家看是好人；石像鬼不見狼隊、查具體身分；不能自爆', () => {
   let r = play(newGame(FULL), {}, atAct('wolf'));
-  assert.deepEqual(E.actors(r.game, 'wolf'), [1, 2, 3, 4, 5], '狼隊：狼人、白狼王、狼美人＋隱狼');
+  assert.deepEqual(E.actors(r.game, 'wolf'), [1, 2, 3, 4], '狼刀只有狼隊（狼人、白狼王、狼美人），沒有隱狼');
   const mates = s => E.privateGame(r, s).wolves.map(w => w.seat);
   assert.deepEqual(mates(1), [1, 2, 3, 4], '狼隊不知道隱狼、石像鬼');
   assert.deepEqual(mates(5), [1, 2, 3, 4, 5], '隱狼知道狼隊');
   assert.deepEqual(mates(6), [6], '石像鬼誰都不認得');
-  assert.equal(E.privateGame(r, 6).action, undefined, '石像鬼閉眼');
-  assert.equal(E.privateGame(r, 5).action.iAmHidden, true);
-  assert.deepEqual(E.privateGame(r, 5).action.killers, [1, 2, 3, 4, 5], '隱狼看得到全部');
-  assert.deepEqual(E.privateGame(r, 1).action.killers, [1, 2, 3, 4], '狼隊的名單沒有隱狼號碼');
-  r = act(r, 5, { target: 12 });
-  const pack = E.privateGame(r, 1).action;
-  assert.deepEqual(pack.hidden, { voted: true, vote: 12 });
-  assert.equal(pack.votes[5], undefined, '狼隊收到的票沒有 5 號這個鍵');
+  assert.equal(E.privateGame(r, 5).action, undefined, '隱狼不能一起刀');
+  assert.equal(E.nightAction(r, id(5), { target: 12 }, everyone(r), 0, minRand).ok, false);
   assert.ok(!JSON.stringify(E.privateGame(r, 1)).includes('"5"'), '狼隊手機的資料裡完全沒有隱狼的座位');
-  for (const w of [1, 2, 3]) r = act(r, w, { target: 12 });
-  assert.equal(r.game.night.wolfProposal, null, '隱狼也要一致（4 號還沒投）');
-  r = act(r, 4, { target: 13 });
-  assert.equal(r.game.night.wolfProposal, null);
-  r = act(r, 4, { target: 12 });
-  assert.equal(r.game.night.wolfProposal, 12, '狼隊＋隱狼全部一致才確認');
-  r = act(r, 5, { confirm: true });
-  assert.equal(r.game.night.wolfTarget, 12, '隱狼也可以按正確');
-  // 隱狼斷線：不算一致（跟掉線的狼同一套）
-  let off = play(newGame(FULL), {}, atAct('wolf'));
-  const online = new Set(Object.values(off.seats).filter(c => c !== id(5)));
-  for (const w of [1, 2, 3, 4]) off = E.nightAction(off, id(w), { target: 12 }, online, 0, minRand).room;
-  assert.equal(off.game.night.wolfProposal, 12, '隱狼離線時不等他');
-  // 隱狼死了：狼隊的畫面照樣有「隱狼：還沒選」那一行（跟掉線一樣），推不出死掉的哪一個是隱狼
-  let dead = night(newGame(FULL));
-  dead = { ...dead, game: { ...dead.game, alive: { ...dead.game.alive, 5: false } } };
-  dead = play(nextNight(dead), {}, atAct('wolf'));
-  assert.deepEqual(E.actors(dead.game, 'wolf'), [1, 2, 3, 4]);
-  assert.deepEqual(E.privateGame(dead, 1).action.hidden, { voted: false, vote: null });
-  assert.deepEqual(E.privateGame(dead, 1).action.killers, [1, 2, 3, 4]);
+  for (const w of [1, 2, 3, 4]) r = act(r, w, { target: 12 });
+  assert.equal(r.game.night.wolfProposal, 12, '狼隊自己一致就確認，不等隱狼');
+  r = act(r, 1, { confirm: true });
+  r = play(r, {}, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden'); // 狼美人照常魅惑
+  // 隱狼那步：狼隊還活著 → 假等（跟死掉的角色一樣，不重唸），手機沒有動作
+  r = runUntil(r, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden');
+  assert.equal(said(r), '隱狼請睜眼。');
+  assert.equal(r.game.night.wait, 'fake');
+  assert.deepEqual(E.actors(r.game, 'hidden'), []);
+  assert.equal(E.privateGame(r, 5).action, undefined);
+  const seq = r.game.narration.seq;
+  r = runUntil(r, x => x.game.night.stage === 'closed');
+  assert.equal(said(r), '隱狼請閉眼。');
+  assert.equal(r.game.narration.seq, seq + 1, '假等完不重唸，直接閉眼');
 
   r = play(newGame(FULL), { seer: 5 }, atAct('gargoyle'));
-  assert.equal(E.privateGame(r, 7).seerChecks.at(-1).wolf, false, '預言家查隱狼＝好人');
+  assert.equal(E.privateGame(r, 7).seerChecks.at(-1).wolf, false, '預言家查隱狼＝好人（其他狼還活著）');
   r = act(r, 6, { target: 5 });
   assert.deepEqual(E.privateGame(r, 6).action.checked, { day: 1, target: 5, role: 'hidden' }, '石像鬼看到具體身分');
   assert.equal(E.nightAction(r, id(6), { target: 7 }, everyone(r), 0, minRand).ok, false, '一晚只查一次');
@@ -169,33 +159,62 @@ test('隱狼：單向認得狼隊、夜裡一起投刀但狼隊看不到他的�
   r = play(newGame(FULL), { seer: 6 }, atAct('gargoyle'));
   assert.equal(E.privateGame(r, 7).seerChecks.at(-1).wolf, true, '預言家查石像鬼＝狼人');
   assert.equal(E.nightAction(r, id(6), { target: 6 }, everyone(r), 0, minRand).ok, false, '不能查自己');
+
+  const d = night(newGame(FULL));
+  assert.equal(E.boom(d, id(5), 0).ok, false, '隱狼不能自爆');
+  assert.equal(E.privateGame(d, 5).canBoom, undefined);
 });
 
-test('狼隊全部出局後：隱狼、石像鬼一起睜眼殺人、彼此見面；隱狼還活著狼人就還沒輸', () => {
+test('狼隊全部出局：石像鬼先單獨刀（不跟隱狼見面）；石像鬼也出局才由隱狼在自己那步刀人；接手後預言家查是狼人', () => {
   let r = night(newGame(FULL));
   const g = structuredClone(r.game);
   for (const s of [1, 2, 3, 4]) g.alive[s] = false;
   r = { ...r, game: g };
   assert.equal(E.winnerOf(r.game, r.setup.counts, r.setup.rules), null, '隱狼、石像鬼還活著');
   r = play(nextNight(r), {}, atAct('wolf'));
-  assert.deepEqual(E.actors(r.game, 'wolf'), [5, 6]);
-  assert.deepEqual(E.privateGame(r, 5).wolves.map(w => w.seat), [1, 2, 3, 4, 5, 6]);
-  assert.deepEqual(E.privateGame(r, 6).wolves.map(w => w.seat), [5, 6]);
-  r = act(r, 5, { target: 12 });
-  assert.equal(r.game.night.wolfProposal, null, '要兩隻一致');
+  assert.deepEqual(E.actors(r.game, 'wolf'), [6], '石像鬼單獨刀');
+  assert.deepEqual(E.privateGame(r, 5).wolves.map(w => w.seat), [1, 2, 3, 4, 5], '隱狼不見石像鬼');
+  assert.deepEqual(E.privateGame(r, 6).wolves.map(w => w.seat), [6], '石像鬼不見隱狼');
   r = act(r, 6, { target: 12 });
   r = act(r, 6, { confirm: true });
+  r = runUntil(r, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden');
+  assert.equal(r.game.night.wait, 'fake', '石像鬼還活著：隱狼那步照樣假等');
   r = play(r);
-  assert.ok(deadSeats(r).includes(12), '隱狼石像鬼刀成功');
-  // 只剩隱狼一隻也照樣殺人
+  assert.ok(deadSeats(r).includes(12), '石像鬼刀成功');
+
+  // 石像鬼也出局：只剩隱狼 → 「狼人請睜眼」那步沒人（假等），隱狼那步由他刀
   const g2 = structuredClone(r.game); g2.alive[6] = false;
   r = play(nextNight({ ...r, game: g2 }), {}, atAct('wolf'));
-  assert.deepEqual(E.actors(r.game, 'wolf'), [5]);
+  assert.equal(curStep(r), 'hidden', '狼人那步沒人動作，直接到隱狼');
+  assert.equal(said(r), '隱狼請睜眼。', '主機不唸「要擊殺的目標」');
+  assert.deepEqual(E.actors(r.game, 'wolf'), []);
+  assert.deepEqual(E.actors(r.game, 'hidden'), [5]);
+  const a = E.privateGame(r, 5).action;
+  assert.equal(a.kind, 'wolf');
+  assert.equal(a.hiddenAlone, true, '手機上用文字提示');
+  assert.deepEqual(a.killers, [5]);
+  // 太久沒刀：重唸「隱狼請睜眼。」
+  const again = E.advance(r, r.game.timer.at, minRand).room;
+  assert.equal(said(again), '隱狼請睜眼。');
+  assert.ok(again.game.narration.seq > r.game.narration.seq);
+  r = act(r, 5, { target: 13 });
+  assert.equal(r.game.night.wolfProposal, 13, '自己選好就問是否正確');
+  r = act(r, 5, { confirm: true });
+  r = runUntil(r, x => x.game.night.stage === 'closed');
+  assert.equal(said(r), '隱狼請閉眼。', '刀完就閉眼');
+  r = play(r, { seer: 5 }, atAct('witchSave'));
+  assert.equal(E.privateGame(r, 8).action.victim, 13, '女巫看得到隱狼刀的人');
+  r = play(r, { seer: 5 });
+  assert.equal(E.privateGame(r, 7).seerChecks.at(-1).wolf, true, '接手後預言家查隱狼＝狼人（Leo 2026-10-28）');
+  assert.ok(deadSeats(r).includes(13));
 });
 
-test('只有隱狼／石像鬼的板子：第一晚就由他們殺人', () => {
+test('只有隱狼／石像鬼的板子：第一晚就由他們殺人（隱狼在自己那步）', () => {
   const r = play(newGame({ gargoyle: 1, seer: 1, villager: 3 }), {}, atAct('wolf'));
   assert.deepEqual(E.actors(r.game, 'wolf'), [1]);
+  const h = play(newGame({ hidden: 1, seer: 1, villager: 3 }), {}, atAct('wolf'));
+  assert.equal(curStep(h), 'hidden');
+  assert.deepEqual(E.actors(h.game, 'hidden'), [1]);
 });
 
 /* ───────── 狼美人 ───────── */
@@ -516,18 +535,20 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         if (waiting(r)) {
           const step = curStep(r), who = E.actors(r.game, step);
           for (const s of who) assert.ok(r.game.alive[s], `seed ${seed} 死人在動作`);
-          if (step === 'wolf') {
+          if (beatAct(r) === 'wolf') { // 狼人那步、隱狼那步（只剩隱狼）
             for (const s of who) assert.equal(R.ROLES[r.game.roles[s]].team, 'wolf', `seed ${seed} 好人在狼人那步`);
             const ok = aliveList().filter(s => r.game.roles[s] !== 'beauty'); // 狼美人不能被自刀
             const t = rnd(3) ? ok[rnd(ok.length)] : 0;
             if (r.game.alive[aliveList().find(s => r.game.roles[s] === 'beauty')]) for (const s of who) rejected(E.nightAction(r, id(s), { target: aliveList().find(x => r.game.roles[x] === 'beauty') }, everyone(r), now, rnd), '刀狼美人');
             for (const s of who) tryAct(s, [{ target: t }]);
-            // 隱狼一起投，但狼隊手機的資料裡不能有他的號碼
-            const hid = who.find(s => r.game.roles[s] === 'hidden');
-            // （狼隊死光、剩隱狼石像鬼時兩個會見面，不算）
-            if (hid && r.phase === 'night' && waiting(r)) for (const s of who.filter(x => x !== hid && !R.LONE_WOLVES.includes(r.game.roles[x]))) {
-              const a = E.privateGame(r, s).action;
-              assert.ok(!a.killers.includes(hid) && !(hid in a.votes) && !E.privateGame(r, s).wolves.some(w => w.seat === hid), `seed ${seed} 狼隊看到隱狼號碼：${s} 號 ${r.game.roles[s]}，誰在投：${who.map(x => r.game.roles[x])}`);
+            // 隱狼只在「其他狼都出局」時、在自己那步刀人；狼隊的手機看不到他的號碼（Leo 2026-10-28）
+            const others = aliveList().filter(s => R.ROLES[r.game.roles[s]].team === 'wolf' && r.game.roles[s] !== 'hidden');
+            if (step === 'hidden') assert.equal(others.length, 0, `seed ${seed} 其他狼還活著，隱狼卻在刀人`);
+            else assert.ok(!who.some(s => r.game.roles[s] === 'hidden'), `seed ${seed} 隱狼在狼人那步`);
+            const hid = aliveList().find(s => r.game.roles[s] === 'hidden');
+            if (hid && r.phase === 'night' && waiting(r)) for (const s of who.filter(x => x !== hid)) {
+              const p = E.privateGame(r, s);
+              assert.ok(!p.wolves.some(w => w.seat === hid) && !p.action.killers.includes(hid), `seed ${seed} 狼隊看到隱狼號碼：${s} 號 ${r.game.roles[s]}`);
             }
             assert.ok(tryAct(who[0], [{ confirm: true }]), `seed ${seed} 狼人確認失敗`);
           } else {
@@ -546,11 +567,13 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       // 白天
       const g = r.game;
       const live = s => g.alive[s] && !(g.day.pendingDeaths ?? []).includes(s);
-      const wolfBoomers = aliveList().filter(s => live(s) && R.ROLES[g.roles[s]].team === 'wolf' && g.roles[s] !== 'beauty');
+      const wolfBoomers = aliveList().filter(s => live(s) && R.ROLES[g.roles[s]].team === 'wolf' && g.roles[s] !== 'beauty' && g.roles[s] !== 'hidden');
       const wk0 = wolfBoomers[0], kn0 = aliveList().find(s => live(s) && g.roles[s] === 'knight' && !g.knightUsed);
       const beauty0 = aliveList().find(s => g.roles[s] === 'beauty');
       const anyone = aliveList().find(s => live(s) && s !== kn0) ?? aliveList()[0];
       if (beauty0) rejected(E.boom(r, id(beauty0), 0), '狼美人自爆');
+      const hidden0 = aliveList().find(s => g.roles[s] === 'hidden');
+      if (hidden0) rejected(E.boom(r, id(hidden0), 0), '隱狼自爆');
       // 該擋的動作要擋：死訊公布前不能放逐、天黑；等白癡／移交警徽時什麼都不能做；唸了天黑請閉眼之後不能放逐、自爆、決鬥；投票後不能自爆
       if (g.day.pendingDeaths || g.day.idiotChoice || g.badgePending) {
         rejected(E.exile(r, anyone), '等死訊／白癡／警徽時放逐');
@@ -633,10 +656,9 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         must(E.exile(r, rnd(4) ? pickAlive() : 0), '放逐'); continue;
       }
       const res = E.nextNight(r, now); assert.ok(res.ok, `seed ${seed} 天黑：${res.error}`); r = res.room;
-      // 狼隊還有人活著時，隱狼、石像鬼不會出現在狼人那步
-      // 狼隊還有人活著時：狼人那步是狼隊＋隱狼（Leo 2026-10-27），石像鬼不在裡面；狼隊手機上看不到隱狼的號碼
+      // 狼隊還有人活著時：狼人那步只有狼隊（隱狼、石像鬼都不在裡面；Leo 2026-10-28）
       const pack = aliveList().filter(s => R.ROLES[r.game.roles[s]].team === 'wolf' && !R.LONE_WOLVES.includes(r.game.roles[s]));
-      if (pack.length) assert.deepEqual(E.killers(r.game), aliveList().filter(s => pack.includes(s) || r.game.roles[s] === 'hidden'));
+      if (pack.length) assert.deepEqual(E.killers(r.game), pack);
     }
     assert.ok(['good', 'wolf'].includes(r.game.winner), `seed ${seed} 沒有勝負`);
     if (r.game.winner === 'good') assert.equal(E.winnerOf(r.game, r.setup.counts, r.setup.rules), 'good');

@@ -3,7 +3,7 @@ import { ROLES, TEAM_NAME, boardByTeam } from '../shared/roles.js';
 import { portrait } from '../shared/art.js';
 
 const SKIP_MS = 25000; // 跟伺服器 src/engine.js 的 SKIP_MS 一樣（Leo 2026-10-27 從 30 減 5 秒）
-const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
+const STEP_NAME = { guard: '守衛', wolf: '狼人', beauty: '狼美人', hidden: '隱狼', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人', king: '狼王', police: '上警' };
 
 let c;              // { state, $, setHTML, esc, send, toast, voice, ui, render, takeHost }
 const FRESH = { pick: null, pickKey: '', duelOpen: false, boomOpen: false, showMe: false, hostPick: null, hostKey: '', confirm: null, sheriffPick: null, sheriffOpen: false, skillPick: null, badgePick: null, manualExile: false };
@@ -84,24 +84,27 @@ function renderAction() {
         ${confirmBox || `<div class="row-gap"><button class="btn primary" type="button" data-do="guard"${pick ? '' : ' disabled'}>守護 ${pick ?? '…'} 號</button>
         <button class="btn" type="button" data-do="guard0">今晚不守</button></div>`}`;
     } else if (a.kind === 'wolf') {
-      const wolves = me.wolves.filter(w => a.killers.includes(w.seat)); // 今晚一起殺人的（狼隊死光後是隱狼、石像鬼）
-      // 隱狼一起投（Leo 2026-10-27）：狼隊的手機只看到「隱狼」選誰，看不到他是幾號（a.hidden）
-      const votesFor = n => [...wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat + '號'), ...(a.hidden?.vote === n ? ['隱狼'] : [])];
+      const wolves = me.wolves.filter(w => a.killers.includes(w.seat)); // 今晚一起殺人的（狼隊死光後是石像鬼；只剩隱狼時是隱狼自己）
+      const votesFor = n => wolves.filter(w => a.votes[w.seat] === n).map(w => w.seat + '號');
       const voteText = v => (v === undefined || v === null ? '還沒選' : v === 0 ? '空刀' : v + ' 號');
       const myVote = a.votes[seat];
       const king = me.wolves.find(w => w.king);
       const agreed = a.proposal !== null && a.proposal !== undefined;
-      html = `<h2>今晚要擊殺的目標是？</h2>
-        <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}${a.hidden ? '　還有一隻隱狼一起投（號碼保密）' : ''}</p>
-        ${a.iAmHidden ? '<p class="hint"><b>你是隱狼：不用睜眼</b>，在手機上投就好；狼隊只看到「隱狼」選誰，看不到你的號碼。</p>' : ''}
+      // 隱狼那步（只剩隱狼）：主機只唸「隱狼請睜眼」，要做什麼寫在手機上（Leo 2026-10-28）
+      html = a.hiddenAlone
+        ? `<h2>隱狼：請選擇今晚要擊殺的玩家</h2>
+          <p class="hint">其他狼都出局了，現在由你刀人。主機不會唸出來，直接在手機上選；選好按「正確」就閉眼。</p>`
+        : `<h2>今晚要擊殺的目標是？</h2>
+          <p class="hint">你的隊友：${wolves.filter(w => w.seat !== seat).map(w => `${w.seat} 號`).join('、') || '沒有'}${king ? `　<b>狼王是 ${king.seat} 號</b>${king.alive ? '' : '（已出局）'}` : ''}</p>`;
+      html += `
         ${agreed
           ? `<div class="confirm"><p>${a.proposal ? `今晚要擊殺的玩家是 <b class="digits">${a.proposal}</b> 號` : '今晚空刀'}，是否正確？</p>
               <div class="row-gap"><button class="btn primary" type="button" data-do="wolfYes">正確</button><button class="btn" type="button" data-do="wolfNo">重選</button></div>
-              <p class="hint small">任何一隻狼按「正確」就確定。</p></div>`
-          : `<p class="hint">在線上的狼（掉線的不算）都點同一個人（或都按空刀）之後，會問「是否正確」。</p>
+              ${a.hiddenAlone ? '' : '<p class="hint small">任何一隻狼按「正確」就確定。</p>'}</div>`
+          : `<p class="hint">${a.hiddenAlone ? '點一個號碼（或按空刀）之後，會問「是否正確」。' : '在線上的狼（掉線的不算）都點同一個人（或都按空刀）之後，會問「是否正確」。'}</p>
             ${picker(aliveSeats().map(n => { const v = votesFor(n); const no = a.noKnife?.includes(n); return { n, disabled: no, note: no ? '不能刀' : v.join(' ') }; }), myVote || null)}
             <div class="row-gap"><button class="btn${myVote === 0 ? ' primary' : ''}" type="button" data-do="wolf0">今晚空刀</button></div>
-            <ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${voteText(a.votes[w.seat])}</li>`).join('')}${a.hidden ? `<li>隱狼：${a.hidden.voted ? voteText(a.hidden.vote) : '還沒選'}</li>` : ''}</ul>`}`;
+            ${a.hiddenAlone ? '' : `<ul class="votes">${wolves.map(w => `<li>${w.seat} 號${w.seat === seat ? '（你）' : ''}：${voteText(a.votes[w.seat])}</li>`).join('')}</ul>`}`}`;
     } else if (a.kind === 'witchSave') {
       const info = a.saveUsedUp ? '解藥已經用掉了，不會告知今晚死亡的玩家。'
         : a.victim ? `今晚死亡的玩家是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人死亡。';
@@ -506,8 +509,8 @@ function renderMyInfo() {
   if (!ui.showMe) { setHTML(box, `<button class="btn big" type="button" data-me="show">看我的身分（先確定旁人看不到）</button>`); return; }
   const r = ROLES[role];
   const lines = [];
-  if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || (role === 'gargoyle' ? '沒有（石像鬼只跟還活著、一起殺人的隱狼見面）' : '沒有')}`);
-  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼。狼隊還活著時，晚上你在手機上跟他們一起投刀（不用睜眼，他們看不到你的號碼）；狼隊全部出局（或板子上本來就沒有狼隊）時，就由你自己決定殺誰（有石像鬼的話跟他一起）。');
+  if (me.wolves) lines.push(`狼隊友：${me.wolves.filter(w => w.seat !== state.you.seat).map(w => `${w.seat} 號${w.king ? '（狼王）' : ''}${w.alive ? '' : '（已出局）'}`).join('、') || '沒有'}`);
+  if (role === 'hidden') lines.push('狼隊友不知道你是隱狼。其他狼還活著時你不刀人、也不能自爆；其他狼都出局（只剩你）時，夜裡「隱狼請睜眼」那步由你在手機上選要殺誰。');
   if (me.gargoyleChecks) lines.push(me.gargoyleChecks.length ? '查驗紀錄：' + me.gargoyleChecks.map(x => `第 ${x.day} 夜 ${x.target} 號是${ROLES[x.role].name}`).join('；') : '查驗紀錄：還沒有');
   if (me.graveChecks) lines.push(me.graveChecks.length ? '守墓紀錄：' + me.graveChecks.map(x => `第 ${x.day} 天放逐的 ${x.seat} 號是${x.wolf ? '狼人' : '好人'}`).join('；') : '守墓紀錄：還沒有');
   if (role === 'beauty') lines.push(`目前魅惑：${me.charm ? me.charm + ' 號' : '沒有'}`);

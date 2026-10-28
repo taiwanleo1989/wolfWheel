@@ -375,9 +375,10 @@ test('狼人自爆：唸「N 號狼人自爆，天黑請閉眼。」，今天不
   k = ok(E.boom(k, id(2), 0));
   assert.deepEqual(k.game.canShoot, []);
   assert.equal(k.game.narration.text, '2 號狼人自爆，天黑請閉眼。', '不唸狼王，只唸狼人');
-  // 隱狼、石像鬼也能自爆
+  // 隱狼不能自爆（Leo 2026-10-28）
   const h = night(newGame(H));
-  assert.equal(E.privateGame(h, 3).canBoom, true);
+  assert.equal(E.privateGame(h, 3).canBoom, undefined);
+  assert.equal(E.boom(h, id(3), 0).ok, false);
   // 最後一隻狼自爆：遊戲結束，「狼人自爆」接著「遊戲結束」
   let last = night(newGame({ wolf: 1, seer: 1, villager: 2 }));
   last = ok(E.boom(last, id(1), 0));

@@ -16,12 +16,15 @@ const ENTRIES = [...HTML.matchAll(/<li data-clips="([^"]+)">/g)].map(m => m[1].s
 const RETIRED = ['kingOpen', 'kingClose', 'shootSkill'];
 const isSeat = k => /^n\d+$/.test(k);
 
-test('主持台詞頁：每個片段都在台詞表，要出聲的都有錄音', () => {
+test('主持台詞頁：每個片段都在台詞表；還沒錄音的都寫在「還沒錄音」那行', () => {
   assert.ok(ENTRIES.length > 30);
+  const missing = new Set();
   for (const clips of ENTRIES) for (const k of clips) {
     assert.ok(k in LINES, `台詞表沒有 ${k}`);
-    if (!SILENT.has(k)) assert.ok(MANIFEST[k], `${k} 沒有錄音`);
+    if (!SILENT.has(k) && !MANIFEST[k]) missing.add(k);
   }
+  const listed = (HTML.match(/data-unrecorded="([^"]*)"/)?.[1] ?? '').split(',').filter(Boolean).sort(); // 全部錄好就拿掉那一行
+  assert.deepEqual(listed, [...missing].sort(), '「還沒錄音」那行要跟音檔清單一致');
   for (let n = 1; n <= 20; n++) assert.ok(MANIFEST['n' + n], `n${n} 沒有錄音`); // 號碼那格 1～20 號
 });
 
@@ -41,7 +44,7 @@ test('主持台詞頁：秒數、黑夜順序跟程式一樣', () => {
   const seen = [...HTML.matchAll(/<b data-const="(\w+)">(\d+)<\/b>/g)];
   assert.equal(seen.length, Object.keys(want).length);
   for (const [, k, v] of seen) assert.equal(Number(v), want[k], k);
-  const name = { guard: '守衛', wolf: '狼人', beauty: '狼美人', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人' };
+  const name = { guard: '守衛', wolf: '狼人', beauty: '狼美人', hidden: '隱狼', witch: '女巫', seer: '預言家', gargoyle: '石像鬼', gravekeeper: '守墓人', hunter: '獵人' };
   const row = HTML.match(/<div class="order" data-night-order>([\s\S]*?)<\/div>/)[1];
   assert.deepEqual([...row.matchAll(/<span>([^<]+)<\/span>/g)].map(m => m[1]), ['天黑', ...E.NIGHT_ORDER.map(s => name[s]), '上警（第一晚）']);
 });

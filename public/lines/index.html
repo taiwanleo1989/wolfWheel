@@ -73,7 +73,8 @@
 
   <section class="panel" id="night">
     <h2>黑夜 <button class="playall" type="button">▶ 整段聽</button></h2>
-    <div class="order" data-night-order><span>天黑</span><i>→</i><span>守衛</span><i>→</i><span>狼人</span><i>→</i><span>狼美人</span><i>→</i><span>女巫</span><i>→</i><span>預言家</span><i>→</i><span>石像鬼</span><i>→</i><span>守墓人</span><i>→</i><span>獵人</span><i>→</i><span>上警（第一晚）</span></div>
+    <div class="order" data-night-order><span>天黑</span><i>→</i><span>守衛</span><i>→</i><span>狼人</span><i>→</i><span>狼美人</span><i>→</i><span>隱狼</span><i>→</i><span>女巫</span><i>→</i><span>預言家</span><i>→</i><span>石像鬼</span><i>→</i><span>守墓人</span><i>→</i><span>獵人</span><i>→</i><span>上警（第一晚）</span></div>
+    <p class="note" data-unrecorded="hiddenClose,hiddenOpen">「隱狼請睜眼」「隱狼請閉眼」還沒錄音：錄好之前遊戲裡用手機內建語音唸，這頁按 ▶ 也一樣。</p>
     <p class="hint">板子上沒有的角色不唸。角色睜眼後 <b data-const="REPEAT_MS">25</b> 秒還沒操作，主機會把那句再唸一次；死掉的角色照樣唸睜眼、閉眼，但不會重唸。</p>
     <ul class="lines">
       <li data-clips="nightStart"><span class="when">每晚開始。這句音量放大一倍，大家還在聊天也聽得到。</span></li>
@@ -85,6 +86,8 @@
       <li data-clips="wolfClose"><span class="when">狼人確認刀人後。</span></li>
       <li data-clips="beautyOpen"><span class="when">狼人閉眼後，狼美人單獨睜眼。</span></li>
       <li data-clips="beautyClose"><span class="when">狼美人選完。</span></li>
+      <li data-clips="hiddenOpen"><span class="when">隱狼睜眼。其他狼還活著時只是假等；只剩隱狼時他在手機上刀人（主機不唸要擊殺的目標），太久沒選就重唸這句。</span></li>
+      <li data-clips="hiddenClose"><span class="when">隱狼選完（或假等結束）。</span></li>
       <li data-clips="witchSave"><span class="when">女巫睜眼。死亡號碼只出現在女巫手機上，主機不唸號碼。</span></li>
       <li data-clips="witchPoison"><span class="when">女巫決定完解藥。</span></li>
       <li data-clips="witchClose"><span class="when">女巫決定完毒藥。</span></li>
@@ -201,13 +204,29 @@
   }
   function stop() {
     run++;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
     for (const s of sources) try { s.stop(); } catch {}
     sources = [];
     document.querySelectorAll('.on').forEach(e => e.classList.remove('on'));
   }
   // 播一個元素的台詞；回傳播完的 Promise（被停止就提早結束）
+  // 有片段還沒錄音：整句改用內建語音唸（遊戲裡也是這樣）
+  function speakDevice(text) {
+    return new Promise(ok => {
+      if (!('speechSynthesis' in window)) return ok();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW'; u.volume = VOICE_VOL; u.onend = u.onerror = ok;
+      speechSynthesis.speak(u);
+    });
+  }
   async function play(el, my) {
     const clips = el.dataset.clips.split(' ');
+    if (clips.some(k => !(k in GAP) && !manifest.files[k])) {
+      el.classList.add('on');
+      await speakDevice(lineText(clips));
+      el.classList.remove('on');
+      return;
+    }
     await Promise.all(clips.filter(k => !(k in GAP)).map(load));
     if (my !== run) return;
     el.classList.add('on');

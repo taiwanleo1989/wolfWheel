@@ -4,6 +4,7 @@
 // 黑夜照 Leo 的手稿（2026-10-08）：守衛 → 狼人 → 女巫（解藥、毒藥兩段）→ 預言家 → 獵人 →（第一晚）上警 → 天亮。
 // 2026-10-13 加五個角色，插進手稿的順序：狼人之後狼美人、預言家之後石像鬼、守墓人（第二晚起）；白狼王、隱狼沒有自己的一步。
 // 2026-10-17 獵人之後加狼王的帶槍手勢；2026-10-27 Leo 拿掉（狼王夜裡不再有帶槍手勢這一步，scriptFor 的 'king' 留給舊房間）。
+// 2026-10-28 隱狼有自己的一步（狼美人之後、女巫之前）：其他狼都出局、只剩隱狼時，他在這一步單獨刀人；不然假等（見 actors）。
 // 每個角色＝一段「劇本」：幾句台詞（beat），每句台詞配一個要等的動作，最後一句閉眼。
 // 主機只唸台詞，絕不唸號碼——手稿裡「上帝手比號碼」的部分只出現在當事人的手機上。
 //
@@ -21,7 +22,7 @@ import * as L from './lobby.js';
 import * as R from '../public/shared/roles.js';
 import { lineText, seatKey } from '../public/shared/voice-lines.js';
 
-export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter'];
+export const NIGHT_ORDER = ['guard', 'wolf', 'beauty', 'hidden', 'witch', 'seer', 'gargoyle', 'gravekeeper', 'hunter'];
 
 // 劇本：每個角色的台詞（照手稿字句）。act＝這句台詞之後等誰做什麼；null＝不等人，固定等一段時間；
 // again＝太久沒操作時重唸的句子（沒寫＝整句重唸）
@@ -36,6 +37,9 @@ export function scriptFor(step, counts) {
     };
     case 'seer': return { beats: [{ say: ['seerOpen'], act: 'seer' }], close: ['seerClose'] };
     case 'beauty': return { beats: [{ say: ['beautyOpen'], act: 'beauty' }], close: ['beautyClose'] };
+    // 隱狼刀人跟狼人同一套動作（act 'wolf'），但主機只唸睜眼、閉眼，不唸「要擊殺的目標是？」——提示只寫在隱狼手機上（Leo 2026-10-28）；
+    // 太久沒刀就重唸「隱狼請睜眼。」
+    case 'hidden': return { beats: [{ say: ['hiddenOpen'], act: 'wolf' }], close: ['hiddenClose'] };
     case 'gargoyle': return { beats: [{ say: ['gargoyleOpen'], act: 'gargoyle' }], close: ['gargoyleClose'] };
     case 'gravekeeper': return { beats: [{ say: ['graveOpen'], act: 'grave' }], close: ['graveClose'] };
     case 'hunter': return { beats: [{ say: ['hunterOpen'], act: 'hunter' }], close: ['hunterClose'] };
@@ -81,8 +85,10 @@ const ok = room => ({ ok: true, room });
 const fail = error => ({ ok: false, error });
 const isWolfRole = role => R.ROLES[role].team === 'wolf';
 const isPackRole = role => isWolfRole(role) && !R.LONE_WOLVES.includes(role); // 晚上睜眼一起殺人的狼
-// 預言家、守墓人看到的「是不是狼」：隱狼顯示好人（騎士決鬥照真實陣營）
-const looksWolf = role => isWolfRole(role) && role !== 'hidden';
+// 其他狼（隱狼以外）都出局了：隱狼接手刀人（Leo 2026-10-28「現形」）
+const onlyHiddenLeft = g => !seatsList(g).some(s => g.alive[s] && isWolfRole(g.roles[s]) && g.roles[s] !== 'hidden');
+// 預言家、守墓人看到的「是不是狼」：隱狼顯示好人，接手刀人之後顯示狼人（Leo 2026-10-28）；騎士決鬥照真實陣營
+const looksWolf = (g, seat) => isWolfRole(g.roles[seat]) && (g.roles[seat] !== 'hidden' || onlyHiddenLeft(g));
 const between = (rand, [lo, hi]) => lo + rand(hi - lo + 1);
 const seatsList = g => Object.keys(g.roles).map(Number).sort((a, b) => a - b);
 
@@ -90,18 +96,20 @@ const seatsList = g => Object.keys(g.roles).map(Number).sort((a, b) => a - b);
 function say(g, clips) { g.narration = { seq: (g.narration?.seq ?? 0) + 1, text: lineText(clips), clips }; }
 function note(g, clips) { g.log.push({ day: g.dayNo, text: lineText(clips) }); say(g, clips); }
 
-// 晚上一起殺人的狼：活著的狼隊＋隱狼（Leo 2026-10-27：隱狼參與夜裡投票；狼隊看不到他的號碼，見 privateGame）；
-// 狼隊全部出局後換隱狼、石像鬼（還活著的）
+// 「狼人請睜眼」那步一起殺人的狼：活著的狼隊；狼隊全部出局後換石像鬼。
+// 隱狼不參與（Leo 2026-10-28 取代 10-27 的「隱狼一起投刀」）：其他狼都出局、只剩隱狼時，他在自己那步（'hidden'）單獨刀人
 export function killers(g) {
-  const alive = seatsList(g).filter(s => g.alive[s] && isWolfRole(g.roles[s]));
+  const alive = seatsList(g).filter(s => g.alive[s] && isWolfRole(g.roles[s]) && g.roles[s] !== 'hidden');
   const pack = alive.filter(s => isPackRole(g.roles[s]));
-  return pack.length ? alive.filter(s => isPackRole(g.roles[s]) || g.roles[s] === 'hidden') : alive;
+  return pack.length ? pack : alive;
 }
 
-// 某一步要誰動作（只算活著的）：狼人那步是 killers；上警不等任何人；其他是那個角色本人
+// 某一步要誰動作（只算活著的）：狼人那步是 killers；隱狼那步只有「只剩隱狼」時才是他（其他時候假等，聽不出差別）；
+// 上警不等任何人；其他是那個角色本人
 export function actors(g, step) {
   if (step === 'police') return [];
   if (step === 'wolf') return killers(g);
+  if (step === 'hidden' && !onlyHiddenLeft(g)) return [];
   return seatsList(g).filter(s => g.roles[s] === step && g.alive[s]);
 }
 
@@ -111,9 +119,7 @@ function wolfMates(g, seat) {
   const role = g.roles[seat];
   const pack = seatsList(g).filter(s => isPackRole(g.roles[s]));
   const set = new Set(role === 'gargoyle' ? [seat] : role === 'hidden' ? [...pack, seat] : pack);
-  const k = killers(g);
-  // 狼隊死光、剩隱狼石像鬼一起殺人時才互相見面；狼隊還活著時隱狼雖然一起投刀，狼隊照樣不知道他是誰
-  if (k.includes(seat) && !pack.some(s => g.alive[s])) for (const s of k) set.add(s);
+  // 隱狼、石像鬼不見面（Leo 2026-10-28：石像鬼先刀，只剩隱狼時隱狼才刀）
   return [...set].sort((a, b) => a - b).map(s => ({ seat: s, king: g.roles[s] === 'king', alive: g.alive[s] }));
 }
 
@@ -139,8 +145,8 @@ function beginNight(room, now, { silent = false } = {}) {
   const g = room.game;
   const c = room.setup.counts;
   const wolfCount = R.ROLE_ORDER.filter(id => R.ROLES[id].team === 'wolf').reduce((a, id) => a + (c[id] ?? 0), 0);
-  // 守墓人從第二晚開始（第一晚還沒有人被放逐，大家都知道，不用唸）
-  const steps = NIGHT_ORDER.filter(step => (step === 'wolf' ? wolfCount > 0
+  // 守墓人從第二晚開始（第一晚還沒有人被放逐，大家都知道，不用唸）；板子上的狼只有隱狼時不唸「狼人請睜眼」（隱狼自己那步刀）
+  const steps = NIGHT_ORDER.filter(step => (step === 'wolf' ? wolfCount > (c.hidden ?? 0)
     : step === 'gravekeeper' ? g.dayNo > 1 && (c.gravekeeper ?? 0) > 0 : (c[step] ?? 0) > 0));
   if (g.dayNo === 1 && room.setup.rules.police !== false) steps.push('police'); // 第一晚最後：上警（設定可關）
   g.night = { steps, idx: -1, beat: 0, stage: 'intro', next: null, openedAt: null, wolfVotes: {}, wolfProposal: null, wolfTarget: null, guardTarget: null, witchSave: false, witchPoison: null, seerTarget: null, charmTarget: null, gargoyleTarget: null };
@@ -256,8 +262,8 @@ export function nightAction(room, clientId, payload, online, now, rand) {
       if (target && !aliveTarget(target)) return fail('只能選活著的人');
       if (target && g.roles[target] === 'beauty') return fail('狼美人不能被自刀'); // Leo 2026-10-27
       night.wolfVotes[seat] = target;
-      // 所有「在線上、還活著」的狼都選同一個，才出現「是否正確」的確認
-      const voters = actors(g, 'wolf').filter(s => online.has(room.seats[s]));
+      // 所有「在線上、還活著」的狼都選同一個，才出現「是否正確」的確認（隱狼那步只有他自己）
+      const voters = actors(g, step).filter(s => online.has(room.seats[s]));
       const need = voters.length ? voters : [seat];
       const votes = need.map(s => night.wolfVotes[s]);
       night.wolfProposal = votes.every(v => v !== undefined && v === votes[0]) ? votes[0] : null;
@@ -289,7 +295,7 @@ export function nightAction(room, clientId, payload, online, now, rand) {
       if (night.seerTarget) return fail('今晚已經查驗過了');
       if (!aliveTarget(target) || target === seat) return fail('請選一個活著的其他玩家');
       night.seerTarget = target;
-      g.seerChecks.push({ day: g.dayNo, target, wolf: looksWolf(g.roles[target]) });
+      g.seerChecks.push({ day: g.dayNo, target, wolf: looksWolf(g, target) });
     }
   } else if (act === 'beauty') {
     if (target && (!aliveTarget(target) || target === seat)) return fail('請選一個活著的其他玩家');
@@ -508,7 +514,7 @@ export function exile(room, target, now = 0) {
 
 // 投票放逐出局（含白癡不翻牌）：守墓人下一晚會看到這個人的陣營
 function exiledOut(g, seat) {
-  g.graveInfo = { day: g.dayNo, seat, wolf: looksWolf(g.roles[seat]) };
+  g.graveInfo = { day: g.dayNo, seat, wolf: looksWolf(g, seat) };
   note(g, [seatKey(seat), 'exiled', ...dayKill(g, seat)]);
 }
 
@@ -570,7 +576,7 @@ function duelNow(room, seat, target) {
   return ok(checkWin({ ...room, game: g }, room.game.narration?.seq));
 }
 
-// 自爆：Leo 2026-10-27 起狼人陣營都能自爆（狼美人不行），主機唸「3 號狼人自爆，天黑請閉眼。」；自爆的狼王不能開槍。
+// 自爆：Leo 2026-10-27 起狼人陣營都能自爆（狼美人不行；隱狼 2026-10-28 起也不行），主機唸「3 號狼人自爆，天黑請閉眼。」；自爆的狼王不能開槍。
 // 白狼王（2026-10-13）自爆可以帶走一人（0＝不帶），唸「白狼王自爆」；被帶走的獵人／狼王可以開槍，開完才唸天黑。
 // 時機：白天、投票放逐之前（警長競選中、投票中也可以），今天不放逐，主機按「進入黑夜」；
 // 警長競選中自爆＝先公布昨晚死訊再自爆（見 afterDeaths）
@@ -578,7 +584,7 @@ export function boom(room, clientId, target, now = 0) {
   if (room.phase !== 'day') return fail('只有白天能自爆');
   const seat = L.seatOf(room, clientId);
   const role = seat ? room.game.roles[seat] : null;
-  if (!seat || !isWolfRole(role) || role === 'beauty' || !room.game.alive[seat]) return fail('你不能自爆');
+  if (!seat || !isWolfRole(role) || role === 'beauty' || role === 'hidden' || !room.game.alive[seat]) return fail('你不能自爆');
   return afterDeaths(room, r => boomNow(r, seat, role, target));
 }
 function boomNow(room, seat, role, target) {
@@ -915,20 +921,11 @@ export function publicGame(room) {
 }
 
 // 狼人投刀的畫面資料。noKnife：狼美人不能被自刀（Leo 2026-10-27）。
-// 隱狼跟狼隊一起投（Leo 2026-10-27），但狼隊只看得到「隱狼選了誰」、看不到他是幾號；隱狼自己看得到全部
-// 隱狼死了也照樣給狼隊一行「隱狼：還沒選」（跟隱狼掉線長得一樣），不然那一行消失＝狼隊推得出死掉的哪一個是隱狼（2026-10-27 自審）
+// hiddenAlone：隱狼那步（只剩隱狼）——主機不唸「要擊殺的目標是？」，手機上要寫出來（Leo 2026-10-28）
 function wolfView(g, n, seat) {
-  const k = killers(g);
+  const step = curStep(n);
   const noKnife = seatsList(g).filter(s => g.roles[s] === 'beauty' && g.alive[s]);
-  const hid = k.find(s => g.roles[s] === 'hidden' && s !== seat);
-  const packAlive = k.some(s => isPackRole(g.roles[s]));
-  const boardHasHidden = seatsList(g).some(s => g.roles[s] === 'hidden' && s !== seat);
-  if (!hid && packAlive && isPackRole(g.roles[seat]) && boardHasHidden) {
-    return { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: k, noKnife, hidden: { voted: false, vote: null } };
-  }
-  if (!hid || !packAlive) return { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: k, noKnife, iAmHidden: g.roles[seat] === 'hidden' && packAlive };
-  const { [hid]: hv, ...votes } = n.wolfVotes;
-  return { kind: 'wolf', votes, proposal: n.wolfProposal, killers: k.filter(s => s !== hid), noKnife, hidden: { voted: hv !== undefined, vote: hv ?? null } };
+  return { kind: 'wolf', votes: n.wolfVotes, proposal: n.wolfProposal, killers: actors(g, step), noKnife, hiddenAlone: step === 'hidden' };
 }
 
 // 私人：只給坐在這個座位的手機
@@ -956,7 +953,7 @@ export function privateGame(room, seat) {
   // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
   if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;
-    if (isWolfRole(role) && role !== 'beauty' && !g.day?.exileDone) { me.canBoom = true; if (role === 'whiteKing') me.boomTake = true; }
+    if (isWolfRole(role) && role !== 'beauty' && role !== 'hidden' && !g.day?.exileDone) { me.canBoom = true; if (role === 'whiteKing') me.boomTake = true; }
   }
   const n = g.night;
   if (room.phase === 'night' && n?.stage === 'acting' && g.alive[seat] && actors(g, curStep(n)).includes(seat)) {
