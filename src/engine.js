@@ -129,7 +129,7 @@ export function startGame(room, now, rand) {
     alive: Object.fromEntries(seatsList(g).map(s => [s, true])),
     dayNo: 1, potions: { save: true, poison: true }, lastGuard: null, idiotRevealed: [],
     seerChecks: [], gargoyleChecks: [], graveChecks: [], charm: null, graveInfo: null,
-    canShoot: [], knightUsed: false, log: [], winner: null, sheriff: null, badgeTorn: false, badgePending: false,
+    canShoot: [], knightUsed: false, log: [], winner: null, sheriff: null, badgeTorn: false, badgePending: false, badgeChosen: false,
   });
   return ok(beginNight({ ...room, game: g }, now));
 }
@@ -482,9 +482,18 @@ export function exile(room, target, now = 0) {
   g.day.exileDone = true;
   g.day.bindCheck = false; // 已經進到投票，「天亮睜眼」的綁票檢查結束（投完票改看「一狼一神一民」，見 checkWin）
   if (g.day.vote?.open) g.day.vote = null; // 還在投票主機就直接登記（例如有人手機沒電）：這輪作廢
-  // 沒人出局：上一輪全部棄票＝「今天沒有人出局。」；其他（平票、主機手動）照舊唸「平票，今天沒有人出局。」
-  if (!target) note(g, [g.day.vote?.result?.top.length === 0 ? 'noExile' : 'tie']);
-  else {
+  // 沒人出局：上一輪全部棄票＝「今天沒有人出局。」；其他（平票、主機手動）照舊唸「平票，今天沒有人出局。」。
+  // 唸完接著「天黑請閉眼。」，今天到此結束（Leo 2026-10-28）；這一下就分出勝負（例如一狼一神一民）就不唸天黑
+  if (!target) {
+    const seq0 = room.game.narration?.seq;
+    note(g, [g.day.vote?.result?.top.length === 0 ? 'noExile' : 'tie']);
+    const done = checkWin({ ...room, game: g }, seq0);
+    if (done.phase !== 'ended') {
+      Object.assign(done.game.day, { nightCalled: true, nightReason: 'noExile' });
+      say(done.game, [...done.game.narration.clips, 'nightStart']);
+    }
+    return ok(done);
+  } else {
     if (!g.alive[target]) return fail('只能放逐活著的人');
     // 還沒翻過牌的白癡：由他自己的手機選要不要翻牌（Leo 2026-10-10）；選之前主機不唸結果；不限時
     if (g.roles[target] === 'idiot' && !g.idiotRevealed.includes(target)) {
@@ -509,6 +518,8 @@ function resolveIdiot(g, flip) {
   if (flip) {
     g.idiotRevealed.push(seat);
     note(g, [seatKey(seat), 'idiotFlip']);
+    // 白癡是警長：雖然沒死，但被公投出局、失去投票權——發表遺言後自己選移交或撕警徽（Leo 2026-10-28）
+    if (seat === g.sheriff) g.badgePending = true;
   } else exiledOut(g, seat);
 }
 
@@ -620,6 +631,7 @@ export function setSheriff(room, seat, now = 0) {
   const g0 = room.game;
   if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`); // Leo 2026-10-27
   if (g0.day?.idiotChoice) return fail('請等被放逐的玩家選擇');
+  if (g0.badgeChosen) return fail('警徽已經由警長自己處理過，主機不能再改'); // Leo 2026-10-28
   seat = Number(seat);
   if (g0.alive[seat] !== true) return fail('只能選活著的人');
   if (seat === g0.sheriff) return fail(`${seat} 號已經是警長了`);
@@ -636,6 +648,7 @@ export function tearBadge(room, now = 0) {
   if (room.phase !== 'day') return fail('白天才能撕警徽');
   const g0 = room.game;
   if (g0.badgePending) return fail(`請等警長 ${g0.sheriff} 號自己選要移交還是撕警徽`);
+  if (g0.badgeChosen) return fail('警徽已經由警長自己處理過，主機不能再改'); // Leo 2026-10-28
   if (g0.badgeTorn && !g0.sheriff) return fail('警徽已經撕掉了');
   if (g0.sheriff) return fail('已經有警長了：登記錯了請改成另一個人');
   if (g0.day?.vote?.open) return fail('投票中不能撕警徽');
@@ -652,8 +665,9 @@ export function passBadge(room, clientId, target, now = 0) {
   if (!seat || seat !== room.game.sheriff) return fail('只有警長能選');
   target = Number(target ?? 0);
   if (target && room.game.alive[target] !== true) return fail('只能移交給活著的人');
+  if (target === seat) return fail('不能移交給自己'); // 翻牌的白癡警長還活著（Leo 2026-10-28）
   const g = structuredClone(room.game);
-  Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false });
+  Object.assign(g, { sheriff: target || null, badgeTorn: !target, badgePending: false, badgeChosen: true });
   g.log.push({ day: g.dayNo, text: target ? `${seat} 號警長把警徽移交給 ${target} 號。` : `${seat} 號警長撕掉警徽，不交給任何人。` });
   const seq0 = room.game.narration?.seq;
   const done = checkWin({ ...room, game: g }, seq0);
@@ -886,7 +900,7 @@ export function publicGame(room) {
     nightReason: g.day?.nightCalled ? g.day.nightReason ?? 'knight' : null, // 主機畫面標題：騎士撞狼／白狼王自爆
     idiotChoice: g.day?.idiotChoice ?? null, // 等這個號碼選要不要翻牌（Leo 拍板：只有白癡會出現這個等待）
     // 警長（主機登記，公開）：badgePending＝警長出局、等他自己選移交或撕掉警徽
-    sheriff: g.sheriff ?? null, badgeTorn: Boolean(g.badgeTorn), badgePending: Boolean(g.badgePending),
+    sheriff: g.sheriff ?? null, badgeTorn: Boolean(g.badgeTorn), badgePending: Boolean(g.badgePending), badgeChosen: Boolean(g.badgeChosen),
     // 投票：投完才公布誰投誰（result）；投票中只公開投了幾票
     vote: g.day?.vote ? (({ ballots, ...v }) => ({ ...v, voted: Object.keys(ballots).length }))(g.day.vote) : null,
     // 夜裡只公開「現在輪到哪個角色、第幾句台詞」（本來就唸出來了），不公開死活與進度
@@ -935,7 +949,7 @@ export function privateGame(room, seat) {
   }
   // 騎士決鬥、自爆：白天（含警長競選中）；等別人選擇的那一下、今天要天黑時沒有（跟 duel、boom 的檢查一樣）
   // 出局的警長：自己選移交給誰或撕警徽（Leo 2026-10-27）
-  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s]) };
+  if (room.phase === 'day' && g.badgePending && seat === g.sheriff) me.passBadge = { candidates: seatsList(g).filter(s => g.alive[s] && s !== seat) }; // 翻牌的白癡警長還活著：不能交給自己
   // 照座位表上的死活給（第一天死訊還沒公布時昨晚死的人也有，按了會先公布死訊，見 afterDeaths）
   if (room.phase === 'day' && g.alive[seat] && !g.day?.idiotChoice && !g.badgePending && !g.day?.nightCalled && !g.canShoot.length) {
     if (role === 'knight' && !g.knightUsed) me.canDuel = true;

@@ -364,7 +364,7 @@ test('騎士白天隨時可以決鬥（Leo 2026-10-27，取代 10-14 的 1A）�
   assert.equal(E.publicGame(after).nightCalled, true);
   assert.match(after.game.narration.text, /天黑請閉眼。$/);
   const tie = E.exile(r, 0).room;
-  assert.equal(E.duel(tie, id(8), 10).ok, true, '平票後也行');
+  assert.equal(E.duel(tie, id(8), 10).ok, false, '沒人出局＝唸了天黑請閉眼，今天結束，不能再決鬥（Leo 2026-10-28）');
   const h = night(newGame('lang-wang-qi-shi'), { wolf: 7 }); // 刀獵人
   assert.deepEqual(h.game.canShoot, [7]);
   assert.equal(E.duel(h, id(8), 2).ok, false, '獵人還沒開槍');

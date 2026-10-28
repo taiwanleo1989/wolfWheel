@@ -134,7 +134,7 @@ test('投完票：狼王被投出去也喊「請啟動角色技能」；平票�
   let t = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
   assert.deepEqual(t.game.day.vote.result.top, [9, 10]);
   assert.equal(t.game.day.exileDone, false);
-  assert.equal(ok(E.exile(t, 0)).game.narration.text, '平票，今天沒有人出局。');
+  assert.equal(ok(E.exile(t, 0)).game.narration.text, '平票，今天沒有人出局。天黑請閉眼。', 'Leo 2026-10-28：接著天黑');
 });
 
 test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的人；全部棄票＝唸「今天沒有人出局。」（不是平票）', () => {
@@ -160,8 +160,8 @@ test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的
   assert.match(host.html('#hostCtl'), /全部棄票，沒人出局/);
   assert.match(host.html('#voteBox'), /棄票[\s\S]*1、2、3/);
   const out = ok(E.exile(r, 0));
-  assert.equal(out.game.narration.text, '今天沒有人出局。');
-  assert.deepEqual(out.game.narration.clips, ['noExile']);
+  assert.equal(out.game.narration.text, '今天沒有人出局。天黑請閉眼。');
+  assert.deepEqual(out.game.narration.clips, ['noExile', 'nightStart']);
 });
 
 test('平票 PK（Leo 2026-10-27）：10 人、1 號 2 號 PK，只有 3～10 號能投；PK 的人手機顯示不能投；投完照樣自動放逐', () => {

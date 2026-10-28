@@ -172,8 +172,12 @@ function renderAction() {
   } else if (phase === 'day' && me.passBadge) {
     // 警長出局：自己選要移交給誰、還是撕掉警徽（Leo 2026-10-27：警長自己選，主機不能代按）
     const pick = ui.badgePick;
-    html = `<h2>你是警長，你出局了</h2>
-      <p class="hint">請選要把警徽移交給誰，或撕掉警徽（不交給任何人）。按下後全場紀錄會寫出來。</p>
+    html = me.alive
+      ? `<h2>你是警長，你翻牌了</h2>
+      <p class="hint">你被公投出局、失去投票權（Leo 2026-10-28）：請先口頭發表遺言，再選要把警徽移交給誰，或撕掉警徽（不交給任何人）。按下後全場紀錄會寫出來。</p>`
+      : `<h2>你是警長，你出局了</h2>
+      <p class="hint">請選要把警徽移交給誰，或撕掉警徽（不交給任何人）。按下後全場紀錄會寫出來。</p>`;
+    html += `
       ${picker(me.passBadge.candidates.map(n => ({ n })), pick, 'data-badge-pick')}
       <div class="row-gap"><button class="btn primary" type="button" data-do="passBadge"${pick ? '' : ' disabled'}>移交給 ${pick ?? '…'} 號</button>
       <button class="btn" type="button" data-do="tearBadge">撕掉警徽</button></div>`;
@@ -309,7 +313,7 @@ function renderHost() {
     if (g.nightCalled) {
       // 騎士撞到狼、白狼王／狼人自爆：今天不放逐，「天黑請閉眼」已經唸過了，等主機按
       html = `<h2>${NIGHT_REASON[g.nightReason] ?? '直接天黑'}</h2>
-        <p class="hint">今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。</p>
+        <p class="hint">${g.nightReason === 'noExile' ? '已經唸了「天黑請閉眼」，今天到此結束。' : '今天不投票放逐，直接天黑。有人要開槍的話先讓他開完，再按下面的按鈕。'}</p>
         ${sheriffHTML(g)}
         <button class="btn primary big" type="button" data-host="night">進入黑夜</button>
         <div class="row-gap">${bgm}</div>`;
@@ -376,7 +380,7 @@ function skipBox(night) {
     <p class="hint center">手機沒電、沒辦法操作時才按：這一步當作沒有動作。</p>`;
 }
 
-const NIGHT_REASON = { knight: '騎士撞到狼人', boom: '白狼王自爆', wolfBoom: '狼人自爆' };
+const NIGHT_REASON = { knight: '騎士撞到狼人', boom: '白狼王自爆', wolfBoom: '狼人自爆', noExile: '今天沒有人出局' };
 
 // 主機要放逐的號碼：主機自己點的（0＝點掉了）；沒點過就照投票統計的最高票（只有一個最高票時）
 function hostPick() {
@@ -387,11 +391,12 @@ function hostPick() {
 
 // 警長（Leo 2026-10-27）：主機登記誰當警長、警長出局移交警徽、撕警徽。全場都看得到（座位表標「警長」、紀錄寫一行）
 function sheriffHTML(g) {
-  if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號出局了</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
+  if (g.badgePending) return `<div class="sheriff"><p class="warn"><b>警長 ${g.sheriff} 號${g.alive[g.sheriff] ? '翻牌了（失去投票權，要交出警徽）' : '出局了'}</b>：等他在自己的手機上選要移交給誰、還是撕掉警徽……</p></div>`;
   const pick = ui.sheriffPick;
-  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（${g.idiotRevealed?.includes(g.sheriff) ? '翻過牌的白癡沒有票，警徽還在他身上' : '投票算 1.5 票'}；出局時由他自己選移交或撕警徽）</p>`
+  const status = g.sheriff ? `<p class="hint">警長：<b>${g.sheriff} 號</b>（投票算 1.5 票；出局時由他自己選移交或撕警徽）</p>`
     : g.badgeTorn ? '<p class="hint">警徽已撕掉／流失，沒有警長。</p>' : '<p class="hint">還沒有警長。</p>';
   if (g.vote?.open) return `<div class="sheriff">${status}</div>`; // 投票中不能換警長（伺服器也擋；2026-10-28 審查：按鈕在卻按不動）
+  if (g.badgeChosen) return `<div class="sheriff">${status}<p class="hint">警徽已經由警長自己處理過，主機不能再改。</p></div>`; // Leo 2026-10-28
   const open = ui.sheriffOpen || (g.deathsPending && !g.sheriff && !g.badgeTorn);
   if (!open) return `<div class="sheriff">${status}<button class="btn small" type="button" data-host="sheriffOpen">${g.sheriff ? '登記錯了，改警長' : '登記警長'}</button></div>`;
   return `<div class="sheriff"><h3>登記警長</h3>${status}

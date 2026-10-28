@@ -576,7 +576,8 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
       if (g.badgePending) { // 出局的警長自己選（主機不能代按）
         rejected(E.setSheriff(r, pickAlive()), '主機代替警長移交');
         rejected(E.tearBadge(r), '主機代替警長撕警徽');
-        must(E.passBadge(r, id(g.sheriff), rnd(3) ? pickAlive() : 0), '警長處理警徽'); continue;
+        const heirs = aliveList().filter(s => s !== g.sheriff); // 翻牌的白癡警長還活著：不能交給自己（Leo 2026-10-28）
+        must(E.passBadge(r, id(g.sheriff), rnd(3) && heirs.length ? heirs[rnd(heirs.length)] : 0), '警長處理警徽'); continue;
       }
       if (!g.sheriff && !g.badgeTorn && rnd(3) === 0) {
         if (g.day.idiotChoice) { rejected(E.setSheriff(r, pickAlive()), '白癡選擇中登記警長'); } // 跟主機畫面一致（2026-10-28）

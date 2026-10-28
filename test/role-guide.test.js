@@ -250,8 +250,10 @@ const CHECKS = {
     assert.deepEqual(r.game.day.vote.result.top, [1, 4]);
     r = ok(E.exile(r, 0));
     assert.equal(r.game.winner, 'wolf');
+    assert.ok(!r.game.narration.text.includes(LINES.nightStart), '沒人出局這一下就分出勝負：不唸天黑');
+    const five = withDead(night(newGame(B)), [2, 3, 5, 6, 7, 11]); // 1 狼、4 預言家、8 騎士、9、10 平民
+    assert.equal(ok(E.duel(ok(E.exile(five, 10)), id(8), 9)).game.winner, 'wolf', '登記之後決鬥才剩三人：判');
     const four = withDead(night(newGame(B)), [2, 3, 5, 6, 7, 10, 11]); // 1 狼、4 預言家、8 騎士、9 平民
-    assert.equal(ok(E.duel(ok(E.exile(four, 0)), id(8), 9)).game.winner, 'wolf', '登記之後決鬥才剩三人：判');
     assert.equal(ok(E.duel(four, id(8), 9)).phase, 'day', '登記之前：不判');
     const man = withDead(night(newGame(B)), [2, 3, 5, 6, 7, 8, 11]); // 1、4、9、10
     assert.equal(ok(E.exile(man, 10)).game.winner, 'wolf', '手動登記放逐也算');
@@ -391,12 +393,19 @@ const CHECKS = {
     assert.ok(!v.includes(14) && !v.includes(15) && v.includes(6), '翻牌白癡、死人沒票');
     r = voteAll(ok(E.setSheriff(r, 8)), { 8: 16 });
     assert.equal(r.game.day.vote.result.rows[0].score, 1.5, '警長 1.5 票');
-    // 警長是白癡、翻了牌：警徽還在，但沒有票
+    // 警長是白癡、翻了牌：雖然沒死，但被公投出局、失去投票權，要交出警徽（Leo 2026-10-28）
     let s = ok(E.idiotChoose(voteAll(ok(E.setSheriff(night(newGame(F)), 14)), { 1: 14, 2: 14 }), id(14), true));
-    assert.equal(s.game.sheriff, 14);
+    assert.equal(s.game.alive[14], true);
+    assert.equal(s.game.badgePending, true, '要交出警徽');
+    assert.ok(!pick(s, 14).passBadge.candidates.includes(14), '不能交給自己');
+    no(E.passBadge(s, id(14), 14), '不能交給自己');
+    no(E.nextNight(s, 0), '選之前不能天黑');
+    assert.match(mount(s, id(14)).html('#actionBox'), /你是警長，你翻牌了[\s\S]*發表遺言/);
+    assert.match(mount(s, 'host').html('#hostCtl'), /警長 14 號翻牌了/);
+    s = ok(E.passBadge(s, id(14), 8));
+    assert.equal(s.game.sheriff, 8);
     s = nextDay(s, {});
     assert.ok(!ok(E.startVote(s)).game.day.vote.voters.includes(14));
-    assert.match(mount(s, 'host').html('#hostCtl'), /翻過牌的白癡沒有票，警徽還在他身上/);
   },
   'day-2': () => {
     let r = ok(E.startVote(night(newGame(B))));
@@ -443,7 +452,13 @@ const CHECKS = {
     let r = voteAll(night(newGame(B)), { 1: 9, 2: 10 });
     assert.deepEqual(r.game.day.vote.result.top, [9, 10]);
     assert.equal(r.game.day.exileDone, false, '平票不自動放逐');
-    assert.equal(ok(E.exile(r, 0)).game.narration.text, says('day-4')[0]);
+    const no4 = ok(E.exile(r, 0));
+    assert.equal(no4.game.narration.text, says('day-4')[0]);
+    assert.equal(no4.game.day.nightCalled, true, '唸完今天就結束');
+    no(E.duel(no4, id(8), 1), '之後不能再決鬥');
+    const nn = ok(E.nextNight(no4, 0));
+    assert.equal(nn.game.narration.seq, no4.game.narration.seq, '進入黑夜不再唸一次天黑');
+    assert.match(mount(no4, 'host').html('#hostCtl'), /今天沒有人出局[\s\S]*已經唸了「天黑請閉眼」/);
     const pk = ok(E.startVote(r, true));
     assert.deepEqual(pk.game.day.vote.candidates, [9, 10]);
     no(E.castVote(pk, id(9), 10), 'PK 的人不能投');
@@ -529,7 +544,12 @@ const CHECKS = {
     assert.equal(re.game.sheriff, 6);
     assert.equal(re.game.badgeTorn, false, '流失後重新登記');
     const passed = ok(E.passBadge(ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)))), id(9), 4));
-    assert.equal(ok(E.setSheriff(passed, 5)).game.sheriff, 5, '警長選完後主機也能更正');
+    no(E.setSheriff(passed, 5), '警長自己選過之後主機不能再改（Leo 2026-10-28）');
+    const torn9 = ok(E.passBadge(ok(E.announceDeaths(ok(E.setSheriff(play(newGame(B), { wolf: 9 }), 9)))), id(9), 0));
+    no(E.setSheriff(torn9, 5), '警長自己撕掉之後主機不能重新登記');
+    no(E.tearBadge(torn9), '也不能按警徽流失');
+    assert.match(mount(passed, 'host').html('#hostCtl'), /警徽已經由警長自己處理過，主機不能再改/);
+    assert.ok(!mount(passed, 'host').html('#hostCtl').includes('改警長'), '沒有改警長的按鈕');
     const h = mount(fix, 'host');
     assert.match(h.html('#hostCtl'), /登記錯了，改警長/, '白天一般畫面有');
     h.click('#hostCtl', 'host', 'sheriffOpen');
@@ -772,7 +792,7 @@ const CHECKS = {
     assert.equal(d.game.day.nightCalled, true);
     assert.ok(ok(E.shoot(d, id(2), 8)).game.narration.text.endsWith(LINES.nightStart), '開完才唸天黑');
     // 開完剛好剩一狼一神一民（今天已經登記放逐結果）：直接結束，不先唸天黑
-    let x = ok(E.exile(withDead(night(newGame(KG)), [3, 5, 6, 9, 10]), 0)); // 剩 1 狼、2 狼王、4 預言家、7 騎士、8 平民
+    let x = ok(E.exile(withDead(night(newGame(KG)), [3, 5, 6, 9]), 10)); // 放逐 10 號後剩 1 狼、2 狼王、4 預言家、7 騎士、8 平民
     x = ok(E.shoot(ok(E.duel(x, id(7), 2)), id(2), 7));
     assert.equal(x.game.winner, 'wolf');
     assert.ok(!x.game.narration.text.includes(LINES.nightStart), '沒有先唸天黑');

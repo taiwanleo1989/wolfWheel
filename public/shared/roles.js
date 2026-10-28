@@ -13,7 +13,7 @@ export const ROLES = {
   guard:    { name: '守衛',  team: 'god',      unique: true,  desc: '每晚守護一個人不被狼殺（可以守自己、可以空守；守不住女巫的毒）；不能連續兩晚守同一人。跟女巫救同一人，那人反而會死。' },
   gravekeeper: { name: '守墓人', team: 'god',   unique: true,  desc: '從第二晚開始，每晚得知前一個白天被放逐出局（投票或主機手動登記）的人是好人還是狼人（隱狼會顯示好人）。' },
   knight:   { name: '騎士',  team: 'god',      unique: true,  desc: '白天隨時都可以翻牌和一個人決鬥（只能一次；有人在開槍或做選擇時要等；今天已經要天黑就不能了）：他是狼人就出局、今天直接天黑；不是狼人，騎士自己出局。' },
-  idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '第一次被放逐（投票或主機手動登記）時可以自己選翻牌免死（之後不能再投票），或不翻直接出局；翻過牌再被放逐就直接出局。被狼刀、被毒照常出局。' },
+  idiot:    { name: '白癡',  team: 'god',      unique: true,  desc: '第一次被放逐（投票或主機手動登記）時可以自己選翻牌免死（之後不能再投票），或不翻直接出局；翻過牌再被放逐就直接出局。翻牌時是警長：要發表遺言、交出警徽（移交或撕掉）。被狼刀、被毒照常出局。' },
   villager: { name: '平民',  team: 'villager', unique: false, desc: '沒有技能。靠推理和投票找出狼人。' },
 };
 export const ROLE_ORDER = ['wolf', 'king', 'whiteKing', 'beauty', 'hidden', 'gargoyle', 'seer', 'witch', 'hunter', 'guard', 'gravekeeper', 'knight', 'idiot', 'villager'];
