@@ -313,9 +313,9 @@ function renderHost() {
   } else if (phase === 'day') {
     const pick = hostPick();
     if (g.deathsPending) {
-      // 第一天：先選警長（口頭競選、主機登記）；登記完（或警徽流失）就直接唸「N 號當選警長。」接著昨晚死訊（Leo 2026-10-28）
+      // 第一天：先選警長（口頭競選、主機登記）；登記完（或警徽流失）就直接唸「N 號玩家當選警長。」接著昨晚死訊（Leo 2026-10-28）
       html = `<h2>警長競選</h2>
-        <p class="hint">請上警的玩家依序發言，其他人口頭（或舉手）選出警長，選好在下面登記。登記完會直接唸「N 號當選警長」，接著公布昨晚的死訊；沒人當選就按「警徽流失」，也會直接公布。</p>
+        <p class="hint">請上警的玩家依序發言，其他人口頭（或舉手）選出警長，選好在下面登記。登記完會直接唸「N 號玩家當選警長」，接著公布昨晚的死訊；沒人當選就按「警徽流失」，也會直接公布。</p>
         ${sheriffHTML(g)}
         <div class="row-gap"><a class="btn small" href="../" target="_blank" rel="noopener">發言順序轉盤 ↗</a></div>`;
       done(html);

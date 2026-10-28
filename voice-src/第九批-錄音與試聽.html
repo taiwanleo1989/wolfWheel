@@ -33,11 +33,11 @@
 <body>
 <main>
   <h1>主持聲音第九批：錄音與試聽</h1>
-  <p>這批補 1 句「當選警長。」（Leo 2026-10-28：第一天主機登記警長就唸「N 號當選警長。」接著昨晚死訊）。錄好之前，主機遇到這幾句會整句改用手機內建語音（聲音跟其他句不一樣）。</p>
+  <p>這批補 1 句「玩家當選警長。」（Leo 因為音調加了「玩家」）（Leo 2026-10-28：第一天主機登記警長就唸「N 號玩家當選警長。」接著昨晚死訊）。錄好之前，主機遇到這幾句會整句改用手機內建語音（聲音跟其他句不一樣）。</p>
 
   <section class="card">
     <h2>① 貼到 ElevenLabs 的文字</h2>
-    <div class="script" id="script">當選警長。……。</div>
+    <div class="script" id="script">玩家當選警長。……。</div>
     <button id="copy" type="button">複製這段文字</button> <span id="copied"></span>
     <p>同一段文字也在檔案：<span class="path">wolfWheel\voice-src\第九批-貼到ElevenLabs.txt</span></p>
     <p>後面的「……」是讓句尾有停頓、好切開，照原樣貼上就好，不要刪。</p>
@@ -49,7 +49,7 @@
       <li>打開 ElevenLabs 的 Text to Speech 網頁。</li>
       <li>聲音選 <b>Liu Junnan</b>，模型選 <b>v4</b>。</li>
       <li>設定照前七批：速度 <b>1.00</b>、穩定度 <b>33%</b>、相似度 <b>75%</b>（這是從第一批檔名 <code>…_pvc_sp100_s33_sb75_v4.mp3</code> 讀出來的；如果網頁上的名稱不一樣，照著對應就好）。</li>
-      <li>貼上 ① 的文字，按產生，先聽一次：「當選警長」有唸完整、沒有唸錯就下載 mp3。</li>
+      <li>貼上 ① 的文字，按產生，先聽一次：「玩家當選警長」有唸完整、沒有唸錯就下載 mp3。</li>
     </ol>
   </section>
 
@@ -72,8 +72,8 @@
     <p>1–2 是這批新錄的；3 是夜裡實際接起來的樣子（前一句是之前錄好的「狼美人請閉眼」）。哪一段不對（字被切掉、多了別句的尾巴）跟 Claude 說號碼。</p>
     <button id="all" type="button">▶ 從頭連續播放</button> <button id="stop" class="grey" type="button">■ 停止</button>
     <table>
-      <tr><td class="n">1</td><td class="t">當選警長。<small>新錄｜sheriffElected</small></td><td><audio controls preload="none" src="../public/voice/sheriffElected.mp3"></audio></td></tr>
-      <tr><td class="n">2</td><td class="t">3 號當選警長。昨晚死亡的是 9 號。<small>接起來：n3（舊錄音）→ sheriffElected → deathsAre、n9（舊錄音）</small></td><td><audio controls preload="none" src="../public/voice/n3.mp3"></audio><audio controls preload="none" src="../public/voice/sheriffElected.mp3"></audio><audio controls preload="none" src="../public/voice/deathsAre.mp3"></audio><audio controls preload="none" src="../public/voice/n9.mp3"></audio></td></tr>
+      <tr><td class="n">1</td><td class="t">玩家當選警長。<small>新錄｜sheriffElected</small></td><td><audio controls preload="none" src="../public/voice/sheriffElected.mp3"></audio></td></tr>
+      <tr><td class="n">2</td><td class="t">3 號玩家當選警長。昨晚死亡的是 9 號。<small>接起來：n3（舊錄音）→ sheriffElected → deathsAre、n9（舊錄音）</small></td><td><audio controls preload="none" src="../public/voice/n3.mp3"></audio><audio controls preload="none" src="../public/voice/sheriffElected.mp3"></audio><audio controls preload="none" src="../public/voice/deathsAre.mp3"></audio><audio controls preload="none" src="../public/voice/n9.mp3"></audio></td></tr>
     </table>
   </section>
 </main>

@@ -1,4 +1,4 @@
-// 真連線：第一天有上警，主機登記警長＝唸「N 號當選警長。」接著昨晚死訊；沒人當選按「警徽流失」＝直接唸死訊（Leo 2026-10-28）。
+// 真連線：第一天有上警，主機登記警長＝唸「N 號玩家當選警長。」接著昨晚死訊；沒人當選按「警徽流失」＝直接唸死訊（Leo 2026-10-28）。
 // 開兩間 6 人房（狼、預言家、女巫、平民×3），各走第一晚，約 1 分鐘。
 //   本機：先開 wrangler dev（port 8787），再 node scripts/e2e-sheriff.mjs
 //   線上：WOLF_BASE=https://wolfwheel.jinliu-intake-worker.workers.dev node scripts/e2e-sheriff.mjs（測試房放著會自己清掉）
@@ -70,7 +70,7 @@ async function room(mode) {
   const n0 = host.narr.length;
   send('host', mode === 'sheriff' ? { type: 'sheriff', seat: SEER } : { type: 'tearBadge' });
   await until(() => host.narr.length > n0, 10000, tag);
-  const want = mode === 'sheriff' ? `${SEER} 號當選警長。昨晚死亡的是 ${victim} 號。` : `昨晚死亡的是 ${victim} 號。`;
+  const want = mode === 'sheriff' ? `${SEER} 號玩家當選警長。昨晚死亡的是 ${victim} 號。` : `昨晚死亡的是 ${victim} 號。`;
   check(`${tag}：主機一按就唸「${want}」`, host.narr.at(-1) === want, host.narr.at(-1));
   check(`${tag}：死訊已公布、${victim} 號出局`, host.state.game.deathsPending === false && host.state.game.alive[victim] === false);
   if (mode === 'sheriff') check('警長登記成功', host.state.game.sheriff === SEER);

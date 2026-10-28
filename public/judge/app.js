@@ -127,7 +127,7 @@ function renderSetup() {
   const police = s.rules.police !== false;
   seg('#rulePolice', [['on', '有'], ['off', '沒有']], police ? 'on' : 'off', v => sendSetup({ rules: { police: v === 'on' } }));
   $('#rulePoliceHint').textContent = police
-    ? '第一晚最後唸「要上警的玩家請起立」；天亮後先選警長，主機登記完就唸「N 號當選警長」，接著公布昨晚死訊。'
+    ? '第一晚最後唸「要上警的玩家請起立」；天亮後先選警長，主機登記完就唸「N 號玩家當選警長」，接著公布昨晚死訊。'
     : '第一晚唸完直接天亮，死訊馬上公布。';
   $('#waitMin').textContent = s.rules.fakeWaitMin;
   $('#waitMax').textContent = s.rules.fakeWaitMax;

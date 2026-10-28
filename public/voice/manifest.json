@@ -8,7 +8,8 @@
     "batch5.mp3",
     "batch6.mp3",
     "batch7.mp3",
-    "batch8.mp3"
+    "batch8.mp3",
+    "batch9.mp3"
   ],
   "files": {
     "checkRole": {
@@ -118,6 +119,10 @@
     "dawn": {
       "file": "dawn.mp3",
       "text": "天亮請睜眼。"
+    },
+    "sheriffElected": {
+      "file": "sheriffElected.mp3",
+      "text": "玩家當選警長。"
     },
     "deathsAre": {
       "file": "deathsAre.mp3",

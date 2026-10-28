@@ -548,9 +548,9 @@ const CHECKS = {
     no(E.setSheriff(withDead(night(newGame(B)), [4]), 4), '只能登記活著的人');
     const pd = play(newGame(B), { wolf: 9 });
     no(E.exile(pd, 1), '死訊公布前不能放逐'); no(E.nextNight(pd, 0), '死訊公布前不能天黑');
-    // 第一天登記警長＝唸「N 號當選警長。」接著公布昨晚死訊；警徽流失＝直接公布；之後改警長不出聲（Leo 2026-10-28）
+    // 第一天登記警長＝唸「N 號玩家當選警長。」接著公布昨晚死訊；警徽流失＝直接公布；之後改警長不出聲（Leo 2026-10-28）
     const el = ok(E.setSheriff(pd, 4));
-    assert.equal(el.game.narration.text, '4 號當選警長。昨晚死亡的是 9 號。');
+    assert.equal(el.game.narration.text, '4 號玩家當選警長。昨晚死亡的是 9 號。');
     assert.deepEqual(el.game.narration.clips, ['n4', 'sheriffElected', 'deathsAre', 'n9', 'end']);
     assert.equal(el.game.day.pendingDeaths, null);
     assert.equal(el.game.alive[9], false);

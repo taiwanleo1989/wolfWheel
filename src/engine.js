@@ -647,7 +647,7 @@ export function setSheriff(room, seat, now = 0) {
   const g = structuredClone(g0);
   const passed = g.badgePending;
   Object.assign(g, { sheriff: seat, badgeTorn: false, badgePending: false });
-  // 第一天警長競選完：直接唸「3 號當選警長。」接著昨晚死訊，主機不用再按「公布」（Leo 2026-10-28）
+  // 第一天警長競選完：直接唸「3 號玩家當選警長。」接著昨晚死訊，主機不用再按「公布」（Leo 2026-10-28）
   if (g.day?.pendingDeaths) note(g, [seatKey(seat), 'sheriffElected', ...flushPending(g)]);
   else g.log.push({ day: g.dayNo, text: passed ? `警徽移交給 ${seat} 號。` : `${seat} 號當上警長。` });
   return ok(checkWin({ ...room, game: g }, g0.narration?.seq));

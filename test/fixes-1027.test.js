@@ -253,8 +253,8 @@ test('警長：主機登記（警長競選時就能登記）、座位表公開�
   assert.ok(r.game.day.pendingDeaths);
   r = ok(E.setSheriff(r, 9)); // 9 號昨晚死了，但死訊還沒公布：照規則可以當選
   assert.equal(E.publicGame(r).sheriff, 9);
-  // 登記就唸「9 號當選警長。」接著公布昨晚死訊（Leo 2026-10-28）
-  assert.equal(r.game.log.at(-1).text, '9 號當選警長。昨晚死亡的是 9 號。');
+  // 登記就唸「9 號玩家當選警長。」接著公布昨晚死訊（Leo 2026-10-28）
+  assert.equal(r.game.log.at(-1).text, '9 號玩家當選警長。昨晚死亡的是 9 號。');
   assert.equal(E.setSheriff(r, 9).ok, false, '已經是警長');
   assert.equal(r.game.alive[9], false);
   assert.equal(E.publicGame(r).badgePending, true, '警長出局，等移交');
