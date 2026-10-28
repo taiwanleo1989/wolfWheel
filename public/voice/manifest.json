@@ -9,7 +9,8 @@
     "batch6.mp3",
     "batch7.mp3",
     "batch8.mp3",
-    "batch9.mp3"
+    "batch9.mp3",
+    "batch10.mp3"
   ],
   "files": {
     "checkRole": {
@@ -187,6 +188,18 @@
     "wolfBoom": {
       "file": "wolfBoom.mp3",
       "text": "狼人自爆"
+    },
+    "badgePassTo": {
+      "file": "badgePassTo.mp3",
+      "text": "警徽移交給"
+    },
+    "badgeTear": {
+      "file": "badgeTear.mp3",
+      "text": "警長撕掉警徽。"
+    },
+    "pkVote": {
+      "file": "pkVote.mp3",
+      "text": "平票，請其他玩家進行投票。"
     },
     "voteStart": {
       "file": "voteStart.mp3",

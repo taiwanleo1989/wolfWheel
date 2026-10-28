@@ -34,5 +34,9 @@
   {
     "order": "order-9.json",
     "audio": "batch9.mp3"
+  },
+  {
+    "order": "order-10.json",
+    "audio": "batch10.mp3"
   }
 ]
