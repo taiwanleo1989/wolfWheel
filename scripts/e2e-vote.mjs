@@ -104,9 +104,10 @@ check('PK 中每支手機看得到上一輪統計', pk.prev?.top?.length === 2);
 const [c1, c2] = pk.voters.filter(s => s !== HUNTER);
 await voteRound({ [c1]: A, [c2]: B });
 check('PK 又平票＝自動「平票，今天沒有人出局。天黑請閉眼。」', host.narr.at(-1) === '平票，今天沒有人出局。天黑請閉眼。' && host.state.game.nightCalled === true, host.narr.at(-1));
-const L1 = logText().find(t => t.startsWith('第 1 輪投票：')), L2 = logText().find(t => t.startsWith('第 2 輪 PK 投票：'));
-check('紀錄：第 1 輪誰投誰（警長寫 1.5 票）', Boolean(L1) && L1.includes(`${A} 號投 ${B} 號`) && L1.includes(`${HUNTER} 號（警長 1.5 票）棄票`), L1);
-check('紀錄：第 2 輪 PK 誰投誰', Boolean(L2) && L2.includes(`${c1} 號投 ${A} 號`) && L2.includes('平票'), L2);
+const L1 = logText().find(t => t.startsWith('第 1 輪投票統計：')), L2 = logText().find(t => t.startsWith('第 2 輪 PK 投票統計：'));
+const R1 = host.state.game.log.find(e => e.vote?.round === 1);
+check('紀錄：第 1 輪統計（警長寫 1.5 票），帶統計表資料', Boolean(L1) && L1.includes(`${B} 號 1 票 ← ${A} 號`) && L1.includes(`${HUNTER} 號（警長 1.5 票）`) && R1?.vote.rows.length === 2, L1);
+check('紀錄：第 2 輪 PK 統計', Boolean(L2) && L2.includes(`${A} 號 1 票 ← ${c1} 號`) && L2.includes('平票'), L2);
 check('每支玩家手機的紀錄跟主機一樣', p(W1).state.game.log.length === host.state.game.log.length);
 send('host', { type: 'nextNight' });
 await until(() => host.state.phase === 'night', 10000, '進入黑夜');
@@ -128,8 +129,8 @@ check(`警徽移交給 ${SEER} 號：主機唸「警徽移交給 ${SEER} 號。�
 send('host', { type: 'startVote' });
 const alive = Object.keys(host.state.game.alive).map(Number).filter(s => host.state.game.alive[s]);
 await voteRound(Object.fromEntries(alive.filter(s => s !== W2).map(s => [s, W2])));
-const L3 = logText().find(t => t.startsWith('第 1 輪投票：') && t !== L1);
-check(`新警長那票：紀錄寫「${SEER} 號（警長 1.5 票）投 ${W2} 號」`, Boolean(L3) && L3.includes(`${SEER} 號（警長 1.5 票）投 ${W2} 號`), L3);
+const L3 = logText().find(t => t.startsWith('第 1 輪投票統計：') && t !== L1);
+check(`新警長那票：紀錄寫「${W2} 號 … ← … ${SEER} 號（警長 1.5 票）」`, Boolean(L3) && L3.startsWith(`第 1 輪投票統計：${W2} 號`) && L3.includes(`${SEER} 號（警長 1.5 票）`), L3);
 check('最後一隻狼被票走：遊戲結束、好人勝', host.state.phase === 'ended' && host.state.game.winner === 'good');
 
 for (const c of Object.values(clients)) c.ws.close();

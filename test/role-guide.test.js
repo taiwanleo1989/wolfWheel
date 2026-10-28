@@ -60,7 +60,8 @@ function play(r, plan = {}, stop) {
     const step = curStep(r), who = E.actors(r.game, step);
     const a = E.scriptFor(step, r.setup.counts).beats[n.beat].act;
     const firstOther = s => Object.keys(r.game.alive).map(Number).find(x => r.game.alive[x] && x !== s);
-    if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
+    if (a === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') r = act(r, who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
     else if (a === 'seer' || a === 'gargoyle') { r = act(r, who[0], { target: plan[a] ?? firstOther(who[0]) }); r = act(r, who[0], { done: true }); }
     else if (a === 'witchSave') r = act(r, who[0], { use: plan.save ? 'save' : 'skip' });
     else if (a === 'witchPoison') r = act(r, who[0], plan.poison ? { use: 'poison', target: plan.poison } : { use: 'none' });
@@ -970,13 +971,20 @@ const CHECKS = {
     no(E.nightAction(r, id(6), { target: 15 }, everyone(r), 0, minRand));
     for (const w of [1, 2, 3, 4, 5]) r = act(r, w, { target: 15 });
     assert.equal(r.game.night.wolfProposal, 15, '狼隊自己一致就確定');
-    // 隱狼請睜眼：看得到狼同伴，不用動作、照樣假等
+    // 隱狼請睜眼：看得到狼同伴，不能刀；按「知道了」就往下走（Leo 2026-10-28 晚，取代假等）
     let h = toNight(withDead(night(newGame(F)), [2]), 'hidden');
-    assert.equal(h.game.night.wait, 'fake');
+    assert.equal(h.game.night.wait, 'people');
     assert.deepEqual(pick(h, 6).action, { kind: 'hiddenMates' });
     no(E.nightAction(h, id(6), { target: 15 }, everyone(h), 0, minRand));
     const view = mount(h, id(6)).html('#actionBox');
-    assert.match(view, /隱狼：你的狼同伴/);
+    assert.match(view, /隱狼：你的狼同伴[\s\S]*data-do="hiddenSeen">知道了/);
+    const ui = mount(h, id(6));
+    ui.click('#actionBox', 'do', 'hiddenSeen');
+    assert.deepEqual(ui.sent.at(-1), { type: 'act', payload: { seen: true } });
+    const seen = act(h, 6, { seen: true });
+    assert.equal(seen.game.night.stage, 'pause', '按了就往下走');
+    const rep = E.advance(h, h.game.timer.at, minRand).room;
+    assert.equal(rep.game.narration.text, LINES.hiddenOpen, '太久沒按：重唸隱狼請睜眼');
     assert.match(view, /狼同伴：<b class="digits">1<\/b> 號、<b class="digits">2<\/b> 號（已出局）、<b class="digits">3<\/b> 號（狼王）、<b class="digits">4<\/b> 號、<b class="digits">5<\/b> 號/);
     assert.ok(!view.includes('7</b> 號'), '石像鬼不在名單');
   },
@@ -1011,10 +1019,12 @@ const CHECKS = {
     for (let i = 0; i < 10 && n.game.night.stage !== 'closed'; i++) n = E.advance(n, n.game.timer.at, minRand).room;
     assert.equal(n.game.narration.text, close, '選好就閉眼');
     assert.ok(!nextDay(r, { wolf: 15 }).game.alive[15], '隱狼刀成功');
-    assert.ok(E.actors(ok(E.nextNight(night(newGame(F)), 0)).game, 'hidden').length === 0, '其他狼還活著：假等');
-    let alive = toNight(night(newGame(F)), 'hidden');
-    assert.equal(alive.game.night.wait, 'fake');
+    const alive = toNight(night(newGame(F)), 'hidden');
+    assert.equal(pick(alive, 6).action.kind, 'hiddenMates', '其他狼還活著：只看同伴、不刀');
     assert.equal(alive.game.narration.text, open, '照樣唸睜眼');
+    const dead = toNight(withDead(night(newGame(F)), [6]), 'hidden');
+    assert.equal(dead.game.night.wait, 'fake', '隱狼出局：照樣唸、假等');
+    assert.equal(dead.game.narration.text, open);
     const solo = play(newGame({ hidden: 1, seer: 1, villager: 4 }), {}, { step: 'hidden' });
     assert.deepEqual(E.actors(solo.game, 'hidden'), [1], '板子上的狼只有隱狼：第一晚就刀');
   },
@@ -1040,7 +1050,7 @@ const CHECKS = {
     const r = withDead(night(newGame(F)), [1, 2, 3, 4, 5]);
     assert.deepEqual(E.killers(r.game), [7], '石像鬼單獨刀');
     assert.equal(r.game.alive[6], true, '隱狼還活著也一樣');
-    assert.deepEqual(E.actors(ok(E.nextNight(r, 0)).game, 'hidden'), [], '石像鬼還活著：隱狼不刀');
+    assert.equal(pick(toNight(r, 'hidden'), 6).action.kind, 'hiddenMates', '石像鬼還活著：隱狼只看同伴、不刀');
     assert.deepEqual(pick(r, 7).wolves.map(w => w.seat), [7], '不跟隱狼見面');
     const solo = play(newGame({ gargoyle: 1, seer: 1, villager: 3 }), {}, { step: 'wolf' });
     assert.deepEqual(E.actors(solo.game, 'wolf'), [1], '沒有狼隊：第一晚就殺人');
@@ -1311,6 +1321,12 @@ const CHECKS = {
     assert.equal(play(newGame(F, { police: false }), { wolf: 14 }).game.alive[14], false);
     assert.equal(play(newGame(F, { police: false }), { poison: 14 }).game.alive[14], false);
     assert.ok(!E.NIGHT_ORDER.includes('idiot'));
+    // 翻過牌的白癡：晚上照樣可以被狼刀（Leo 2026-10-28 問）
+    const flip = ok(E.idiotChoose(voteAll(night(newGame(F)), { 1: 14, 2: 14 }), id(14), true));
+    assert.ok(flip.game.idiotRevealed.includes(14) && flip.game.alive[14]);
+    const knife = toNight(flip, 'wolf');
+    assert.match(mount(knife, id(1)).html('#actionBox'), /data-pick="14"(?![^>]*disabled)/, '狼人手機點得到他');
+    assert.equal(nextDay(flip, { wolf: 14 }).game.alive[14], false, '刀了就出局');
   },
 
   /* 平民 */

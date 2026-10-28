@@ -44,7 +44,10 @@ export function renderGame(ctx) {
   renderBoard();
   renderMyInfo();
 
-  setHTML($('#logList'), g.log.slice().reverse().map(e => `<li><span class="d">第 ${e.day} 天</span>${esc(e.text)}</li>`).join(''));
+  // 投票那一行畫成統計表（Leo 2026-10-28）；其他照文字
+  setHTML($('#logList'), g.log.slice().reverse().map(e => (e.vote
+    ? `<li class="vote-log"><span class="d">第 ${e.day} 天</span>第 ${e.vote.round ?? 1} 輪${e.vote.pk ? ' PK ' : ''}投票統計：${voteEnd(e.vote)}${tallyHTML(e.vote)}</li>`
+    : `<li><span class="d">第 ${e.day} 天</span>${esc(e.text)}</li>`)).join(''));
 }
 
 /* ───────── 選座位的小格子 ───────── */
@@ -113,7 +116,8 @@ function renderAction() {
       // 隱狼睜眼看狼同伴（Leo 2026-10-28）：其他狼還活著，今晚他們刀，隱狼不用動作
       html = `<h2>隱狼：你的狼同伴</h2>
         ${hiddenMatesLine(me, seat)}
-        <p class="hint">其他狼還活著，今晚由他們刀人，你不用動作。主機唸「隱狼請閉眼」就閉眼。</p>`;
+        <p class="hint">其他狼還活著，今晚由他們刀人，你不用刀。看完按「知道了」，主機就唸「隱狼請閉眼」。</p>
+        <button class="btn primary big" type="button" data-do="hiddenSeen">知道了</button>`;
     } else if (a.kind === 'witchSave') {
       const info = a.saveUsedUp ? '解藥已經用掉了，不會告知今晚死亡的玩家。'
         : a.victim ? `今晚死亡的玩家是 <b class="digits">${a.victim}</b> 號。` : '今晚沒有人死亡。';
@@ -272,6 +276,7 @@ function onAction(e) {
     case 'gargoyleDone': act({ done: true }); break;
     case 'graveSeen': act({ seen: true }); break;
     case 'hunterSeen': act({ seen: true }); break;
+    case 'hiddenSeen': act({ seen: true }); break; // 隱狼看完狼同伴（Leo 2026-10-28）
     case 'reload': location.reload(); break;
     case 'passBadge': if (ui.badgePick && confirm(`把警徽移交給 ${ui.badgePick} 號？`)) { c.send({ type: 'passBadge', target: ui.badgePick }); ui.badgePick = null; } break;
     case 'tearBadge': if (confirm('撕掉警徽？不交給任何人。')) c.send({ type: 'passBadge', target: 0 }); break;
@@ -456,12 +461,16 @@ function renderVote() {
     return;
   }
   const r = v.result;
-  const who = list => list.map(s => (s === r.sheriff ? `${s}（警長 1.5 票）` : `${s}`)).join('、');
-  setHTML(box, `<h2>${r.pk ? '平票 PK ' : ''}投票統計</h2>
-    <ul class="tally">${r.rows.map(x => `<li${r.top.includes(x.target) ? ' class="top"' : ''}><b class="digits">${x.target} 號</b><span class="score">${x.score} 票</span><span class="by">${who(x.voters)} 號投</span></li>`).join('')}
-      ${r.abstain.length ? `<li><b>棄票</b><span class="score"></span><span class="by">${who(r.abstain)} 號</span></li>` : ''}</ul>
-    <p class="done">${!r.top.length ? '沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號` : `最高票：${r.top[0]} 號`}</p>`);
+  setHTML(box, `<h2>${r.pk ? '平票 PK ' : ''}投票統計</h2>${tallyHTML(r)}<p class="done">${voteEnd(r)}</p>`);
 }
+
+// 投票統計表：每支手機的統計框、全場紀錄共用（Leo 2026-10-28：紀錄要統計的方式）
+function tallyHTML(r) {
+  const who = list => list.map(s => (s === r.sheriff ? `${s} 號（警長 1.5 票）` : `${s} 號`)).join('、');
+  return `<ul class="tally">${r.rows.map(x => `<li${r.top.includes(x.target) ? ' class="top"' : ''}><b class="digits">${x.target} 號</b><span class="score">${x.score} 票</span><span class="by">${who(x.voters)}投</span></li>`).join('')}
+      ${r.abstain.length ? `<li><b>棄票</b><span class="score"></span><span class="by">${who(r.abstain)}</span></li>` : ''}</ul>`;
+}
+const voteEnd = r => (!r.top.length ? '沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號` : `最高票：${r.top[0]} 號`);
 
 /* ───────── 公開的座位表 ───────── */
 function renderBoard() {

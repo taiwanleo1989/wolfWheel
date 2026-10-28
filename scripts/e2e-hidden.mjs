@@ -51,7 +51,7 @@ send('host', { type: 'start' });
 
 const pub = () => host.state?.game;
 const me = n => clients['p' + n].state?.you?.game;
-let sawHiddenFake = false, seerTarget = null, hiddenAction = null, hiddenRepeat = 0;
+let sawHiddenFake = false, seerTarget = null, hiddenAction = null, hiddenRepeat = 0, hiddenSeenAt = 0, hiddenClosedAt = 0;
 // 夜裡自動操作（狼、隱狼刀的人由 plan 決定）
 async function runNight(plan) {
   const handled = new Set();
@@ -70,13 +70,14 @@ async function runNight(plan) {
         if (!a.checked) send('p' + n, { type: 'act', payload: { target: plan.seer } }); else send('p' + n, { type: 'act', payload: { done: true } });
       } else if (a.kind === 'witchSave') { plan.victimSeen = a.victim; send('p' + n, { type: 'act', payload: { use: 'skip' } }); }
       else if (a.kind === 'witchPoison') send('p' + n, { type: 'act', payload: { use: 'none' } });
+      else if (a.kind === 'hiddenMates') { if (me(H).wolves.some(w => w.seat === W)) sawHiddenFake = true; hiddenSeenAt = Date.now(); send('p' + n, { type: 'act', payload: { seen: true } }); } // 看完按「知道了」（Leo 2026-10-28）
     }
-    if (g.night.step === 'hidden' && g.night.eyesOpen && me(H)?.action?.kind === 'hiddenMates' && me(H).wolves.some(w => w.seat === W)) sawHiddenFake = true;
+    if (hiddenSeenAt && !hiddenClosedAt && host.narr.at(-1)?.endsWith('隱狼請閉眼。')) hiddenClosedAt = Date.now();
     await sleep(150);
   }
 }
 
-// 第一晚：狼刀平民 1；隱狼那步應該假等、隱狼手機沒動作
+// 第一晚：狼刀平民 1；隱狼那步看狼同伴、按「知道了」就往下走（Leo 2026-10-28 晚，取代假等）
 const plan1 = { kill: villagers[0], seer: H };
 await until(() => host.state?.phase === 'night', 10000, '開始');
 await runNight(plan1);
@@ -84,7 +85,8 @@ await until(() => host.state.phase === 'day', 90000, '天亮');
 const n1 = host.narr.map(x => x.split(':').slice(1).join(':'));
 check('第一晚有唸「隱狼請睜眼」「隱狼請閉眼」', n1.includes('隱狼請睜眼。') && n1.includes('隱狼請閉眼。'));
 check(`第一晚隱狼那步：其他狼還活著 → 隱狼手機只顯示狼同伴（看得到狼人 ${W} 號），不能刀`, sawHiddenFake);
-check('第一晚「隱狼請睜眼」只唸一次（假等不重唸）', n1.filter(t => t === '隱狼請睜眼。').length === 1, n1.join(' / '));
+check('第一晚「隱狼請睜眼」只唸一次', n1.filter(t => t === '隱狼請睜眼。').length === 1, n1.join(' / '));
+check('隱狼按「知道了」後 6 秒內唸「隱狼請閉眼」（不再假等）', hiddenClosedAt > 0 && hiddenClosedAt - hiddenSeenAt < 6000, `${hiddenClosedAt - hiddenSeenAt} ms`);
 check('狼人刀成功', pub().alive[villagers[0]] === false);
 check('預言家查隱狼＝好人（其他狼還活著）', me(SEER).seerChecks.at(-1)?.wolf === false);
 const before = clients['p' + H].errors.length;
@@ -94,7 +96,10 @@ check('白天隱狼自爆被擋', clients['p' + H].errors.length > before, clien
 check('隱狼手機沒有自爆鈕', !me(H).canBoom);
 
 // 白天放逐狼人 → 只剩隱狼
-send('host', { type: 'exile', target: W });
+// 2026-10-28 起放逐只走手機投票：除了狼人自己，大家都投他
+send('host', { type: 'startVote' });
+await until(() => pub().vote?.open, 5000, '開始投票');
+for (const s of pub().vote.voters) send('p' + s, { type: 'vote', target: s === W ? 0 : W });
 await until(() => pub().alive[W] === false, 5000, '放逐狼人');
 host.narr.length = 0;
 send('host', { type: 'nextNight' });

@@ -218,6 +218,8 @@ a.btn{display:inline-block;text-decoration:none}
 .log li{padding:6px 0;border-bottom:2px dashed #cdbf9f}
 .log li:last-child{border-bottom:none}
 .log .d{display:inline-block;min-width:60px;color:var(--muted);font-size:13px}
+.log .tally{margin:6px 0 2px;font-weight:400}
+.log .tally li{padding:5px 8px}
 .winner{text-align:center}
 .win-title{font-weight:900;font-size:clamp(30px,9vw,44px);letter-spacing:.1em;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink)}
 .win-title.good{color:#6ab0ff}

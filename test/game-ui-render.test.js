@@ -35,7 +35,8 @@ function toStep(r, name) {
     const who = E.actors(r.game, step(r));
     const a = E.scriptFor(step(r), r.setup.counts).beats[r.game.night.beat].act;
     const go = (s, p) => { const res = E.nightAction(r, id(s), p, everyone(r), 0, minRand); assert.ok(res.ok, res.error); r = res.room; };
-    if (a === 'wolf') { for (const w of who) go(w, { target: 0 }); go(who[0], { confirm: true }); }
+    if (a === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') go(who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (a === 'wolf') { for (const w of who) go(w, { target: 0 }); go(who[0], { confirm: true }); }
     else if (a === 'seer' || a === 'gargoyle') { go(who[0], { target: 12 }); go(who[0], { done: true }); }
     else if (a === 'witchSave') go(who[0], { use: 'skip' });
     else if (a === 'witchPoison') go(who[0], { use: 'none' });

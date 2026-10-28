@@ -52,7 +52,8 @@ function play(r, plan = {}, stop = x => x.phase !== 'night') {
     const a = beatAct(r);
     const who = E.actors(r.game, r.game.night.steps[r.game.night.idx]);
     if (a === 'guard') r = act(r, who[0], { target: plan.guard ?? 0 });
-    if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
+    if (a === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') r = act(r, who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
     if (a === 'witchSave') r = act(r, who[0], { use: plan.save ? 'save' : 'skip' });
     if (a === 'witchPoison') r = act(r, who[0], plan.poison ? { use: 'poison', target: plan.poison } : { use: 'none' });
     if (a === 'seer') {

@@ -72,7 +72,8 @@ function night(r, plan = {}) {
     if (!(n.stage === 'acting' && n.wait === 'people')) { r = hear(E.advance(r, r.game.timer.at, rand0).room); continue; }
     const st = n.steps[n.idx], who = E.actors(r.game, st), act = E.scriptFor(st, r.setup.counts).beats[n.beat].act;
     const go = (s, p) => { r = must(E.nightAction(r, id(s), p, all(r), 0, rand0)); };
-    if (act === 'wolf') { for (const w of who) go(w, { target: plan.wolf ?? 0 }); go(who[0], { confirm: true }); }
+    if (act === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') go(who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (act === 'wolf') { for (const w of who) go(w, { target: plan.wolf ?? 0 }); go(who[0], { confirm: true }); }
     else if (act === 'seer' || act === 'gargoyle') {
       go(who[0], { target: Object.keys(r.game.alive).map(Number).find(s => r.game.alive[s] && s !== who[0]) });
       go(who[0], { done: true });

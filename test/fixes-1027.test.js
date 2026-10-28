@@ -38,7 +38,8 @@ function play(r, plan = {}) {
     const step = curStep(r), who = E.actors(r.game, step);
     const act = E.scriptFor(step, r.setup.counts).beats[r.game.night.beat].act;
     const go = (s, p) => { r = ok(E.nightAction(r, id(s), p, everyone(r), 0, minRand)); };
-    if (act === 'wolf') { for (const w of who) go(w, { target: plan.wolf ?? 0 }); go(who[0], { confirm: true }); }
+    if (act === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') go(who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (act === 'wolf') { for (const w of who) go(w, { target: plan.wolf ?? 0 }); go(who[0], { confirm: true }); }
     else if (act === 'seer' || act === 'gargoyle') { go(who[0], { target: Object.keys(r.game.alive).map(Number).find(s => r.game.alive[s] && s !== who[0]) }); go(who[0], { done: true }); }
     else if (act === 'witchSave') go(who[0], { use: 'skip' });
     else if (act === 'witchPoison') go(who[0], plan.poison ? { use: 'poison', target: plan.poison } : { use: 'none' });
@@ -79,7 +80,8 @@ test('投票：主機開始 → 每個人在手機上點號碼 → 全部投完�
   assert.deepEqual(res.abstain, [7, 10]);
   assert.deepEqual(res.top, [1]);
   // 全場紀錄：每個人投誰、警長寫 1.5 票（Leo 2026-10-28）
-  assert.equal(r.game.log.at(-2).text, '第 1 輪投票：1 號投 4 號、2 號投 4 號、3 號投 4 號、4 號投 1 號、5 號投 1 號、6 號投 1 號、7 號棄票、8 號投 1 號、9 號（警長 1.5 票）投 4 號、10 號棄票、11 號投 1 號。統計：1 號 5 票、4 號 4.5 票。最高票 1 號。');
+  assert.equal(r.game.log.at(-2).text, '第 1 輪投票統計：1 號 5 票 ← 4 號、5 號、6 號、8 號、11 號；4 號 4.5 票 ← 1 號、2 號、3 號、9 號（警長 1.5 票）；棄票：7 號、10 號。最高票 1 號。');
+  assert.deepEqual(r.game.log.at(-2).vote, res, '紀錄帶統計資料，畫成表格（Leo 2026-10-28）');
   assert.deepEqual(E.publicGame(r).vote.result, res, '統計每支手機一樣');
   // 只有一個最高票：投完直接放逐、唸出局（Leo 2026-10-27）
   assert.equal(r.game.alive[1], false);
@@ -139,7 +141,7 @@ test('投完票：狼王被投出去也喊「請啟動角色技能」；平票�
   assert.deepEqual(t.game.day.vote.candidates, [9, 10]);
   assert.equal(t.game.narration.text, '9 號、10 號平票，請其他玩家進行投票。');
   assert.deepEqual(t.game.narration.clips, ['n9', 'sep', 'n10', 'pkVote']);
-  assert.match(t.game.log.at(-2).text, /^第 1 輪投票：1 號投 9 號、2 號投 10 號、3 號棄票[\s\S]*平票：9、10 號。$/);
+  assert.equal(t.game.log.at(-2).text, '第 1 輪投票統計：9 號 1 票 ← 1 號；10 號 1 票 ← 2 號；棄票：3 號、4 號、5 號、6 號、7 號、8 號、9 號、10 號、11 號。平票：9、10 號。');
   assert.equal(t.game.log.at(-1).text, '平票 PK：9、10 號，其他人重新投票。');
 });
 
@@ -152,7 +154,7 @@ test('平票 PK 又平票＝今天沒人出局、直接天黑；PK 全部棄票�
   assert.equal(t.game.narration.text, '平票，今天沒有人出局。天黑請閉眼。');
   assert.equal(t.game.day.exileDone, true);
   assert.equal(t.game.day.nightCalled, true);
-  assert.match(t.game.log.at(-2).text, /^第 2 輪 PK 投票：1 號投 9 號、2 號投 10 號、3 號棄票[\s\S]*平票：9、10 號。$/);
+  assert.match(t.game.log.at(-2).text, /^第 2 輪 PK 投票統計：9 號 1 票 ← 1 號；10 號 1 票 ← 2 號；棄票：[\s\S]*平票：9、10 號。$/);
   assert.equal(t.game.log.at(-1).text, '平票，今天沒有人出局。天黑請閉眼。');
   assert.equal(E.startVote(t).ok, false, '今天結束，不能再投');
   assert.equal(ok(E.nextNight(t, 0)).phase, 'night');
@@ -187,10 +189,11 @@ test('棄票（Leo 2026-10-27）：每個人都能棄票、統計列出棄票的
   assert.deepEqual(res.top, []);
   // 全部棄票：自動「今天沒有人出局。天黑請閉眼。」（Leo 2026-10-28：主機不選）
   assert.equal(r.game.day.exileDone, true);
-  assert.equal(r.game.log.at(-2).text, '第 1 輪投票：1 號棄票、2 號棄票、3 號棄票、4 號棄票、5 號棄票、6 號棄票、7 號棄票、8 號棄票、9 號棄票、10 號棄票、11 號棄票。全部棄票，沒有人得票。');
+  assert.equal(r.game.log.at(-2).text, '第 1 輪投票統計：棄票：1 號、2 號、3 號、4 號、5 號、6 號、7 號、8 號、9 號、10 號、11 號。全部棄票，沒有人得票。');
   const host = mount(r, 'host');
   assert.match(host.html('#hostCtl'), /今天沒有人出局[\s\S]*進入黑夜/);
-  assert.match(host.html('#voteBox'), /棄票[\s\S]*1、2、3/);
+  assert.match(host.html('#voteBox'), /棄票[\s\S]*1 號、2 號、3 號/);
+  assert.match(host.html('#logList'), /第 1 輪投票統計：沒有人得票。<ul class="tally">[\s\S]*棄票[\s\S]*1 號、2 號/, '紀錄也是統計表');
   assert.equal(r.game.narration.text, '今天沒有人出局。天黑請閉眼。');
   assert.deepEqual(r.game.narration.clips, ['noExile', 'nightStart']);
 });
@@ -227,7 +230,7 @@ test('投票：平票可以 PK（平手的人不投、其他人只能投他們�
   for (const s of [1, 2, 3, 4]) r = ok(E.castVote(r, id(s), 9));
   for (const s of [5, 6, 7, 8]) r = ok(E.castVote(r, id(s), 10));
   r = ok(E.endVote(r));
-  assert.match(r.game.log.at(-2).text, /9 號棄票、10 號棄票、11 號棄票。統計：9 號 4 票、10 號 4 票。平票：9、10 號。$/);
+  assert.match(r.game.log.at(-2).text, /9 號 4 票 ← 1 號、2 號、3 號、4 號；10 號 4 票 ← 5 號、6 號、7 號、8 號；棄票：9 號、10 號、11 號。平票：9、10 號。$/);
   assert.equal(r.game.day.vote.pk, true, '平票自動 PK');
   assert.deepEqual(r.game.day.vote.candidates, [9, 10]);
   assert.deepEqual(r.game.day.vote.voters, [1, 2, 3, 4, 5, 6, 7, 8, 11]);
@@ -528,7 +531,7 @@ test('畫面：主機按「進行投票」→ 唸「請大家進行投票。」�
   assert.match(ht.html('#hostCtl'), /平票 PK（9、10 號）中：已投 0／9 人[\s\S]*data-host="endVote"/);
   assert.ok(!ht.html('#hostCtl').includes('data-host="pk"'));
   assert.match(ht.html('#voteBox'), /平票 PK 投票中/);
-  assert.match(ht.html('#logList'), /平票 PK：9、10 號[\s\S]*第 1 輪投票：[\s\S]*9 號（警長 1.5 票）|平票 PK：9、10 號[\s\S]*第 1 輪投票：/, '紀錄有第一輪誰投誰');
+  assert.match(ht.html('#logList'), /平票 PK：9、10 號[\s\S]*第 1 輪投票統計：平票：9、10 號<ul class="tally">[\s\S]*9 號[\s\S]*10 號/, '紀錄是第一輪的統計表');
 });
 
 test('畫面：主機登記警長；警長出局由他自己的手機選移交或撕警徽（主機只能等）；座位表標「警長」；狼美人不能刀、昨晚魅惑過的不能選', () => {

@@ -104,14 +104,16 @@ export function killers(g) {
   return pack.length ? pack : alive;
 }
 
-// 某一步要誰動作（只算活著的）：狼人那步是 killers；隱狼那步只有「只剩隱狼」時才是他（其他時候假等，聽不出差別）；
-// 上警不等任何人；其他是那個角色本人
+// 某一步要誰動作（只算活著的）：狼人那步是 killers；上警不等任何人；其他是那個角色本人。
+// 隱狼那步：活著的隱狼都是他——其他狼還活著時看狼同伴、按「知道了」就往下走（Leo 2026-10-28 晚，取代下午的「假等」：
+// 實玩空刀後隱狼那步沒按鈕、等 8～24 秒）；只剩隱狼時刀人。死掉的隱狼照樣假等，跟其他角色一樣
 export function actors(g, step) {
   if (step === 'police') return [];
   if (step === 'wolf') return killers(g);
-  if (step === 'hidden' && !onlyHiddenLeft(g)) return [];
   return seatsList(g).filter(s => g.roles[s] === step && g.alive[s]);
 }
+// 隱狼那步、其他狼還活著：隱狼只看狼同伴，不刀人
+const hiddenWatching = (g, step) => step === 'hidden' && !onlyHiddenLeft(g);
 
 // 這支手機看得到的狼隊友：狼隊互相認得；隱狼單向認得狼隊；石像鬼誰都不認得；
 // 狼隊死光、隱狼石像鬼開始一起殺人時，彼此晚上會見面
@@ -234,6 +236,7 @@ export function advance(room, now, rand) {
 //   witchSave { use:'save' | 'skip' }        witchPoison { use:'poison', target } | { use:'none' }
 //   seer  { target } 或 { done:true }          hunter { seen:true }      king { seen:true }
 //   beauty { target }（0＝今晚不魅惑）          gargoyle { target } 或 { done:true }      grave { seen:true }
+//   hidden（其他狼還活著）{ seen:true }；只剩隱狼時跟 wolf 一樣
 export function nightAction(room, clientId, payload, online, now, rand) {
   if (room.phase !== 'night') return fail('現在不是晚上');
   const n0 = room.game.night;
@@ -247,7 +250,11 @@ export function nightAction(room, clientId, payload, online, now, rand) {
   const target = Number(payload?.target ?? 0);
   const aliveTarget = t => Number.isInteger(t) && g.alive[t] === true;
 
-  if (act === 'guard') {
+  if (hiddenWatching(g, step)) {
+    // 其他狼還活著：隱狼看完狼同伴按「知道了」，不能刀人（Leo 2026-10-28）
+    if (!payload?.seen) return fail('其他狼還活著，今晚由他們刀人');
+    endBeat(room, g, now, rand);
+  } else if (act === 'guard') {
     if (target && !aliveTarget(target)) return fail('只能守護活著的人');
     if (target && target === g.lastGuard) return fail('不能連續兩晚守同一個人');
     night.guardTarget = target || null;
@@ -779,18 +786,18 @@ function closeVote(g) {
   const abstain = v.voters.filter(s => !v.ballots[s]); // 投 0 或沒投＝棄票
   const top = rows.filter(r => r.score === rows[0].score).map(r => r.target);
   v.result = { round: v.round, pk: v.pk, rows, abstain, top, sheriff: v.voters.includes(g.sheriff) ? g.sheriff : null };
-  g.log.push({ day: g.dayNo, text: voteText(v.result) });
+  g.log.push({ day: g.dayNo, text: voteText(v.result), vote: v.result }); // vote：全場紀錄畫成統計表（Leo 2026-10-28）；text 給舊網頁
 }
 
-// 全場紀錄的投票紀錄：每個人投誰（照號碼排），警長寫出 1.5 票（Leo 2026-10-28）
-// 「第 1 輪投票：1 號（警長 1.5 票）投 3 號、2 號投 5 號、4 號投 3 號、6 號棄票。統計：3 號 2.5 票、5 號 1 票。最高票 3 號。」
+// 全場紀錄的投票統計：照被投的人分組（票多的在前），每組列出投他的人，警長寫出 1.5 票（Leo 2026-10-28：要統計的方式）
+// 「第 1 輪投票統計：3 號 2.5 票 ← 1 號（警長 1.5 票）、4 號；5 號 1 票 ← 2 號；棄票：6 號。最高票 3 號。」
+// 新網頁用 log 的 vote 欄畫成表格（game-ui tallyHTML），這行文字給舊網頁和文字紀錄
 export function voteText(r) {
-  const tag = s => (s === r.sheriff ? `${s} 號（警長 1.5 票）` : `${s} 號`);
-  const each = [...r.rows.flatMap(x => x.voters.map(s => [s, x.target])), ...r.abstain.map(s => [s, 0])]
-    .sort((a, b) => a[0] - b[0]).map(([s, t]) => `${tag(s)}${t ? `投 ${t} 號` : '棄票'}`);
-  const tally = r.rows.map(x => `${x.target} 號 ${x.score} 票`).join('、');
+  const who = list => list.map(s => (s === r.sheriff ? `${s} 號（警長 1.5 票）` : `${s} 號`)).join('、');
+  const parts = r.rows.map(x => `${x.target} 號 ${x.score} 票 ← ${who(x.voters)}`);
+  if (r.abstain.length) parts.push(`棄票：${who(r.abstain)}`);
   const end = !r.top.length ? '全部棄票，沒有人得票。' : r.top.length > 1 ? `平票：${r.top.join('、')} 號。` : `最高票 ${r.top[0]} 號。`;
-  return `第 ${r.round ?? 1} 輪${r.pk ? ' PK ' : ''}投票：${each.join('、') || '沒有人投票'}。${tally ? `統計：${tally}。` : ''}${end}`;
+  return `第 ${r.round ?? 1} 輪${r.pk ? ' PK ' : ''}投票統計：${parts.join('；') || '沒有人投票'}。${end}`;
 }
 
 /* ───────── 勝負 ───────── */
@@ -979,7 +986,8 @@ export function privateGame(room, seat) {
     const act = curBeat(room, n).act;
     if (act === 'guard') me.action = { kind: 'guard', lastGuard: g.lastGuard };
     // noKnife：狼美人不能被自刀（Leo 2026-10-27）——只有一起殺人的狼看得到
-    if (act === 'wolf') me.action = wolfView(g, n, seat);
+    // 隱狼那步、其他狼還活著：只看狼同伴（me.wolves），按「知道了」往下走（Leo 2026-10-28）
+    if (act === 'wolf') me.action = hiddenWatching(g, curStep(n)) ? { kind: 'hiddenMates' } : wolfView(g, n, seat);
     if (act === 'witchSave') me.action = {
       kind: 'witchSave',
       victim: g.potions.save ? n.wolfTarget : null, // 解藥用掉之後就不告知死亡號碼
@@ -995,8 +1003,5 @@ export function privateGame(room, seat) {
     // 帶槍手勢（獵人、狼王同一套）：被毒、或今晚會殉情（狼美人今晚死、魅惑的是你）都不能開槍
     if (act === 'hunter' || act === 'king') me.action = { kind: act, canShoot: !nightDeaths(g, n).noSkill.has(seat) };
   }
-  // 隱狼那步、其他狼還活著（假等）：隱狼睜眼看得到狼同伴是誰（me.wolves），不用動作；這一步照樣假等，聽不出差別（Leo 2026-10-28）
-  if (room.phase === 'night' && n?.stage === 'acting' && curStep(n) === 'hidden' && role === 'hidden' && g.alive[seat]
-    && !actors(g, 'hidden').includes(seat)) me.action = { kind: 'hiddenMates' };
   return me;
 }

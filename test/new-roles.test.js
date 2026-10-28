@@ -54,7 +54,8 @@ function play(r, plan = {}, stop = x => x.phase !== 'night') {
     const a = beatAct(r);
     const who = E.actors(r.game, curStep(r));
     if (a === 'guard') r = act(r, who[0], { target: plan.guard ?? 0 });
-    if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
+    if (a === 'wolf' && E.privateGame(r, who[0])?.action?.kind === 'hiddenMates') r = act(r, who[0], { seen: true }); // 隱狼看狼同伴（Leo 2026-10-28）
+    else if (a === 'wolf') { for (const w of who) r = act(r, w, { target: plan.wolf ?? 0 }); r = act(r, who[0], { confirm: true }); }
     if (a === 'beauty') r = act(r, who[0], { target: plan.charm ?? 0 });
     if (a === 'witchSave') r = act(r, who[0], { use: plan.save ? 'save' : 'skip' });
     if (a === 'witchPoison') r = act(r, who[0], plan.poison ? { use: 'poison', target: plan.poison } : { use: 'none' });
@@ -137,19 +138,21 @@ test('隱狼：單向認得狼隊；狼隊還活著時不參與狼刀、自己�
   assert.equal(r.game.night.wolfProposal, 12, '狼隊自己一致就確認，不等隱狼');
   r = act(r, 1, { confirm: true });
   r = play(r, {}, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden'); // 狼美人照常魅惑
-  // 隱狼那步：狼隊還活著 → 假等（跟死掉的角色一樣，不重唸），手機沒有動作
+  // 隱狼那步：狼隊還活著 → 隱狼看狼同伴，按「知道了」就往下走（Leo 2026-10-28 晚，取代假等）
   r = runUntil(r, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden');
   assert.equal(said(r), '隱狼請睜眼。');
-  assert.equal(r.game.night.wait, 'fake');
-  assert.deepEqual(E.actors(r.game, 'hidden'), []);
+  assert.equal(r.game.night.wait, 'people', '等隱狼按');
+  assert.deepEqual(E.actors(r.game, 'hidden'), [5]);
   assert.deepEqual(E.privateGame(r, 5).action, { kind: 'hiddenMates' }, '睜眼看得到狼同伴（Leo 2026-10-28）');
   assert.deepEqual(E.privateGame(r, 5).wolves.map(w => w.seat), [1, 2, 3, 4, 5]);
   assert.equal(E.nightAction(r, id(5), { target: 12 }, everyone(r), 0, minRand).ok, false, '看得到但不能刀');
+  assert.equal(E.nightAction(r, id(5), { confirm: true }, everyone(r), 0, minRand).ok, false);
   assert.equal(E.privateGame(r, 1).action, undefined, '狼隊那時閉眼');
-  const seq = r.game.narration.seq;
+  r = act(r, 5, { seen: true });
+  assert.equal(r.game.night.stage, 'pause', '按了就往下走');
   r = runUntil(r, x => x.game.night.stage === 'closed');
   assert.equal(said(r), '隱狼請閉眼。');
-  assert.equal(r.game.narration.seq, seq + 1, '假等完不重唸，直接閉眼');
+  assert.equal(r.game.night.wolfTarget, 12, '狼隊那刀不受影響');
 
   r = play(newGame(FULL), { seer: 5 }, atAct('gargoyle'));
   assert.equal(E.privateGame(r, 7).seerChecks.at(-1).wolf, false, '預言家查隱狼＝好人（其他狼還活著）');
@@ -181,7 +184,8 @@ test('狼隊全部出局：石像鬼先單獨刀（不跟隱狼見面）；石�
   r = act(r, 6, { target: 12 });
   r = act(r, 6, { confirm: true });
   r = runUntil(r, x => x.game.night.stage === 'acting' && curStep(x) === 'hidden');
-  assert.equal(r.game.night.wait, 'fake', '石像鬼還活著：隱狼那步照樣假等');
+  assert.equal(r.game.night.wait, 'people', '石像鬼還活著：隱狼那步看同伴、按知道了');
+  assert.deepEqual(E.privateGame(r, 5).action, { kind: 'hiddenMates' });
   r = play(r);
   assert.ok(deadSeats(r).includes(12), '石像鬼刀成功');
 
@@ -552,7 +556,13 @@ test('亂數整局 400 局（所有角色亂配、亂按）：不當機、一定
         if (waiting(r)) {
           const step = curStep(r), who = E.actors(r.game, step);
           for (const s of who) assert.ok(r.game.alive[s], `seed ${seed} 死人在動作`);
-          if (beatAct(r) === 'wolf') { // 狼人那步、隱狼那步（只剩隱狼）
+          const watching = step === 'hidden' && aliveList().some(s => R.ROLES[r.game.roles[s]].team === 'wolf' && r.game.roles[s] !== 'hidden');
+          if (watching) { // 隱狼那步、其他狼還活著：只能看同伴、按知道了，不能刀（Leo 2026-10-28）
+            assert.deepEqual(who.map(s => r.game.roles[s]), ['hidden'], `seed ${seed} 隱狼那步不是隱狼`);
+            assert.equal(E.privateGame(r, who[0]).action.kind, 'hiddenMates', `seed ${seed} 隱狼沒看到同伴畫面`);
+            rejected(E.nightAction(r, id(who[0]), { target: pickAlive() }, everyone(r), now, rnd), '其他狼還活著時隱狼刀人');
+            if (rnd(4)) assert.ok(tryAct(who[0], [{ seen: true }]), `seed ${seed} 隱狼按知道了失敗`);
+          } else if (beatAct(r) === 'wolf') { // 狼人那步、隱狼那步（只剩隱狼）
             for (const s of who) assert.equal(R.ROLES[r.game.roles[s]].team, 'wolf', `seed ${seed} 好人在狼人那步`);
             const ok = aliveList().filter(s => r.game.roles[s] !== 'beauty'); // 狼美人不能被自刀
             const t = rnd(3) ? ok[rnd(ok.length)] : 0;
